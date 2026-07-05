@@ -129,6 +129,8 @@ Default is \code{FALSE}}
 \item{digits}{The number of significant figures to present. If the numbers
 are not scaled in a presentable fashion, can always adjust the table
 subsequently.}
+
+\item{...}{Additional arguments passed to methods.}
 }
 \description{
 Forest plots are usually ways to describe contrasting data, such as between

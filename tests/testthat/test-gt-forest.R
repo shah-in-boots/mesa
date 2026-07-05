@@ -64,7 +64,7 @@ test_that("interaction table errors appropriately", {
 		fmls(heavy ~ .x(hp) + .i(am)) |>
 		fit(.fn = glm, data = cars, raw = FALSE)
 
-	mt <- vlndr::model_table(one = m1, two = m2)
+	mt <- mesa::model_table(one = m1, two = m2)
 
 	expect_error({
 		tbl_interaction_forest(
@@ -123,7 +123,7 @@ test_that("multiple interaction terms", {
 			fit(.fn = glm, data = cars, raw = FALSE)
 	}, regexp = "Interaction term")
 
-	mt <- vlndr::model_table(one = m1, two = m2, data = cars)
+	mt <- mesa::model_table(one = m1, two = m2, data = cars)
 
 	x <- tbl_interaction_forest(
 		object = mt,
@@ -146,7 +146,7 @@ test_that("carrs data works", {
 	obj <-
 		targets::tar_read(carrs1_mdls, store = "~/OneDrive - University of Illinois Chicago/targets/carrs")
 
-	vlndr::tbl_interaction_forest(
+	mesa::tbl_interaction_forest(
 		object = obj,
 		outcomes = qrs_tang ~ "QRS-T Angle",
 		exposures = lab_hba1c ~ "Hemoglobin A1c",

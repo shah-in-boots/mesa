@@ -1,5 +1,20 @@
 # nocov start
 
+utils::globalVariables(c(
+	"conf_high",
+	"conf_low",
+	"data",
+	"estimate",
+	"exposure",
+	"ggplots",
+	"level",
+	"mask",
+	"number",
+	"outcome",
+	"p_value",
+	"term"
+))
+
 .onLoad <- function(libname, pkgname) {
 	if (!exists("possible_tidy")) {
 		possible_tidy <-

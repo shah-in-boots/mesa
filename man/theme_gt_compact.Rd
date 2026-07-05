@@ -14,15 +14,11 @@ theme_gt_compact(data, table.font.size = pct(80), table.width = pct(90), ...)
 This is the \strong{gt} table object that is commonly created through use of the
 \code{\link[gt:gt]{gt()}} function.}
 
-\item{table.width}{\emph{Table width}
+\item{table.font.size}{Font size passed to \code{\link[gt:tab_options]{gt::tab_options()}}.}
 
-The table width can be specified as a single-length character with units of
-pixels or as a percentage. If provided as a single-length numeric vector,
-it is assumed that the value is given in units of pixels. The \code{\link[gt:px]{px()}} and
-\code{\link[gt:pct]{pct()}} helper functions can also be used to pass in numeric values and
-obtain values as pixel or percent units.}
+\item{table.width}{Table width passed to \code{\link[gt:tab_options]{gt::tab_options()}}.}
 
-\item{...}{For passing additional arguments to the \code{\link[=tab_options]{tab_options()}}
+\item{...}{For passing additional arguments to the \code{\link[gt:tab_options]{tab_options()}}
 function}
 }
 \description{

@@ -1,4 +1,4 @@
-# rmdl v0.1.0
+# mesa v0.1.0
 
 ## R CMD check results
 

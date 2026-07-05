@@ -1,4 +1,4 @@
 library(testthat)
-library(rmdl)
+library(mesa)
 
-test_check("rmdl")
+test_check("mesa")

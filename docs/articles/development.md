@@ -1,0 +1,63 @@
+# Development Log
+
+``` r
+
+library(mesa)
+#> Loading required package: vctrs
+#> Loading required package: tibble
+#> 
+#> Attaching package: 'tibble'
+#> The following object is masked from 'package:vctrs':
+#> 
+#>     data_frame
+```
+
+Last updated on July 05, 2026, although still is a work-in-progress.
+
+## Background
+
+The development of this project was inspired by the a problem of
+organizing many different hypotheses while writing my thesis, amongst
+other epidemiology/causal-based modeling problems. I had several data
+sets and many, many models, and had trouble with how to store and recall
+them. I wanted an easier way to pull my thoughts together, creating a
+dynamic structure that would unfold along with the research project
+itself.
+
+1.  Identifying core data that will be queried with specific hypotheses
+2.  Ability to handle grouping/strata of that data for subsets of
+    analyses
+3.  Forming hypotheses of multiple outcomes and multiple predictors with
+    an epidemiological angle (e.g. *exposures*, *outcomes*,
+    *covariates*)
+4.  Running and updating tests as the data changes
+5.  Extracting or recalling models as the research project progresses
+
+The API was inspired by several packages and programming examples as
+below, which in no way are supplanted by this package.
+
+| Source | Descriptionn |
+|----|----|
+| [R4DS](https://r4ds.had.co.nz/many-models.html) | This was the first time I had seen an elegant way of generating multiple models and working with list-columns, particulary the type that could become *tidy*. |
+| [{modelr}](https://modelr.tidyverse.org/) | An example of a package that simplifies modeling in R |
+| [{modelgrid}](https://github.com/smaakage85/modelgrid) | A framework for creating and managing multiple models, with a focus on the {caret} package |
+| [{parsnip}](https://parsnip.tidymodels.org/) | The core of this was based on the single interface for modeling that `tidymodels` provides and serves as a foundation for flexible model definitions |
+| [{stacks}](https://stacks.tidymodels.org/) | An influential concept of an API designed for binding together mutliple model definitions, however is meant for a specific formula and pulling together multiple models for blended predictions |
+| [{workflowsets}](https://workflowsets.tidymodels.org/index.html) | This fits multiple models in a workflow to identify a potential “best” model, which is very flexible |
+| [{easystats}](https://easystats.github.io/easystats/) | Forms a different “universe” in parallel to the `tidyverse` for interpreting results of models, with a focus on the presentation and exploration of statistical analysis |
+| [{ggdag}](https://ggdag.malco.io/) | A *tidy* approach to creating directed acyclic graphs |
+
+## Purpose or *raison d’être*
+
+Machine-learning has expanded at a quickening pace, such as the rapid
+development the [tidymodels](https://tidymodels.org) universe, where
+causality-based modeling has seemed to move from center stage in the
+programming world. Some of the differences that I have seen, which are
+by no means correct nor exhaustive, are below:
+
+| Machine learning                | Causal modeling    |
+|:--------------------------------|:-------------------|
+| Large data sets                 | Smaller data sets  |
+| High-dimensionality             | Low-dimensionality |
+| Model specifications and tuning | Term-selection     |
+| Optimization focused            | Hypothesis focused |

@@ -26,11 +26,17 @@
 #'
 #' We go into further detail in the sections below.
 #'
-#' @section Data List
+#' @section Data List:
+#' The `dataList` attribute stores datasets attached to the model table for
+#' later summaries and table-building workflows.
 #'
-#' @section Term Table
+#' @section Term Table:
+#' The `termTable` attribute stores terms and their roles, labels, groups, and
+#' other metadata used to reconstruct model context.
 #'
-#' @section Formula Matrix
+#' @section Formula Matrix:
+#' The `formulaMatrix` attribute stores the relationship between formulas and
+#' terms represented in the model table.
 #'
 #' @param ... Named or unnamed `mdl` or `fmls` objects
 #'
@@ -167,14 +173,12 @@ construct_table_from_models <- function(x, ...) {
 	# Formula IDs require checking against the formula matrix
 	fid <- lapply(mf, unlist, recursive = FALSE)
 	fmMat <-
-		lapply(mf, vec_proxy) |>
-		do.call(what = rbind, args = _) |>
+		do.call(what = rbind, args = lapply(mf, vec_proxy)) |>
 		vec_data()
 
 	# Terms must be combined into a term table for later look up
 	tmTab <-
-		lapply(tl, vec_data) |>
-		do.call(what = rbind, args = _) |>
+		do.call(what = rbind, args = lapply(tl, vec_data)) |>
 		unique()
 
 	out <-
@@ -284,8 +288,7 @@ construct_table_from_formulas <- function(x, ...) {
 
 	# Terms must be combined into a term table for later look up
 	tmTab <-
-		lapply(tl, vec_data) |>
-		do.call(what = rbind, args = _) |>
+		do.call(what = rbind, args = lapply(tl, vec_data)) |>
 		unique()
 
 	out <- sapply(tl, function(.x) {

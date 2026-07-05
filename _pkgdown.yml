@@ -16,7 +16,7 @@ template:
 
 destination: docs
 
-url: https://shah-in-boots.github.io/rmdl/
+url: https://shah-in-boots.github.io/mesa/
 
 home:
   title: A Causality-Informed Modeling Approach
@@ -50,7 +50,7 @@ navbar:
       href: reference/index.html
     github:
       icon: fab fa-github fa-lg
-      href: https://github.com/shah-in-boots/rmdl/
+      href: https://github.com/shah-in-boots/mesa/
 
 footer:
   structure:
@@ -58,4 +58,3 @@ footer:
     right: [built_with, colors]
   components:
     colors: Colorspace from **nightfall** palette
-

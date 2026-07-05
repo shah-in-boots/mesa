@@ -1,12 +1,14 @@
-# rmdl (developmental version)
+# mesa (developmental version)
 
 This development is working on expanding the formula expansion methods, allowing custom patterns, and introducing the second major sets of classes for visualizing data.
+
+* Renamed package from `{rmdl}` to `{mesa}`.
 
 * Remove additional imports, e.g. `{janitor}`, with bespoke function rewrites, to help decrease dependency burden
 
 * Updated package title as software has evolved
 
-# rmdl 0.1.0
+# mesa 0.1.0
 
 This first CRAN release contains the basic functions for the package, and introduces the new basic classes. 
 

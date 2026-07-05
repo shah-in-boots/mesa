@@ -48,6 +48,10 @@ change their value.}
 should be used. The \strong{LHS} is always the name of the variable that will be
 selected. The \strong{RHS} is the potential label for the output table.}
 
+\item{adjustment}{A \verb{<formula>} or list of formulas selecting adjustment
+levels to display. The \strong{LHS} should identify the model number or
+adjustment set, and the \strong{RHS} is the display label.}
+
 \item{columns}{Columns that help to describe the individual terms of a model.
 Generally describes the statistical estimates or properties of an  exposure
 term. At least one column should likely be selected from this list. The
@@ -108,13 +112,15 @@ column labels to be suppressed.}
 should be exponentiated. This is useful for odds ratios or hazard ratios. It
 will apply to all estimate values, including confidence intervals, in a
 table. It is defaulted to \code{FALSE}.}
+
+\item{...}{Additional arguments passed to methods.}
 }
 \description{
 The related functions in this package combine multiple models to help show
 the relationship between variables.
 }
 \details{
-The extensions that combine the modeling functions of the \code{{vlndr}} package
+The extensions that combine the modeling functions of the \code{{mesa}} package
 and table-making functions of the \code{{gt}} package require some conventions to
 simplify the process. These conventions are listed and explained below.
 }

@@ -7,10 +7,6 @@
 #'
 #' @inheritParams tbls
 #'
-#' @param distribution A `<character>` describes the distribution of the key
-#'   exposure terms that are being displayed. Can either be *continuous*,
-#'   *dichotomous*, or *categorical*.
-#'
 #' @export
 tbl_beta <- function(object,
 										 data,

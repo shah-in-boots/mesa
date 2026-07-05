@@ -1,40 +1,43 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# rmdl
+# mesa
 
 <!-- badges: start -->
 
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![CRAN
-status](https://www.r-pkg.org/badges/version/rmdl)](https://CRAN.R-project.org/package=rmdl)
-[![](http://cranlogs.r-pkg.org/badges/grand-total/rmdl?color=blue)](https://cran.r-project.org/package=rmdl)
-[![R-CMD-check](https://github.com/shah-in-boots/rmdl/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/shah-in-boots/rmdl/actions/workflows/R-CMD-check.yaml)
-[![pkgdown](https://github.com/shah-in-boots/rmdl/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/shah-in-boots/rmdl/actions/workflows/pkgdown.yaml)
-[![test-coverage](https://github.com/shah-in-boots/rmdl/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/shah-in-boots/rmdl/actions/workflows/test-coverage.yaml)
+status](https://www.r-pkg.org/badges/version/mesa)](https://CRAN.R-project.org/package=mesa)
+[![CRAN
+downloads](http://cranlogs.r-pkg.org/badges/grand-total/mesa?color=blue)](https://cran.r-project.org/package=mesa)
+[![R-CMD-check](https://github.com/shah-in-boots/mesa/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/shah-in-boots/mesa/actions/workflows/R-CMD-check.yaml)
+[![pkgdown](https://github.com/shah-in-boots/mesa/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/shah-in-boots/mesa/actions/workflows/pkgdown.yaml)
+[![test-coverage](https://github.com/shah-in-boots/mesa/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/shah-in-boots/mesa/actions/workflows/test-coverage.yaml)
 [![Codecov test
-coverage](https://codecov.io/gh/shah-in-boots/rmdl/branch/main/graph/badge.svg)](https://app.codecov.io/gh/shah-in-boots/rmdl?branch=main)
+coverage](https://codecov.io/gh/shah-in-boots/mesa/branch/main/graph/badge.svg)](https://app.codecov.io/gh/shah-in-boots/mesa?branch=main)
 [![Github commit
-frequency](https://img.shields.io/github/commit-activity/w/shah-in-boots/rmdl)](https://github.com/shah-in-boots/rmdl/graphs/commit-activity)
+frequency](https://img.shields.io/github/commit-activity/w/shah-in-boots/mesa)](https://github.com/shah-in-boots/mesa/graphs/commit-activity)
 <!-- badges: end -->
 
 ## Installation
 
-This package can be downloaded from CRAN or from
-[Github](https://github.com/shah-in-boots/rmdl) as below
+The development version can be installed from
+[Github](https://github.com/shah-in-boots/mesa). Once `{mesa}` is
+accepted on CRAN, it can be installed from CRAN as well.
 
 ``` r
-# CRAN installation
-install.packages("rmdl")
-# Or remote/developmental version
-remotes::install_github("shah-in-boots/rmdl")
+# Development version
+remotes::install_github("shah-in-boots/mesa")
+# CRAN installation after release
+install.packages("mesa")
 ```
 
 ## Introduction
 
-The package `{rmdl}` was intended as a way to handle causal- and
-epidemiology-based modeling by the following principles:
+The package `{mesa}` (Models for Epidemiology and Statistical Analysis)
+was intended as a way to handle causal- and epidemiology-based modeling
+by the following principles:
 
 1.  Role determination of variables
 2.  Generativity in formula creation
@@ -49,7 +52,7 @@ the key exposure being the **wt** term, and the two outcomes being
 **mpg** and **hp**.
 
 ``` r
-library(rmdl)
+library(mesa)
 #> Loading required package: vctrs
 #> Loading required package: tibble
 #> 
@@ -65,12 +68,12 @@ print(mt)
 #> <mdl_tbl>
 #>   id        formula_index data_id name  model_call formula_call outcome exposure
 #>   <chr>     <list>        <chr>   <chr> <chr>      <chr>        <chr>   <chr>   
-#> 1 47f9ee4e… <dbl [6]>     mtcars  mile… lm         mpg ~ wt + … mpg     wt      
-#> 2 9a36f9dd… <dbl [6]>     mtcars  mile… lm         mpg ~ wt + … mpg     wt      
-#> 3 00960980… <dbl [6]>     mtcars  mile… lm         mpg ~ wt + … mpg     wt      
-#> 4 4266ee6e… <dbl [6]>     mtcars  mile… lm         hp ~ wt + d… hp      wt      
-#> 5 490332f2… <dbl [6]>     mtcars  mile… lm         hp ~ wt + c… hp      wt      
-#> 6 a070ec58… <dbl [6]>     mtcars  mile… lm         hp ~ wt + am hp      wt      
+#> 1 453532fa… <dbl [6]>     mtcars  mile… lm         mpg ~ wt + … mpg     wt      
+#> 2 d90b656e… <dbl [6]>     mtcars  mile… lm         mpg ~ wt + … mpg     wt      
+#> 3 5d2f00cc… <dbl [6]>     mtcars  mile… lm         mpg ~ wt + … mpg     wt      
+#> 4 49495c60… <dbl [6]>     mtcars  mile… lm         hp ~ wt + d… hp      wt      
+#> 5 dd309c8d… <dbl [6]>     mtcars  mile… lm         hp ~ wt + c… hp      wt      
+#> 6 b10fc492… <dbl [6]>     mtcars  mile… lm         hp ~ wt + am hp      wt      
 #> # ℹ 7 more variables: mediator <chr>, interaction <chr>, strata <lgl>,
 #> #   level <lgl>, model_parameters <list>, model_summary <list>,
 #> #   fit_status <lgl>
@@ -91,6 +94,6 @@ for shortcuts to allow more effective communication.
 
 ## Advanced Usage
 
-The [`{rmdl}`](https://cran.r-project.org/package=rmdl) package is
+The [`{mesa}`](https://cran.r-project.org/package=mesa) package is
 intended to be flexible, extensible, and easy-to-use (albeit
 opinionated). Please see the vignettes for additional information.

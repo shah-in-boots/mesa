@@ -51,6 +51,10 @@ recycled).}
 should be used. The \strong{LHS} is always the name of the variable that will be
 selected. The \strong{RHS} is the potential label for the output table.}
 
+\item{adjustment}{A \verb{<formula>} or list of formulas selecting adjustment
+levels to display. The \strong{LHS} should identify the model number or
+adjustment set, and the \strong{RHS} is the display label.}
+
 \item{rate_difference}{If there are only two levels in the term, the rate
 difference between the levels will be calculated. Defaults to \code{FALSE}.
 Presumes a 95\% confidence interval as the default. If \code{TRUE} will calculate
@@ -60,6 +64,8 @@ the rate by the \strong{person_years} provided.}
 integer, and usually is 10 or 100. Default is \code{100}, which would represent
 the incidence for every \emph{100 person-years}. Argument only used if
 \strong{rate_difference} is set to \code{TRUE}. Currently not working!}
+
+\item{...}{Additional arguments passed to methods.}
 }
 \description{
 Function that takes a \verb{<mdl_tbl>} object that includes survival-model data,

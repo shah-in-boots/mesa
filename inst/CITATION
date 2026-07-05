@@ -1,9 +1,9 @@
 bibentry(
   bibtype  = "Manual",
-  title    = "rmdl: A Causality-Informed Modeling Approach",
+  title    = "mesa: Models for Epidemiology and Statistical Analysis",
   author   = person (c("Anish", "S."), "Shah", role = c("aut", "cre", "cph"), email = "ashah282@uic.edu"),
   year     = 2024,
   note     = "R package version 0.1.0",
-  url      = "https://CRAN.R-project.org/package=rmdl",
-  key      = "rmdl-package"
+  url      = "https://CRAN.R-project.org/package=mesa",
+  key      = "mesa-package"
 )

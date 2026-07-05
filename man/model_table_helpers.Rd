@@ -54,6 +54,6 @@ A \code{mdl_tbl} object can be flattened to its specific parameters, their
 estimates, and model-level summary statistics. This function additionally
 helps by allowing for exponentiation of estimates when deemed appropriate.
 The user can specify which models to exponentiate by name. This heavily
-relies on the \code{\link[broom:reexports]{broom::tidy()}} functionality.
+relies on the \code{\link[broom:tidy]{broom::tidy()}} functionality.
 }
 

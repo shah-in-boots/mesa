@@ -7,16 +7,16 @@ test_that("linear regression can be made into gt table", {
 									am = factor(am, levels = c(0, 1), labels = c("Manual", "Automatic")))
 
 	object <-
-		vlndr::fmls(
+		mesa::fmls(
 			mpg ~ .x(cyl) + .x(am) + .x(qsec) + hp + disp,
 			pattern = "sequential"
 		) |>
-		vlndr::fit(
+		mesa::fit(
 			.fn = lm,
 			data = data,
 			raw = FALSE
 		) |>
-		vlndr::mdl_tbl(gas = _, data = data)
+		mesa::mdl_tbl(gas = _, data = data)
 
 
 	# Filtering variables

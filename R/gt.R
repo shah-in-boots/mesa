@@ -5,7 +5,7 @@
 #'
 #' @details
 #'
-#' The extensions that combine the modeling functions of the `{vlndr}` package
+#' The extensions that combine the modeling functions of the `{mesa}` package
 #' and table-making functions of the `{gt}` package require some conventions to
 #' simplify the process. These conventions are listed and explained below.
 #'
@@ -64,6 +64,10 @@
 #' @param terms A `<formula>` or list of formulas selecting the model terms that
 #'   should be used. The **LHS** is always the name of the variable that will be
 #'   selected. The **RHS** is the potential label for the output table.
+#'
+#' @param adjustment A `<formula>` or list of formulas selecting adjustment
+#'   levels to display. The **LHS** should identify the model number or
+#'   adjustment set, and the **RHS** is the display label.
 #'
 #' @param columns Columns that help to describe the individual terms of a model.
 #'   Generally describes the statistical estimates or properties of an  exposure
@@ -129,6 +133,8 @@
 #'  will apply to all estimate values, including confidence intervals, in a
 #'  table. It is defaulted to `FALSE`.
 #'
+#' @param ... Additional arguments passed to methods.
+#'
 #' @name tbls
 NULL
 
@@ -140,6 +146,8 @@ NULL
 #' `gt` package is allowed.
 #'
 #' @inheritParams gt::tab_options
+#' @param table.font.size Font size passed to [gt::tab_options()].
+#' @param table.width Table width passed to [gt::tab_options()].
 #' @param ... For passing additional arguments to the [tab_options()]
 #'   function
 #' @family visualizers

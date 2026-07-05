@@ -154,9 +154,7 @@ tbl_interaction_forest <- function(object,
 				dplyr::filter(interaction %in% int_nms)
 
 			# Get interaction terms that are available in this subset
-			intVars <-
-				obj$interaction |>
-				gsub(paste0(e, ":"), "", x = _)
+			intVars <- gsub(paste0(e, ":"), "", x = obj$interaction)
 
 			# Rows of table will be be rows in the <mdl_tbl> object
 			# Should be the same length as interaction variables that are available

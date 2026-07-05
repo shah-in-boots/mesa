@@ -10,7 +10,7 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-library(rmdl)
+library(mesa)
 ```
 
 Last updated on `r format(Sys.time(), "%B %d, %Y")`, although still is a work-in-progress.

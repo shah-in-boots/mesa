@@ -48,14 +48,20 @@ are combined.
 We go into further detail in the sections below.
 }
 \section{Data List}{
-NA
+
+The \code{dataList} attribute stores datasets attached to the model table for
+later summaries and table-building workflows.
 }
 
 \section{Term Table}{
-NA
+
+The \code{termTable} attribute stores terms and their roles, labels, groups, and
+other metadata used to reconstruct model context.
 }
 
 \section{Formula Matrix}{
-NA
+
+The \code{formulaMatrix} attribute stores the relationship between formulas and
+terms represented in the model table.
 }
 

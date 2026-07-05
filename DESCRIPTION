@@ -1,6 +1,6 @@
-Package: rmdl
-Title: A Causality-Informed Modeling Approach
-Version: 0.1.0.9000
+Package: mesa
+Title: Models for Epidemiology and Statistical Analysis
+Version: 0.0.0.9000
 Authors@R: 
     person(given = "Anish S.",
            family = "Shah",
@@ -22,16 +22,16 @@ Description: A system for describing and manipulating the many models that are
 	  contextualize formulas and models in causality-oriented workflows.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.1
 Depends:
     R (>= 4.1.0),
     vctrs (>= 0.5.0),
-    tibble (>= 3.0.0),
+    tibble (>= 3.0.0)
 Imports: 
     stats,
     utils,
+    checkmate,
+    cli,
     generics,
     methods,
     dplyr,
@@ -39,18 +39,19 @@ Imports:
     tidyr,
     rlang,
     pillar,
-    purrr
+    purrr,
+    ggplot2,
+    gt,
+    scales,
+    survival
 Suggests: 
     testthat (>= 3.0.0),
     knitr,
     covr,
-    cli,
-    ggplot2,
-    gt,
-    survival,
     cmprsk,
-    tidycmprsk,
+    tidycmprsk
 VignetteBuilder: knitr
-URL: https://github.com/shah-in-boots/rmdl
-BugReports: https://github.com/shah-in-boots/rmdl/issues
+URL: https://shah-in-boots.github.io/mesa/, https://github.com/shah-in-boots/mesa
+BugReports: https://github.com/shah-in-boots/mesa/issues
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

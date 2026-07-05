@@ -34,6 +34,10 @@ will be selected. The \strong{RHS} is the potential label for the output table.}
 should be used. The \strong{LHS} is always the name of the variable that will be
 selected. The \strong{RHS} is the potential label for the output table.}
 
+\item{adjustment}{A \verb{<formula>} or list of formulas selecting adjustment
+levels to display. The \strong{LHS} should identify the model number or
+adjustment set, and the \strong{RHS} is the display label.}
+
 \item{columns}{Columns that help to describe the individual terms of a model.
 Generally describes the statistical estimates or properties of an  exposure
 term. At least one column should likely be selected from this list. The
@@ -95,9 +99,7 @@ should be exponentiated. This is useful for odds ratios or hazard ratios. It
 will apply to all estimate values, including confidence intervals, in a
 table. It is defaulted to \code{FALSE}.}
 
-\item{distribution}{A \verb{<character>} describes the distribution of the key
-exposure terms that are being displayed. Can either be \emph{continuous},
-\emph{dichotomous}, or \emph{categorical}.}
+\item{...}{Additional arguments passed to methods.}
 }
 \description{
 A \verb{<mdl_tbl>} object of linear or generalized linear models. This serves as a

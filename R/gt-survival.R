@@ -139,7 +139,7 @@ tbl_dichotomous_hazard <- function(object,
 					risk = py$event / py$pyears
 				) |>
 				as.data.frame() |>
-				rownames_to_column(var = 'row')
+				tibble::rownames_to_column(var = 'row')
 
 			# Save number per group for later in the table
 			n <- rates[1, -1]
@@ -411,7 +411,7 @@ tbl_categorical_hazard <- function(object,
 			rates <-
 				rbind(n = py$n, events = py$event, risk = py$event / py$pyears) |>
 				as.data.frame() |>
-				rownames_to_column(var = 'row')
+				tibble::rownames_to_column(var = 'row')
 
 			# Save number per group for later in the table
 			n <- rates[1, -1]

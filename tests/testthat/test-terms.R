@@ -210,7 +210,7 @@ test_that("interaction terms are appropriately made", {
 	role = label = group = type = distribution = description = transformation =
 		formula()
 	expect_message(t <- tm(x))
-	expect(length(t), 5)
+	expect_length(t, 5)
 
 	# Interaction role must be given to the correct term
 	x <- wicked ~ .x(witch) + .i(green)
@@ -265,4 +265,3 @@ test_that("terms can be found and updated and attributes can be found", {
 	expect_equal(x, y)
 	expect_equal(vec_data(x)$role, c("outcome", "exposure", "confounder"))
 })
-
