@@ -1,96 +1,39 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/404.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/LICENSE-text.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/LICENSE.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/articles/development.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/articles/getting_started.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/articles/index.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/authors.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/index.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/news/index.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/construct_table_from_formulas.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/construct_table_from_models.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/data_helpers.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/describe.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/df_reconstruct.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/dplyr_extensions.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/estimate_interaction.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/fmls.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/formula_helpers.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/index.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/labeled_formulas_to_named_list.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/mdl_tbl.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/model_table_helpers.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/model_table_reconstructable.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/models.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/patterns.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/reexports.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/rmdl-package.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/rmdl-vctrs.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/tm.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/update.tm.html</loc>
-  </url>
-  <url>
-    <loc>https://shah-in-boots.github.io/rmdl/reference/validate_model_table.html</loc>
-  </url>
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>https://shah-in-boots.github.io/mesa/404.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/LICENSE-text.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/LICENSE.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/articles/development.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/articles/getting_started.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/articles/index.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/authors.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/index.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/news/index.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/construct_table_from_formulas.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/construct_table_from_models.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/data_helpers.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/describe.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/df_reconstruct.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/dplyr_extensions.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/estimate_interaction.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/fmls.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/formula_helpers.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/index.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/labeled_formulas_to_named_list.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/mdl_tbl.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/mesa-package.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/mesa-vctrs.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/model_table_helpers.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/model_table_reconstructable.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/models.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/patterns.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/reexports.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/tbl_beta.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/tbl_forest.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/tbl_hazard.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/tbls.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/theme_gt_compact.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/tm.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/update.tm.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/validate_model_table.html</loc></url>
 </urlset>
+
