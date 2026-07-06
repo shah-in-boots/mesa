@@ -95,6 +95,8 @@ generated.</p>
 <span></span>
 <span><span class="co"># Similar to the base formula</span></span>
 <span><span class="va">rFormula</span></span>
+<span><span class="co">#&gt; &lt;fmls: 1 formula&gt;</span></span>
+<span><span class="co">#&gt;   outcome: mpg</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">mpg</span> ~ <span style="color: #555555;">wt</span> + <span style="color: #555555;">hp</span></span></span></code></pre></div>
 <p>Now we can fit the hypothesis to its data - in this case, a simple
 linear regression. The option to return the model as raw or not is
@@ -140,11 +142,11 @@ which another core class with specific and generic dispatch methods.</p>
 <span><span class="co">#&gt; &lt;mdl_tbl&gt;</span></span>
 <span><span class="co">#&gt;   id        formula_index data_id name  model_call formula_call outcome exposure</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;list&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 1c2e19cd… <span style="color: #949494;">&lt;int [3]&gt;</span>     mtcars  mile… lm         mpg ~ wt + … mpg     <span style="color: #BB0000;">NA</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 26faf921… <span style="color: #949494;">&lt;dbl [3]&gt;</span>     mtcars  auto… glm        am ~ cyl     am      <span style="color: #BB0000;">NA</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> 3421e656… <span style="color: #949494;">&lt;dbl [3]&gt;</span>     mtcars  auto… glm        am ~ cyl + … am      <span style="color: #BB0000;">NA</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: mediator &lt;chr&gt;, interaction &lt;chr&gt;, strata &lt;lgl&gt;,</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;">#   level &lt;lgl&gt;, model_parameters &lt;list&gt;, model_summary &lt;list&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 07b409cc… <span style="color: #949494;">&lt;int [3]&gt;</span>     mtcars  mile… lm         mpg ~ wt + … mpg     <span style="color: #BB0000;">NA</span>      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 96b42229… <span style="color: #949494;">&lt;dbl [3]&gt;</span>     mtcars  auto… glm        am ~ cyl     am      <span style="color: #BB0000;">NA</span>      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> b4343db2… <span style="color: #949494;">&lt;dbl [3]&gt;</span>     mtcars  auto… glm        am ~ cyl + … am      <span style="color: #BB0000;">NA</span>      </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 8 more variables: mediator &lt;chr&gt;, interaction &lt;chr&gt;, strata &lt;lgl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   level &lt;lgl&gt;, subset &lt;chr&gt;, model_parameters &lt;list&gt;, model_summary &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   fit_status &lt;lgl&gt;</span></span></span></code></pre></div>
 <p>The <code>mdl_tbl</code> class is a useful way to store and manage
 multiple models, and can be used to generate tables for publication or
@@ -160,7 +162,7 @@ exponentiating the coefficients for the logistic regression models
 <span></span>
 <span><span class="co"># Display contents</span></span>
 <span><span class="va">fTable</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 8 × 34</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 8 × 35</span></span></span>
 <span><span class="co">#&gt;   formula_call  model_call data_id name      number outcome exposure mediator</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   </span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> mpg ~ wt + hp lm         mtcars  mileage        2 mpg     <span style="color: #BB0000;">NA</span>       <span style="color: #BB0000;">NA</span>      </span></span>
@@ -171,12 +173,12 @@ exponentiating the coefficients for the logistic regression models
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> am ~ cyl + hp glm        mtcars  automatic      2 am      <span style="color: #BB0000;">NA</span>       <span style="color: #BB0000;">NA</span>      </span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">7</span> am ~ cyl + hp glm        mtcars  automatic      2 am      <span style="color: #BB0000;">NA</span>       <span style="color: #BB0000;">NA</span>      </span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">8</span> am ~ cyl + hp glm        mtcars  automatic      2 am      <span style="color: #BB0000;">NA</span>       <span style="color: #BB0000;">NA</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 26 more variables: interaction &lt;chr&gt;, strata &lt;lgl&gt;, level &lt;lgl&gt;,</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;">#   term &lt;chr&gt;, estimate &lt;dbl&gt;, std_error &lt;dbl&gt;, statistic &lt;dbl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 27 more variables: interaction &lt;chr&gt;, strata &lt;lgl&gt;, level &lt;lgl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   subset &lt;chr&gt;, term &lt;chr&gt;, estimate &lt;dbl&gt;, std_error &lt;dbl&gt;, statistic &lt;dbl&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   p_value &lt;dbl&gt;, conf_low &lt;dbl&gt;, conf_high &lt;dbl&gt;, r_squared &lt;dbl&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   adj_r_squared &lt;dbl&gt;, sigma &lt;dbl&gt;, model_statistic &lt;dbl&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   model_p_value &lt;dbl&gt;, df &lt;dbl&gt;, logLik &lt;dbl&gt;, AIC &lt;dbl&gt;, BIC &lt;dbl&gt;,</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;">#   deviance &lt;dbl&gt;, df_residual &lt;int&gt;, nobs &lt;int&gt;, degrees_freedom &lt;dbl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   deviance &lt;dbl&gt;, df_residual &lt;int&gt;, nobs &lt;int&gt;, degrees_freedom &lt;int&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   var_cov &lt;list&gt;, null_deviance &lt;dbl&gt;, df_null &lt;int&gt;</span></span></span>
 <span></span>
 <span><span class="co"># Filter down to relevant models</span></span>

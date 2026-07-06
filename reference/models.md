@@ -16,6 +16,7 @@ mdl(
   data_name,
   strata_variable = NA_character_,
   strata_level = NA_character_,
+  subset_name = NA_character_,
   ...
 )
 
@@ -26,6 +27,7 @@ mdl(
   data_name = character(),
   strata_variable = character(),
   strata_level = character(),
+  subset_name = character(),
   ...
 )
 
@@ -36,6 +38,7 @@ mdl(
   data_name = character(),
   strata_variable = character(),
   strata_level = character(),
+  subset_name = character(),
   ...
 )
 
@@ -46,8 +49,34 @@ mdl(
   data_name = character(),
   strata_variable = character(),
   strata_level = character(),
+  subset_name = character(),
   ...
 )
+
+# S3 method for class 'lmerMod'
+mdl(
+  x = unspecified(),
+  formulas = fmls(),
+  data_name = character(),
+  strata_variable = character(),
+  strata_level = character(),
+  subset_name = character(),
+  ...
+)
+
+# S3 method for class 'glmerMod'
+mdl(
+  x = unspecified(),
+  formulas = fmls(),
+  data_name = character(),
+  strata_variable = character(),
+  strata_level = character(),
+  subset_name = character(),
+  ...
+)
+
+# S3 method for class 'model_fit'
+mdl(x, ...)
 
 # Default S3 method
 mdl(x, ...)
@@ -105,6 +134,12 @@ model(x = unspecified(), ...)
 - strata_level:
 
   Value of the level of the term specified by `strata_variable`
+
+- subset_name:
+
+  Label of the
+  [`subset_data()`](https://shah-in-boots.github.io/mesa/reference/fluent_verbs.md)
+  instruction the model was fit under, if any (e.g. `"am == 1"`)
 
 ## Value
 

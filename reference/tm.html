@@ -56,6 +56,7 @@
 <span>  distribution <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  description <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  transformation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -97,25 +98,15 @@
 
 
 <dt id="arg-role">role<a class="anchor" aria-label="anchor" href="#arg-role"></a></dt>
-<dd><p>Specific roles the variable plays within the formula. These are
-of particular importance, as they serve as special terms that can effect
-how a formula is interpreted. Please see the <em>Roles</em> section below for
-further details. The options for roles are as below:</p><ul><li><p>outcome</p></li>
-<li><p>exposure</p></li>
-<li><p>predictor</p></li>
-<li><p>confounder</p></li>
-<li><p>mediator</p></li>
-<li><p>interaction</p></li>
-<li><p>strata</p></li>
-<li><p>group</p></li>
-<li><p>unknown</p></li>
-</ul></dd>
+<dd><p>Specific roles the variable plays within the formula. Please see
+the <em>Roles</em> section for the taxonomy: outcome, exposure, predictor,
+confounder, mediator, interaction, strata, random, unknown.</p></dd>
 
 
 <dt id="arg-side">side<a class="anchor" aria-label="anchor" href="#arg-side"></a></dt>
 <dd><p>Which side of a formula should the term be on. Options are
 <code>c("left", "right", "meta", "unknown")</code>. The <em>meta</em> option refers to a term
-that may apply globally to other terms.</p></dd>
+that may apply globally to other terms (e.g. strata, random effects).</p></dd>
 
 
 <dt id="arg-label">label<a class="anchor" aria-label="anchor" href="#arg-label"></a></dt>
@@ -124,8 +115,7 @@ that may apply globally to other terms.</p></dd>
 
 <dt id="arg-group">group<a class="anchor" aria-label="anchor" href="#arg-group"></a></dt>
 <dd><p>Grouping variable name for modeling or placing terms together.
-An integer value is given to identify which group the term will be in. The
-hierarchy will be <code>1</code> to <code>n</code> incrementally.</p></dd>
+An integer value is given to identify which group the term will be in.</p></dd>
 
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
@@ -145,14 +135,22 @@ the tm, potentially part of a data dictionary</p></dd>
 
 <dt id="arg-transformation">transformation<a class="anchor" aria-label="anchor" href="#arg-transformation"></a></dt>
 <dd><p>Modification of the term to be applied when
-combining with data</p></dd>
+combining with data. See <code><a href="vocabulary.html">term_transformations()</a></code> for the recognized
+vocabulary.</p></dd>
+
+
+<dt id="arg-level">level<a class="anchor" aria-label="anchor" href="#arg-level"></a></dt>
+<dd><p>The observed levels of a categorical term, given as a
+<code>character</code> vector (or a <code>list</code> of such vectors when creating several
+terms at once). Usually stamped on by <code><a href="set_data.html">set_data()</a></code> once a term has met a
+dataset.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A <code>tm</code> object, which is a series of individual terms with
 corresponding attributes, including the role, formula side, label,
-grouping, and other related features.</p>
+grouping, levels, and other related features.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -165,15 +163,24 @@ it using additional information that is more informative for causal modeling.</p
     <h2 id="roles">Roles<a class="anchor" aria-label="anchor" href="#roles"></a></h2>
     <p>Specific roles the variable plays within the formula. These are of particular
 importance, as they serve as special terms that can effect how a formula is
-interpreted.</p><table class="table table"><tr><td>Role</td><td>Shortcut</td><td>Description</td></tr><tr><td>outcome</td><td><code>.o(...)</code></td><td><strong>outcome</strong> ~ exposure</td></tr><tr><td>exposure</td><td><code>.x(...)</code></td><td>outcome ~ <strong>exposure</strong></td></tr><tr><td>predictor</td><td><code>.p(...)</code></td><td>outcome ~ exposure + <strong>predictor</strong></td></tr><tr><td>confounder</td><td><code>.c(...)</code></td><td>outcome + exposure ~ <strong>confounder</strong></td></tr><tr><td>mediator</td><td><code>.m(...)</code></td><td>outcome <strong>mediator</strong> exposure</td></tr><tr><td>interaction</td><td><code>.i(...)</code></td><td>outcome ~ exposure * <strong>interaction</strong></td></tr><tr><td>strata</td><td><code>.s(...)</code></td><td>outcome ~ exposure / <strong>strata</strong></td></tr><tr><td>group</td><td><code>.g(...)</code></td><td>outcome ~ exposure + <strong>group</strong></td></tr><tr><td><em>unknown</em></td><td><code>-</code></td><td>not yet assigned</td></tr></table><p>Formulas can be condensed by applying their specific role to individual runes
+interpreted. Each role has a causal definition, and each role changes
+behavior downstream — in how formulas expand (<code><a href="fmls.html">fmls()</a></code>), how models are fit
+(<code><a href="https://generics.r-lib.org/reference/fit.html" class="external-link">fit()</a></code>), and how results are displayed.</p><table class="table table"><tr><td>Role</td><td>Shortcut</td><td>Definition</td><td>Downstream behavior</td></tr><tr><td>outcome</td><td><code>.o(...)</code></td><td>the dependent variable; the effect being studied</td><td>anchors the LHS; multiple outcomes multiply the formula family</td></tr><tr><td>exposure</td><td><code>.x(...)</code></td><td>the variable whose causal effect is under study</td><td>anchored in every expanded formula; pairs with interactions</td></tr><tr><td>predictor</td><td><code>.p(...)</code></td><td>a covariate with no asserted causal position</td><td>expanded by the chosen pattern (adjusted for, or rotated through)</td></tr><tr><td>confounder</td><td><code>.c(...)</code></td><td>a common cause of exposure and outcome</td><td>treated as a covariate; flagged for adjustment displays</td></tr><tr><td>mediator</td><td><code>.m(...)</code></td><td>on the causal pathway between exposure and outcome</td><td>triggers the mediation triad of formulas (see <code><a href="fmls.html">fmls()</a></code>)</td></tr><tr><td>interaction</td><td><code>.i(...)</code></td><td>a candidate effect modifier of the exposure</td><td>crossed with each exposure (<code>x:i</code>), grouped so the pair travels together</td></tr><tr><td>strata</td><td><code>.s(...)</code></td><td>a variable defining subpopulations for separate fits</td><td>not a covariate; <code><a href="https://generics.r-lib.org/reference/fit.html" class="external-link">fit()</a></code> fits one model per stratum level</td></tr><tr><td>random</td><td><code>.r(...)</code></td><td>a grouping variable for random (hierarchical) effects</td><td>rendered as <code>(1 \| term)</code> for mixed-model engines; excluded from covariate expansion</td></tr><tr><td>group</td><td><code>.g(...)</code></td><td>not a role, but a tier marker for terms that travel together</td><td>grouped terms enter and leave expanded formulas as one block</td></tr><tr><td><em>unknown</em></td><td><code>-</code></td><td>not yet assigned</td><td>treated as a predictor at expansion</td></tr></table><p>Formulas can be condensed by applying their specific role to individual runes
 as a function/wrapper. For example, <code>y ~ .x(x1) + x2 + x3</code>. This would
 signify that <code>x1</code> has the specific role of an <em>exposure</em>.</p>
 <p>Grouped variables are slightly different in that they are placed together in
 a hierarchy or tier. To indicate the group and the tier, the shortcut can
-have an <code>integer</code> following the <code>.g</code>. If no number is given, then it is
-assumed they are all on the same tier. Ex: <code>y ~ x1 + .g1(x2) + .g1(x3)</code></p>
-<p><strong>Warning</strong>: Only a single shortcut can be applied to a variable within a
-formula directly.</p>
+have an <code>integer</code> following the <code>.g</code> (multi-digit tiers such as <code>.g10</code> are
+allowed). If no number is given, then it is assumed they are all on the same
+tier (tier zero). Ex: <code>y ~ x1 + .g1(x2) + .g1(x3)</code></p>
+    </div>
+    <div class="section level2">
+    <h2 id="transformations">Transformations<a class="anchor" aria-label="anchor" href="#transformations"></a></h2>
+    <p>A term wrapped in a recognized transformation (see <code><a href="vocabulary.html">term_transformations()</a></code>)
+keeps its full call as its name — <code>log(x)</code> remains <code>log(x)</code> so formulas
+rebuild losslessly — and additionally records the wrapper in its
+<code>transformation</code> field for downstream interpretation. Unrecognized calls
+(e.g. <code>survival::Surv(time, status)</code>) are carried as opaque term names.</p>
     </div>
     <div class="section level2">
     <h2 id="pluralized-labeling-arguments">Pluralized Labeling Arguments<a class="anchor" aria-label="anchor" href="#pluralized-labeling-arguments"></a></h2>

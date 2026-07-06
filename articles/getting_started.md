@@ -35,6 +35,8 @@ rFormula <- fmls(mpg ~ wt + hp)
 
 # Similar to the base formula
 rFormula
+#> <fmls: 1 formula>
+#>   outcome: mpg
 #> mpg ~ wt + hp
 ```
 
@@ -92,11 +94,11 @@ rTable
 #> <mdl_tbl>
 #>   id        formula_index data_id name  model_call formula_call outcome exposure
 #>   <chr>     <list>        <chr>   <chr> <chr>      <chr>        <chr>   <chr>   
-#> 1 1c2e19cd… <int [3]>     mtcars  mile… lm         mpg ~ wt + … mpg     NA      
-#> 2 26faf921… <dbl [3]>     mtcars  auto… glm        am ~ cyl     am      NA      
-#> 3 3421e656… <dbl [3]>     mtcars  auto… glm        am ~ cyl + … am      NA      
-#> # ℹ 7 more variables: mediator <chr>, interaction <chr>, strata <lgl>,
-#> #   level <lgl>, model_parameters <list>, model_summary <list>,
+#> 1 07b409cc… <int [3]>     mtcars  mile… lm         mpg ~ wt + … mpg     NA      
+#> 2 96b42229… <dbl [3]>     mtcars  auto… glm        am ~ cyl     am      NA      
+#> 3 b4343db2… <dbl [3]>     mtcars  auto… glm        am ~ cyl + … am      NA      
+#> # ℹ 8 more variables: mediator <chr>, interaction <chr>, strata <lgl>,
+#> #   level <lgl>, subset <chr>, model_parameters <list>, model_summary <list>,
 #> #   fit_status <lgl>
 ```
 
@@ -116,7 +118,7 @@ fTable <-
 
 # Display contents
 fTable
-#> # A tibble: 8 × 34
+#> # A tibble: 8 × 35
 #>   formula_call  model_call data_id name      number outcome exposure mediator
 #>   <chr>         <chr>      <chr>   <chr>      <int> <chr>   <chr>    <chr>   
 #> 1 mpg ~ wt + hp lm         mtcars  mileage        2 mpg     NA       NA      
@@ -127,12 +129,12 @@ fTable
 #> 6 am ~ cyl + hp glm        mtcars  automatic      2 am      NA       NA      
 #> 7 am ~ cyl + hp glm        mtcars  automatic      2 am      NA       NA      
 #> 8 am ~ cyl + hp glm        mtcars  automatic      2 am      NA       NA      
-#> # ℹ 26 more variables: interaction <chr>, strata <lgl>, level <lgl>,
-#> #   term <chr>, estimate <dbl>, std_error <dbl>, statistic <dbl>,
+#> # ℹ 27 more variables: interaction <chr>, strata <lgl>, level <lgl>,
+#> #   subset <chr>, term <chr>, estimate <dbl>, std_error <dbl>, statistic <dbl>,
 #> #   p_value <dbl>, conf_low <dbl>, conf_high <dbl>, r_squared <dbl>,
 #> #   adj_r_squared <dbl>, sigma <dbl>, model_statistic <dbl>,
 #> #   model_p_value <dbl>, df <dbl>, logLik <dbl>, AIC <dbl>, BIC <dbl>,
-#> #   deviance <dbl>, df_residual <int>, nobs <int>, degrees_freedom <dbl>,
+#> #   deviance <dbl>, df_residual <int>, nobs <int>, degrees_freedom <int>,
 #> #   var_cov <list>, null_deviance <dbl>, df_null <int>
 
 # Filter down to relevant models

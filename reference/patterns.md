@@ -3,7 +3,9 @@
 The family of `apply_*_pattern()` functions that are used to expand
 `fmls` by specified patterns. These functions are not intended to be
 used directly but as internal functions. They have been exposed to allow
-for potential user-defined use cases.
+for potential user-defined use cases, and new patterns can be added
+through
+[`register_pattern()`](https://shah-in-boots.github.io/mesa/reference/register_pattern.md).
 
 ## Usage
 
@@ -17,8 +19,6 @@ apply_direct_pattern(x)
 apply_sequential_pattern(x)
 
 apply_parallel_pattern(x)
-
-apply_rolling_interaction_pattern(x)
 ```
 
 ## Arguments
@@ -56,5 +56,4 @@ function.
 
 ## Details
 
-Currently supported patterns are: fundamental, direct, sequential,
-parallel.
+Built-in patterns are: fundamental, direct, sequential, parallel.

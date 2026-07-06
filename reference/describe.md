@@ -17,7 +17,7 @@ describe(x, property)
 - property:
 
   A character vector of the following attributes of a `tm` object: role,
-  side, label, group, description, type, distribution
+  side, label, group, description, type, distribution, level
 
 ## Value
 

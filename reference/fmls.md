@@ -84,24 +84,59 @@ should be included in different formulas. Below, assuming that *x1*,
 
 \$\$y = x1\$\$ \$\$y = x2\$\$ \$\$y = x3\$\$
 
+New patterns can be registered by name through
+[`register_pattern()`](https://shah-in-boots.github.io/mesa/reference/register_pattern.md).
+
+## Mediation
+
+When a term carries the *mediator* role (`.m()`), the expansion
+generates the causal triad used to reason about mediation, alongside the
+covariates already requested by the pattern:
+
+1.  `outcome ~ exposure + mediator + covariates` — the exposure effect
+    with the pathway through the mediator held open
+
+2.  `mediator ~ exposure` — the exposure's effect on the mediator itself
+
+3.  `outcome ~ mediator + exposure` — the mediator's effect on the
+    outcome in the presence of the exposure
+
+Comparing the exposure estimate across these formulas is what allows an
+epidemiologist to judge how much of the total effect travels through the
+mediator (per VanderWeele and Robins).
+
+## Combining
+
+Families of formulas combine with [`c()`](https://rdrr.io/r/base/c.html)
+or [`vctrs::vec_c()`](https://vctrs.r-lib.org/reference/vec_c.html). The
+term tables of each family are merged; when the same term arrives with
+conflicting definitions (e.g. a plain predictor in one family and an
+exposure in another), the first (left-most) definition wins and a
+message reports the resolution.
+
 ## Roles
 
 Specific roles the variable plays within the formula. These are of
 particular importance, as they serve as special terms that can effect
-how a formula is interpreted.
+how a formula is interpreted. Each role has a causal definition, and
+each role changes behavior downstream — in how formulas expand
+(`fmls()`), how models are fit
+([`fit()`](https://generics.r-lib.org/reference/fit.html)), and how
+results are displayed.
 
-|             |           |                                       |
-|-------------|-----------|---------------------------------------|
-| Role        | Shortcut  | Description                           |
-| outcome     | `.o(...)` | **outcome** ~ exposure                |
-| exposure    | `.x(...)` | outcome ~ **exposure**                |
-| predictor   | `.p(...)` | outcome ~ exposure + **predictor**    |
-| confounder  | `.c(...)` | outcome + exposure ~ **confounder**   |
-| mediator    | `.m(...)` | outcome **mediator** exposure         |
-| interaction | `.i(...)` | outcome ~ exposure \* **interaction** |
-| strata      | `.s(...)` | outcome ~ exposure / **strata**       |
-| group       | `.g(...)` | outcome ~ exposure + **group**        |
-| *unknown*   | `-`       | not yet assigned                      |
+|  |  |  |  |
+|----|----|----|----|
+| Role | Shortcut | Definition | Downstream behavior |
+| outcome | `.o(...)` | the dependent variable; the effect being studied | anchors the LHS; multiple outcomes multiply the formula family |
+| exposure | `.x(...)` | the variable whose causal effect is under study | anchored in every expanded formula; pairs with interactions |
+| predictor | `.p(...)` | a covariate with no asserted causal position | expanded by the chosen pattern (adjusted for, or rotated through) |
+| confounder | `.c(...)` | a common cause of exposure and outcome | treated as a covariate; flagged for adjustment displays |
+| mediator | `.m(...)` | on the causal pathway between exposure and outcome | triggers the mediation triad of formulas (see `fmls()`) |
+| interaction | `.i(...)` | a candidate effect modifier of the exposure | crossed with each exposure (`x:i`), grouped so the pair travels together |
+| strata | `.s(...)` | a variable defining subpopulations for separate fits | not a covariate; [`fit()`](https://generics.r-lib.org/reference/fit.html) fits one model per stratum level |
+| random | `.r(...)` | a grouping variable for random (hierarchical) effects | rendered as `(1 \| term)` for mixed-model engines; excluded from covariate expansion |
+| group | `.g(...)` | not a role, but a tier marker for terms that travel together | grouped terms enter and leave expanded formulas as one block |
+| *unknown* | `-` | not yet assigned | treated as a predictor at expansion |
 
 Formulas can be condensed by applying their specific role to individual
 runes as a function/wrapper. For example, `y ~ .x(x1) + x2 + x3`. This
@@ -109,12 +144,10 @@ would signify that `x1` has the specific role of an *exposure*.
 
 Grouped variables are slightly different in that they are placed
 together in a hierarchy or tier. To indicate the group and the tier, the
-shortcut can have an `integer` following the `.g`. If no number is
-given, then it is assumed they are all on the same tier. Ex:
+shortcut can have an `integer` following the `.g` (multi-digit tiers
+such as `.g10` are allowed). If no number is given, then it is assumed
+they are all on the same tier (tier zero). Ex:
 `y ~ x1 + .g1(x2) + .g1(x3)`
-
-**Warning**: Only a single shortcut can be applied to a variable within
-a formula directly.
 
 ## Pluralized Labeling Arguments
 

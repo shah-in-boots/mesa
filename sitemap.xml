@@ -1,11 +1,13 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://shah-in-boots.github.io/mesa/404.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/DESIGN.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/LICENSE-text.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/LICENSE.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/articles/development.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/articles/getting_started.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/articles/index.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/authors.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/blueprint.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/index.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/news/index.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/construct_table_from_formulas.html</loc></url>
@@ -15,6 +17,9 @@
 <url><loc>https://shah-in-boots.github.io/mesa/reference/df_reconstruct.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/dplyr_extensions.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/estimate_interaction.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/fit.fmls.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/fit_plan.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/fluent_verbs.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/fmls.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/formula_helpers.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/index.html</loc></url>
@@ -27,6 +32,8 @@
 <url><loc>https://shah-in-boots.github.io/mesa/reference/models.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/patterns.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/reexports.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/register_pattern.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/set_data.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/tbl_beta.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/tbl_forest.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/tbl_hazard.html</loc></url>
@@ -35,5 +42,6 @@
 <url><loc>https://shah-in-boots.github.io/mesa/reference/tm.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/update.tm.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/validate_model_table.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/vocabulary.html</loc></url>
 </urlset>
 

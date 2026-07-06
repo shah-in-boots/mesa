@@ -117,20 +117,43 @@ $$y = x1 + x2 + x3$$</p>
 <p>$$y = x1$$
 $$y = x2$$
 $$y = x3$$</p>
+<p>New patterns can be registered by name through <code><a href="register_pattern.html">register_pattern()</a></code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="mediation">Mediation<a class="anchor" aria-label="anchor" href="#mediation"></a></h2>
+    <p>When a term carries the <em>mediator</em> role (<code>.m()</code>), the expansion generates
+the causal triad used to reason about mediation, alongside the covariates
+already requested by the pattern:</p><ol><li><p><code>outcome ~ exposure + mediator + covariates</code> — the exposure effect with
+the pathway through the mediator held open</p></li>
+<li><p><code>mediator ~ exposure</code> — the exposure's effect on the mediator itself</p></li>
+<li><p><code>outcome ~ mediator + exposure</code> — the mediator's effect on the outcome
+in the presence of the exposure</p></li>
+</ol><p>Comparing the exposure estimate across these formulas is what allows an
+epidemiologist to judge how much of the total effect travels through the
+mediator (per VanderWeele and Robins).</p>
+    </div>
+    <div class="section level2">
+    <h2 id="combining">Combining<a class="anchor" aria-label="anchor" href="#combining"></a></h2>
+    <p>Families of formulas combine with <code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code> or <code><a href="https://vctrs.r-lib.org/reference/vec_c.html" class="external-link">vctrs::vec_c()</a></code>. The term
+tables of each family are merged; when the same term arrives with
+conflicting definitions (e.g. a plain predictor in one family and an
+exposure in another), the first (left-most) definition wins and a message
+reports the resolution.</p>
     </div>
     <div class="section level2">
     <h2 id="roles">Roles<a class="anchor" aria-label="anchor" href="#roles"></a></h2>
     <p>Specific roles the variable plays within the formula. These are of particular
 importance, as they serve as special terms that can effect how a formula is
-interpreted.</p><table class="table table"><tr><td>Role</td><td>Shortcut</td><td>Description</td></tr><tr><td>outcome</td><td><code>.o(...)</code></td><td><strong>outcome</strong> ~ exposure</td></tr><tr><td>exposure</td><td><code>.x(...)</code></td><td>outcome ~ <strong>exposure</strong></td></tr><tr><td>predictor</td><td><code>.p(...)</code></td><td>outcome ~ exposure + <strong>predictor</strong></td></tr><tr><td>confounder</td><td><code>.c(...)</code></td><td>outcome + exposure ~ <strong>confounder</strong></td></tr><tr><td>mediator</td><td><code>.m(...)</code></td><td>outcome <strong>mediator</strong> exposure</td></tr><tr><td>interaction</td><td><code>.i(...)</code></td><td>outcome ~ exposure * <strong>interaction</strong></td></tr><tr><td>strata</td><td><code>.s(...)</code></td><td>outcome ~ exposure / <strong>strata</strong></td></tr><tr><td>group</td><td><code>.g(...)</code></td><td>outcome ~ exposure + <strong>group</strong></td></tr><tr><td><em>unknown</em></td><td><code>-</code></td><td>not yet assigned</td></tr></table><p>Formulas can be condensed by applying their specific role to individual runes
+interpreted. Each role has a causal definition, and each role changes
+behavior downstream — in how formulas expand (<code>fmls()</code>), how models are fit
+(<code><a href="https://generics.r-lib.org/reference/fit.html" class="external-link">fit()</a></code>), and how results are displayed.</p><table class="table table"><tr><td>Role</td><td>Shortcut</td><td>Definition</td><td>Downstream behavior</td></tr><tr><td>outcome</td><td><code>.o(...)</code></td><td>the dependent variable; the effect being studied</td><td>anchors the LHS; multiple outcomes multiply the formula family</td></tr><tr><td>exposure</td><td><code>.x(...)</code></td><td>the variable whose causal effect is under study</td><td>anchored in every expanded formula; pairs with interactions</td></tr><tr><td>predictor</td><td><code>.p(...)</code></td><td>a covariate with no asserted causal position</td><td>expanded by the chosen pattern (adjusted for, or rotated through)</td></tr><tr><td>confounder</td><td><code>.c(...)</code></td><td>a common cause of exposure and outcome</td><td>treated as a covariate; flagged for adjustment displays</td></tr><tr><td>mediator</td><td><code>.m(...)</code></td><td>on the causal pathway between exposure and outcome</td><td>triggers the mediation triad of formulas (see <code>fmls()</code>)</td></tr><tr><td>interaction</td><td><code>.i(...)</code></td><td>a candidate effect modifier of the exposure</td><td>crossed with each exposure (<code>x:i</code>), grouped so the pair travels together</td></tr><tr><td>strata</td><td><code>.s(...)</code></td><td>a variable defining subpopulations for separate fits</td><td>not a covariate; <code><a href="https://generics.r-lib.org/reference/fit.html" class="external-link">fit()</a></code> fits one model per stratum level</td></tr><tr><td>random</td><td><code>.r(...)</code></td><td>a grouping variable for random (hierarchical) effects</td><td>rendered as <code>(1 \| term)</code> for mixed-model engines; excluded from covariate expansion</td></tr><tr><td>group</td><td><code>.g(...)</code></td><td>not a role, but a tier marker for terms that travel together</td><td>grouped terms enter and leave expanded formulas as one block</td></tr><tr><td><em>unknown</em></td><td><code>-</code></td><td>not yet assigned</td><td>treated as a predictor at expansion</td></tr></table><p>Formulas can be condensed by applying their specific role to individual runes
 as a function/wrapper. For example, <code>y ~ .x(x1) + x2 + x3</code>. This would
 signify that <code>x1</code> has the specific role of an <em>exposure</em>.</p>
 <p>Grouped variables are slightly different in that they are placed together in
 a hierarchy or tier. To indicate the group and the tier, the shortcut can
-have an <code>integer</code> following the <code>.g</code>. If no number is given, then it is
-assumed they are all on the same tier. Ex: <code>y ~ x1 + .g1(x2) + .g1(x3)</code></p>
-<p><strong>Warning</strong>: Only a single shortcut can be applied to a variable within a
-formula directly.</p>
+have an <code>integer</code> following the <code>.g</code> (multi-digit tiers such as <code>.g10</code> are
+allowed). If no number is given, then it is assumed they are all on the same
+tier (tier zero). Ex: <code>y ~ x1 + .g1(x2) + .g1(x3)</code></p>
     </div>
     <div class="section level2">
     <h2 id="pluralized-labeling-arguments">Pluralized Labeling Arguments<a class="anchor" aria-label="anchor" href="#pluralized-labeling-arguments"></a></h2>

@@ -36,9 +36,9 @@
     </div>
 
     <div class="section level2">
-      <h2 id="all-functions">All functions<a class="anchor" aria-label="anchor" href="#all-functions"></a></h2>
+      <h2 id="terms-the-atoms">Terms: the atoms<a class="anchor" aria-label="anchor" href="#terms-the-atoms"></a></h2>
 
-
+      <div class="section-desc"><p>Individual variables carrying their causal identity — a role, a label, levels, and the other attributes that make a term more than a name.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -47,10 +47,17 @@
 
       <dl><dt>
 
-          <code><a href="data_helpers.html">number_of_missing()</a></code> <code><a href="data_helpers.html">is_dichotomous()</a></code>
+          <code><a href="tm.html">tm()</a></code> <code><a href="tm.html">is_tm()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Create vectorized terms</dd>
+
+        <dt>
+
+          <code><a href="update.tm.html">update(<i>&lt;tm&gt;</i>)</a></code>
 
         </dt>
-        <dd>Data summarization and classification methods</dd>
+        <dd>Update <code>tm</code> objects</dd>
 
         <dt>
 
@@ -61,19 +68,28 @@
 
         <dt>
 
+          <code><a href="set_data.html">set_data()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Stamp data-derived attributes onto terms</dd>
+
+        <dt>
+
           <code><a href="dplyr_extensions.html">filter(<i>&lt;tm&gt;</i>)</a></code>
 
         </dt>
         <dd>Extending <code>dplyr</code> for <code>tm</code> class</dd>
+      </dl></div><div class="section level2">
+      <h2 id="formulas-composition">Formulas: composition<a class="anchor" aria-label="anchor" href="#formulas-composition"></a></h2>
 
-        <dt>
+      <div class="section-desc"><p>Terms join and merge into families of related formulas, expanded by patterns and played with through fluent verbs.</p></div>
 
-          <code><a href="estimate_interaction.html">estimate_interaction()</a></code>
-          <span class="badge lifecycle lifecycle-experimental">experimental</span>
-        </dt>
-        <dd>Estimating interaction effect estimates</dd>
+      <dl></dl></div><div class="section level2">
 
-        <dt>
+
+
+
+      <dl><dt>
 
           <code><a href="fmls.html">fmls()</a></code> <code><a href="fmls.html">is_fmls()</a></code> <code><a href="fmls.html">key_terms()</a></code>
 
@@ -82,19 +98,79 @@
 
         <dt>
 
-          <code><a href="formula_helpers.html">lhs()</a></code> <code><a href="formula_helpers.html">rhs()</a></code>
-
+          <code><a href="fluent_verbs.html">add_strata()</a></code> <code><a href="fluent_verbs.html">remove_strata()</a></code> <code><a href="fluent_verbs.html">add_terms()</a></code> <code><a href="fluent_verbs.html">remove_terms()</a></code> <code><a href="fluent_verbs.html">swap_outcome()</a></code> <code><a href="fluent_verbs.html">subset_data()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
         </dt>
-        <dd>Tools for working with formula-like objects</dd>
+        <dd>Fluent verbs for playing with formula families</dd>
 
         <dt>
 
-          <code><a href="labeled_formulas_to_named_list.html">labeled_formulas_to_named_list()</a></code>
+          <code><a href="patterns.html">apply_pattern()</a></code> <code><a href="patterns.html">apply_fundamental_pattern()</a></code> <code><a href="patterns.html">apply_direct_pattern()</a></code> <code><a href="patterns.html">apply_sequential_pattern()</a></code> <code><a href="patterns.html">apply_parallel_pattern()</a></code>
 
         </dt>
-        <dd>Convert labeling formulas to named lists</dd>
+        <dd>Apply patterns to formulas</dd>
 
         <dt>
+
+          <code><a href="register_pattern.html">register_pattern()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Register a formula expansion pattern</dd>
+
+        <dt>
+
+          <code><a href="vocabulary.html">formula_patterns()</a></code> <code><a href="vocabulary.html">term_roles()</a></code> <code><a href="vocabulary.html">term_transformations()</a></code>
+
+        </dt>
+        <dd>The <code>mesa</code> vocabulary</dd>
+      </dl></div><div class="section level2">
+      <h2 id="models-formulas-meet-data">Models: formulas meet data<a class="anchor" aria-label="anchor" href="#models-formulas-meet-data"></a></h2>
+
+      <div class="section-desc"><p>A plan is drawn up (formula by stratum by subset), executed against a fitting approach, and wrapped with its causal context intact.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="fit.fmls.html">fit(<i>&lt;fmls&gt;</i>)</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Fit the family of models a <code>fmls</code> object describes</dd>
+
+        <dt>
+
+          <code><a href="fit_plan.html">fit_plan()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Draw up the fitting plan for a family of formulas</dd>
+
+        <dt>
+
+          <code><a href="models.html">mdl()</a></code> <code><a href="models.html">model()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Model Prototypes</dd>
+
+        <dt>
+
+          <code><a href="reexports.html">reexports</a></code> <code><a href="reexports.html">fit</a></code> <code><a href="reexports.html">tidy</a></code> <code><a href="reexports.html">glance</a></code>
+
+        </dt>
+        <dd>Objects exported from other packages</dd>
+      </dl></div><div class="section level2">
+      <h2 id="collections-the-notebook-of-models">Collections: the notebook of models<a class="anchor" aria-label="anchor" href="#collections-the-notebook-of-models"></a></h2>
+
+      <div class="section-desc"><p>Many models stored, recalled, and compared in one table.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
 
           <code><a href="mdl_tbl.html">mdl_tbl()</a></code> <code><a href="mdl_tbl.html">model_table()</a></code> <code><a href="mdl_tbl.html">is_model_table()</a></code>
           <span class="badge lifecycle lifecycle-experimental">experimental</span>
@@ -110,17 +186,26 @@
 
         <dt>
 
-          <code><a href="models.html">mdl()</a></code> <code><a href="models.html">model()</a></code>
+          <code><a href="estimate_interaction.html">estimate_interaction()</a></code>
           <span class="badge lifecycle lifecycle-experimental">experimental</span>
         </dt>
-        <dd>Model Prototypes</dd>
+        <dd>Estimating interaction effect estimates</dd>
+      </dl></div><div class="section level2">
+      <h2 id="tables-the-mesa">Tables: the mesa<a class="anchor" aria-label="anchor" href="#tables-the-mesa"></a></h2>
 
-        <dt>
+      <div class="section-desc"><p>Laying families of models out for papers, built on the <a href="https://gt.rstudio.com" class="external-link">gt</a> package.</p></div>
 
-          <code><a href="patterns.html">apply_pattern()</a></code> <code><a href="patterns.html">apply_fundamental_pattern()</a></code> <code><a href="patterns.html">apply_direct_pattern()</a></code> <code><a href="patterns.html">apply_sequential_pattern()</a></code> <code><a href="patterns.html">apply_parallel_pattern()</a></code> <code><a href="patterns.html">apply_rolling_interaction_pattern()</a></code>
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="tbls.html">tbls</a></code>
 
         </dt>
-        <dd>Apply patterns to formulas</dd>
+        <dd>Extensions of <a href="https://gt.rstudio.com" class="external-link">gt</a> package for multiple models</dd>
 
         <dt>
 
@@ -131,13 +216,6 @@
 
         <dt>
 
-          <code><a href="tbl_forest.html">tbl_interaction_forest()</a></code>
-
-        </dt>
-        <dd>Forest plot and table</dd>
-
-        <dt>
-
           <code><a href="tbl_hazard.html">tbl_dichotomous_hazard()</a></code> <code><a href="tbl_hazard.html">tbl_categorical_hazard()</a></code>
 
         </dt>
@@ -145,10 +223,10 @@
 
         <dt>
 
-          <code><a href="tbls.html">tbls</a></code>
+          <code><a href="tbl_forest.html">tbl_interaction_forest()</a></code>
 
         </dt>
-        <dd>Extensions of <a href="https://gt.rstudio.com" class="external-link">gt</a> package for multiple models</dd>
+        <dd>Forest plot and table</dd>
 
         <dt>
 
@@ -156,22 +234,39 @@
 
         </dt>
         <dd>Compact and minimal theme for <code>gt</code> tables</dd>
+      </dl></div><div class="section level2">
+      <h2 id="helpers">Helpers<a class="anchor" aria-label="anchor" href="#helpers"></a></h2>
+
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="formula_helpers.html">lhs()</a></code> <code><a href="formula_helpers.html">rhs()</a></code>
+
+        </dt>
+        <dd>Tools for working with formula-like objects</dd>
 
         <dt>
 
-          <code><a href="tm.html">tm()</a></code> <code><a href="tm.html">is_tm()</a></code>
-          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+          <code><a href="labeled_formulas_to_named_list.html">labeled_formulas_to_named_list()</a></code>
+
         </dt>
-        <dd>Create vectorized terms</dd>
+        <dd>Convert labeling formulas to named lists</dd>
 
         <dt>
 
-          <code><a href="update.tm.html">update(<i>&lt;tm&gt;</i>)</a></code>
+          <code><a href="data_helpers.html">number_of_missing()</a></code> <code><a href="data_helpers.html">is_dichotomous()</a></code>
 
         </dt>
-        <dd>Update <code>tm</code> objects</dd>
+        <dd>Data summarization and classification methods</dd>
       </dl></div>
-  </main></div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">

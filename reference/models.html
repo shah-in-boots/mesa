@@ -54,6 +54,7 @@
 <span>  <span class="va">data_name</span>,</span>
 <span>  strata_variable <span class="op">=</span> <span class="cn">NA_character_</span>,</span>
 <span>  strata_level <span class="op">=</span> <span class="cn">NA_character_</span>,</span>
+<span>  subset_name <span class="op">=</span> <span class="cn">NA_character_</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -64,6 +65,7 @@
 <span>  data_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  strata_variable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  strata_level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  subset_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -74,6 +76,7 @@
 <span>  data_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  strata_variable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  strata_level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  subset_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -84,8 +87,34 @@
 <span>  data_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  strata_variable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  strata_level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  subset_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'lmerMod'</span></span>
+<span><span class="fu">mdl</span><span class="op">(</span></span>
+<span>  x <span class="op">=</span> <span class="fu"><a href="https://vctrs.r-lib.org/reference/vctrs-unspecified.html" class="external-link">unspecified</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  formulas <span class="op">=</span> <span class="fu"><a href="fmls.html">fmls</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  data_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  strata_variable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  strata_level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  subset_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'glmerMod'</span></span>
+<span><span class="fu">mdl</span><span class="op">(</span></span>
+<span>  x <span class="op">=</span> <span class="fu"><a href="https://vctrs.r-lib.org/reference/vctrs-unspecified.html" class="external-link">unspecified</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  formulas <span class="op">=</span> <span class="fu"><a href="fmls.html">fmls</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  data_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  strata_variable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  strata_level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  subset_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'model_fit'</span></span>
+<span><span class="fu">mdl</span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Default S3 method</span></span>
 <span><span class="fu">mdl</span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span><span class="op">)</span></span>
@@ -139,6 +168,11 @@ variable</p></dd>
 <dt id="arg-strata-level">strata_level<a class="anchor" aria-label="anchor" href="#arg-strata-level"></a></dt>
 <dd><p>Value of the level of the term specified by
 <code>strata_variable</code></p></dd>
+
+
+<dt id="arg-subset-name">subset_name<a class="anchor" aria-label="anchor" href="#arg-subset-name"></a></dt>
+<dd><p>Label of the <code><a href="fluent_verbs.html">subset_data()</a></code> instruction the model was
+fit under, if any (e.g. <code>"am == 1"</code>)</p></dd>
 
 </dl></div>
     <div class="section level2">
