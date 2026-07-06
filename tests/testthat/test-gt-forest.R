@@ -140,28 +140,3 @@ test_that("multiple interaction terms", {
 
 })
 
-test_that("carrs data works", {
-	skip()
-
-	obj <-
-		targets::tar_read(carrs1_mdls, store = "~/OneDrive - University of Illinois Chicago/targets/carrs")
-
-	mesa::tbl_interaction_forest(
-		object = obj,
-		outcomes = qrs_tang ~ "QRS-T Angle",
-		exposures = lab_hba1c ~ "Hemoglobin A1c",
-		interactions = list(
-			drugs_dm ~ "Glucose-lowering medications"
-		),
-		level_labels = list(
-			drugs_dm ~ c("No", "Yes")
-		),
-		columns = list(beta ~ "Estimate", conf ~ "95% CI", n ~ "No.", p ~ "Interaction p-value"),
-		axis = list(
-			title ~ "Forest Plot",
-			scale ~ "continuous"
-		),
-		width = forest ~ 0.7,
-		exponentiate = FALSE
-	)
-})

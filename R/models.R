@@ -39,6 +39,9 @@
 #' @param strata_level Value of the level of the term specified by
 #'   `strata_variable`
 #'
+#' @param subset_name Label of the [subset_data()] instruction the model was
+#'   fit under, if any (e.g. `"am == 1"`)
+#'
 #' @param ... Arguments to be passed to or from other methods
 #'
 #' @return An object of the `mdl` class, which is essentially an equal-length
@@ -66,13 +69,11 @@ mdl.character <- function(x,
 													data_name,
 													strata_variable = NA_character_,
 													strata_level = NA_character_,
+													subset_name = NA_character_,
 													...) {
 
-	# Is the specified model type/call currently accepted?
-	stopifnot(
-		"The `character` specification of the model is not currently suppported"
-		= any(x %in% .models)
-	)
+	# Any fitting approach can be named; it only needs to be named something
+	checkmate::assert_string(x, min.chars = 1)
 
 	# Ensure equal length objects for the data frames
 	if (length(parameter_estimates) == 0) {
@@ -96,7 +97,8 @@ mdl.character <- function(x,
 	dtArgs <-
 		list(dataName = data_name,
 				 strataVariable = strata_variable,
-				 strataLevel = strata_level)
+				 strataLevel = strata_level,
+				 subsetName = subset_name)
 
 	# Assume additional arguments are for the model (from the dots)
 	dots <- list(...)
@@ -119,6 +121,7 @@ mdl.lm <- function(x = unspecified(),
 									 data_name = character(),
 									 strata_variable = character(),
 									 strata_level = character(),
+									 subset_name = character(),
 									 ...) {
 
 	# Class check
@@ -154,11 +157,15 @@ mdl.lm <- function(x = unspecified(),
 		strata_variable <- NA
 		strata_level <- NA
 	}
+	if (length(subset_name) == 0) {
+		subset_name <- NA
+	}
 
 	da <-
 		list(dataName = data_name,
 				 strataVariable = strata_variable,
-				 strataLevel = strata_level)
+				 strataLevel = strata_level,
+				 subsetName = subset_name)
 
 	# Get parameter information
 	# None of these values are exponentiated
@@ -170,8 +177,7 @@ mdl.lm <- function(x = unspecified(),
 		possible_glance(x) |>
 		as.list()
 
-	mat <- stats::model.matrix(x)
-	si$degrees_freedom <- nrow(mat) - ncol(mat) - 1 # For intercept
+	si$degrees_freedom <- model_degrees_freedom(x)
 	si$var_cov <- stats::vcov(x)
 
 	# Creation
@@ -195,12 +201,133 @@ mdl.coxph <- mdl.lm
 
 #' @rdname models
 #' @export
+mdl.lmerMod <- function(x = unspecified(),
+												formulas = fmls(),
+												data_name = character(),
+												strata_variable = character(),
+												strata_level = character(),
+												subset_name = character(),
+												...) {
+
+	if (!requireNamespace("broom.mixed", quietly = TRUE)) {
+		stop(
+			"The {broom.mixed} package is required to describe mixed models.",
+			call. = FALSE
+		)
+	}
+
+	# Class check
+	validate_class(formulas, "fmls")
+	validate_class(data_name, "character")
+	validate_class(strata_variable, "character")
+
+	# Mixed models are S4; their call lives in a slot
+	cl <- x@call
+	mc <- class(x)[1]
+
+	# Model formula (the walker understands `(1 | id)` syntax)
+	if (length(formulas) == 0) {
+		mf <-
+			stats::formula(x) |>
+			fmls()
+	} else {
+		mf <- formulas
+	}
+
+	# Model arguments
+	ma <- list()
+	nms <- names(cl)[!names(cl) %in% c("formula", "data", "")]
+	for (i in seq_along(nms)) {
+		ma[[nms[i]]] <- cl[[nms[i]]]
+	}
+
+	# Model data, if not specified
+	if (length(data_name) == 0) {
+		data_name <- deparse1(cl[["data"]])
+	}
+	if (length(strata_variable) == 0 | length(strata_level) == 0) {
+		strata_variable <- NA
+		strata_level <- NA
+	}
+	if (length(subset_name) == 0) {
+		subset_name <- NA
+	}
+
+	da <-
+		list(dataName = data_name,
+				 strataVariable = strata_variable,
+				 strataLevel = strata_level,
+				 subsetName = subset_name)
+
+	# Fixed effects are what flows into tables; random effects are context
+	pe <- tryCatch(
+		broom.mixed::tidy(x, conf.int = TRUE, effects = "fixed") |>
+			dplyr::rename_with(.fn = ~ gsub("\\.", "_", x = .x)),
+		error = function(e) tibble::tibble(term = NA_character_, estimate = NA)
+	)
+
+	si <- tryCatch(
+		as.list(broom.mixed::glance(x)),
+		error = function(e) list()
+	)
+	names(si) <- gsub("\\.", "_", names(si))
+	si$degrees_freedom <- model_degrees_freedom(x)
+	si$var_cov <- tryCatch(as.matrix(stats::vcov(x)), error = function(e) NA)
+
+	# Creation
+	new_model(
+		modelCall = mc,
+		modelFormula = mf,
+		modelArgs = ma,
+		parameterEstimates = pe,
+		summaryInfo = si,
+		dataArgs = da
+	)
+}
+
+#' @rdname models
+#' @export
+mdl.glmerMod <- mdl.lmerMod
+
+#' @rdname models
+#' @export
+mdl.model_fit <- function(x, ...) {
+
+	if (!requireNamespace("parsnip", quietly = TRUE)) {
+		stop(
+			"The {parsnip} package is required to unwrap fitted model specifications.",
+			call. = FALSE
+		)
+	}
+
+	# Delegate to the engine's own fit (e.g. the `lm` inside `linear_reg()`)
+	mdl(parsnip::extract_fit_engine(x), ...)
+}
+
+#' @rdname models
+#' @export
 mdl.default <- function(x, ...) {
 	stop("`mdl()` is not defined for a `",
 			 class(x)[1],
 			 "` object.",
 			 call. = FALSE
 	)
+}
+
+#' Degrees of freedom by each model family's own accounting
+#' @keywords internal
+#' @noRd
+model_degrees_freedom <- function(x) {
+
+	dfRes <- tryCatch(stats::df.residual(x), error = function(e) NULL)
+	if (is.null(dfRes) || length(dfRes) == 0 || is.na(dfRes)) {
+		dfRes <- tryCatch(
+			stats::nobs(x) - length(stats::coef(x)),
+			error = function(e) NA_integer_
+		)
+	}
+
+	dfRes
 }
 
 #' @rdname models

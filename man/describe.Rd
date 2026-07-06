@@ -10,7 +10,7 @@ describe(x, property)
 \item{x}{A vector \code{tm} objects}
 
 \item{property}{A character vector of the following attributes of a \code{tm}
-object: role, side, label, group, description, type, distribution}
+object: role, side, label, group, description, type, distribution, level}
 }
 \value{
 A list of \code{term = property} pairs, where the term is the name of the

@@ -16,19 +16,22 @@
 #'
 #' Specific roles the variable plays within the formula. These are of particular
 #' importance, as they serve as special terms that can effect how a formula is
-#' interpreted.
+#' interpreted. Each role has a causal definition, and each role changes
+#' behavior downstream — in how formulas expand ([fmls()]), how models are fit
+#' ([fit()]), and how results are displayed.
 #'
-#' | Role | Shortcut | Description |
-#' | --- | --- | --- |
-#' | outcome | `.o(...)` | __outcome__ ~ exposure |
-#' | exposure | `.x(...)` | outcome ~ __exposure__ |
-#' | predictor | `.p(...)` | outcome ~ exposure + __predictor__ |
-#' | confounder | `.c(...)` | outcome + exposure ~ __confounder__ |
-#' | mediator | `.m(...)` | outcome __mediator__ exposure |
-#' | interaction | `.i(...)` | outcome ~ exposure * __interaction__ |
-#' | strata | `.s(...)` | outcome ~ exposure / __strata__ |
-#' | group | `.g(...)` | outcome ~ exposure + __group__ |
-#' | _unknown_ | `-` | not yet assigned |
+#' | Role | Shortcut | Definition | Downstream behavior |
+#' | --- | --- | --- | --- |
+#' | outcome | `.o(...)` | the dependent variable; the effect being studied | anchors the LHS; multiple outcomes multiply the formula family |
+#' | exposure | `.x(...)` | the variable whose causal effect is under study | anchored in every expanded formula; pairs with interactions |
+#' | predictor | `.p(...)` | a covariate with no asserted causal position | expanded by the chosen pattern (adjusted for, or rotated through) |
+#' | confounder | `.c(...)` | a common cause of exposure and outcome | treated as a covariate; flagged for adjustment displays |
+#' | mediator | `.m(...)` | on the causal pathway between exposure and outcome | triggers the mediation triad of formulas (see [fmls()]) |
+#' | interaction | `.i(...)` | a candidate effect modifier of the exposure | crossed with each exposure (`x:i`), grouped so the pair travels together |
+#' | strata | `.s(...)` | a variable defining subpopulations for separate fits | not a covariate; [fit()] fits one model per stratum level |
+#' | random | `.r(...)` | a grouping variable for random (hierarchical) effects | rendered as `(1 \| term)` for mixed-model engines; excluded from covariate expansion |
+#' | group | `.g(...)` | not a role, but a tier marker for terms that travel together | grouped terms enter and leave expanded formulas as one block |
+#' | _unknown_ | `-` | not yet assigned | treated as a predictor at expansion |
 #'
 #' Formulas can be condensed by applying their specific role to individual runes
 #' as a function/wrapper. For example, `y ~ .x(x1) + x2 + x3`. This would
@@ -36,11 +39,17 @@
 #'
 #' Grouped variables are slightly different in that they are placed together in
 #' a hierarchy or tier. To indicate the group and the tier, the shortcut can
-#' have an `integer` following the `.g`. If no number is given, then it is
-#' assumed they are all on the same tier. Ex: `y ~ x1 + .g1(x2) + .g1(x3)`
+#' have an `integer` following the `.g` (multi-digit tiers such as `.g10` are
+#' allowed). If no number is given, then it is assumed they are all on the same
+#' tier (tier zero). Ex: `y ~ x1 + .g1(x2) + .g1(x3)`
 #'
-#' __Warning__: Only a single shortcut can be applied to a variable within a
-#' formula directly.
+#' # Transformations
+#'
+#' A term wrapped in a recognized transformation (see [term_transformations()])
+#' keeps its full call as its name — `log(x)` remains `log(x)` so formulas
+#' rebuild losslessly — and additionally records the wrapper in its
+#' `transformation` field for downstream interpretation. Unrecognized calls
+#' (e.g. `survival::Surv(time, status)`) are carried as opaque term names.
 #'
 #' # Pluralized Labeling Arguments
 #'
@@ -60,38 +69,18 @@
 #'
 #' @param x An object that can be coerced to a `tm` object.
 #'
-#' @param role Specific roles the variable plays within the formula. These are
-#'   of particular importance, as they serve as special terms that can effect
-#'   how a formula is interpreted. Please see the _Roles_ section below for
-#'   further details. The options for roles are as below:
-#'
-#'   * outcome
-#'
-#'   * exposure
-#'
-#'   * predictor
-#'
-#'   * confounder
-#'
-#'   * mediator
-#'
-#'   * interaction
-#'
-#'   * strata
-#'
-#'   * group
-#'
-#'   * unknown
+#' @param role Specific roles the variable plays within the formula. Please see
+#'   the _Roles_ section for the taxonomy: outcome, exposure, predictor,
+#'   confounder, mediator, interaction, strata, random, unknown.
 #'
 #' @param side Which side of a formula should the term be on. Options are
 #'   `c("left", "right", "meta", "unknown")`. The _meta_ option refers to a term
-#'   that may apply globally to other terms.
+#'   that may apply globally to other terms (e.g. strata, random effects).
 #'
 #' @param label Display-quality label describing the variable
 #'
 #' @param group Grouping variable name for modeling or placing terms together.
-#'   An integer value is given to identify which group the term will be in. The
-#'   hierarchy will be `1` to `n` incrementally.
+#'   An integer value is given to identify which group the term will be in.
 #'
 #' @param type Type of variable, either categorical (qualitative) or
 #'   continuous (quantitative)
@@ -103,13 +92,19 @@
 #'   the tm, potentially part of a data dictionary
 #'
 #' @param transformation Modification of the term to be applied when
-#'   combining with data
+#'   combining with data. See [term_transformations()] for the recognized
+#'   vocabulary.
+#'
+#' @param level The observed levels of a categorical term, given as a
+#'   `character` vector (or a `list` of such vectors when creating several
+#'   terms at once). Usually stamped on by [set_data()] once a term has met a
+#'   dataset.
 #'
 #' @param ... Arguments to be passed to or from other methods
 #'
 #' @return A `tm` object, which is a series of individual terms with
 #'   corresponding attributes, including the role, formula side, label,
-#'   grouping, and other related features.
+#'   grouping, levels, and other related features.
 #'
 #' @name tm
 #' @export
@@ -128,6 +123,7 @@ tm.character <- function(x,
 												 distribution = character(),
 												 description = character(),
 												 transformation = character(),
+												 level = list(),
 												 ...) {
 
 	# Early Break if needed
@@ -135,16 +131,6 @@ tm.character <- function(x,
 	if (length(x) == 0) {
 		return(new_tm())
 	}
-
-	# Redefine empty variables
-	if (length(role) == 0) role <- "unknown"
-	if (length(side) == 0) side <- "unknown"
-	if (length(label) == 0) label <- NA_character_
-	if (length(group) == 0) group <- NA_integer_
-	if (length(type) == 0) type <- NA_character_
-	if (length(distribution) == 0) distribution <- NA_character_
-	if (length(description) == 0) description <- NA_character_
-	if (length(transformation) == 0) transformation <- NA_character_
 
 	# Casting
 	x <- vec_cast(x, character())
@@ -156,17 +142,21 @@ tm.character <- function(x,
 	type <- vec_cast(type, character())
 	distribution <- vec_cast(distribution, character())
 	transformation <- vec_cast(transformation, character())
+	if (is.character(level)) {
+		level <- list(level)
+	}
 
 	new_tm(
 		term = x,
-		side = side,
-		role = role,
-		label = label,
-		group = group,
-		description = description,
-		type = type,
-		distribution = distribution,
-		transformation = transformation,
+		side = tm_field(side, length(x), default = "unknown"),
+		role = tm_field(role, length(x), default = "unknown"),
+		label = tm_field(label, length(x)),
+		group = tm_field(group, length(x), default = NA_integer_),
+		description = tm_field(description, length(x)),
+		type = tm_field(type, length(x)),
+		distribution = tm_field(distribution, length(x)),
+		transformation = tm_field(transformation, length(x)),
+		level = level
 	)
 }
 
@@ -183,302 +173,45 @@ tm.formula <- function(x,
 											 transformation = formula(),
 											 ...) {
 
-	# Global variables
-
-
 	# Early Break if needed
 	if (length(x) == 0) {
 		return(new_tm())
 	}
 
-	# Validate arguments and coerce into original assignments
-	allArgs <- c(as.list(environment()), list(...))
-	formalNames <-
-		methods::formalArgs(tm.formula) |>
-		utils::head(-1) |>
-		utils::tail(-1)
-	namedArgs <- allArgs[which(names(allArgs) %in% formalNames)]
+	# Validate the labeling arguments and convert them to named lists
+	namedArgs <- list(
+		role = role,
+		label = label,
+		group = group,
+		type = type,
+		distribution = distribution,
+		description = description,
+		transformation = transformation
+	)
 	validate_classes(namedArgs, what = c("list", "formula"))
+	namedArgs <- lapply(namedArgs, labeled_formulas_to_named_list)
 
-	# Turn all formula-based arguments into named lists
-	role <- labeled_formulas_to_named_list(role)
-	label <- labeled_formulas_to_named_list(label)
-	group <- labeled_formulas_to_named_list(group)
-	type <- labeled_formulas_to_named_list(type)
-	distribution <- labeled_formulas_to_named_list(distribution)
-	description <- labeled_formulas_to_named_list(description)
-	transformation <- labeled_formulas_to_named_list(transformation)
+	# Walk the formula tree into a table of term records, then finalize roles
+	parsed <- parse_formula_terms(x)
+	parsed <- demote_orphan_roles(parsed)
+	parsed <- expand_shortcut_interactions(parsed)
+	parsed <- apply_default_roles(parsed)
+	parsed <- apply_term_arguments(parsed, namedArgs)
 
-	# Get actual formula components
-	# Check to see if the RHS has any shortcut variables attached
-	left <- lhs(x)
-	right <- rhs(x)
+	# Meta terms apply across a formula rather than sitting on one side
+	parsed$side[parsed$role %in% c("strata", "random")] <- "meta"
 
-	# Roles/operations and need to be identified (on which terms they apply)
-	# Output is named list (names = variable, list item = role|op)
-	allRoles <-
-		x |>
-		all.names() |>
-		{
-			\(.x) {
-				# These will be all roles
-				varNames <- character()
-				varRoles <- character()
-
-				for (i in seq_along(.x)) {
-					if (.x[i] %in% .roles) {
-						varNames <- append(varNames, .x[i + 1])
-						varRoles <- append(varRoles, .x[i])
-					}
-				}
-
-				names(varRoles) <- varNames
-				as.list(varRoles)
-			}
-		}()
-
-	# Supported transformations
-	allOps <-
-		x |>
-		all.names() |>
-		{
-			\(.x) {
-				# These will be all roles
-				varNames <- character()
-				varRoles <- character()
-				for (i in seq_along(.x)) {
-					if (.x[i] %in% .transformations) {
-						varNames <- append(varNames, .x[i + 1])
-						varRoles <- append(varRoles, .x[i])
-					}
-				}
-
-				names(varRoles) <- varNames
-				as.list(varRoles)
-			}
-		}()
-
-	# Grouped variables
-	# Interaction terms are inherently grouped as well but handled later
-	allGroups <-
-		x |>
-		all.names() |>
-		{
-			\(.x) {
-				varNames <- character()
-				varGroup <- character()
-
-				# These will be all grouped variables
-				grpInd <- grep("^\\.g$|^\\.g[[:digit:]]$", .x)
-				varNames <- .x[grpInd + 1]
-				varGroup <-
-					.x[grpInd] |>
-					{\(.y) gsub("\\.g$", ".g0", .y)}() |>
-					substr(start = 3, stop = 3) |>
-					as.integer()
-
-				# Clean up group names to be alphanumeric and sequential
-				names(varGroup) <- varNames
-				as.list(varGroup)
-
-			}
-		}()
-
-	# WARNINGS ABOUT TERM ROLES
-	if (".i" %in% allRoles & !(".x" %in% allRoles)) {
-		warning_interaction_roles(allRoles)
-		allRoles[allRoles == ".i"] <- ".p"
-	}
-	if (".m" %in% allRoles & !(".x" %in% allRoles)) {
-		warning_mediation_roles(allRoles)
-		allRoles[allRoles == ".m"] <- ".p"
-	}
-
-	# Handle interaction terms here (to match that of normal formulas)
-	# 	Warn and validate for interaction (as needs exposure variable)
-	# 	If both interaction and exposure available...
-	# 		Create new interaction terms `a*b = a + b + a:b`
-	# 		Create new grouping `.g(a) + .g(b) + .g(a:b)`
-	#		Add back to original variables (allRoles, left, right, both)
-	#		Explicity interaction terms `a:b` will be handled at role clean up
-
-	if (".i" %in% allRoles & ".x" %in% allRoles) {
-
-		# Need variables to iterate through
-		exp <- names(allRoles[allRoles == ".x"])
-		int <- names(allRoles[allRoles == ".i"])
-		intRoles <- intGroups <- list()
-
-		for (ii in seq_along(int)) {
-			for (ix in seq_along(exp)) {
-
-				# Explicit new interaction term
-				.i <- paste0(exp[ix], ":", int[ii])
-				intRoles[.i] <- ".i"
-
-				# Will need to "regroup" if interaction term is added
-				#	Exposure cannot have its own group, since it will be in every equation
-				if (length(intGroups) == 0) {
-					g <- 0
-				} else if (!is.null(intGroups[[int[ii]]])) {
-					g <- intGroups[[int[ii]]]
-				} else {
-					g <- max(unlist(unname(intGroups))) + 1
-				}
-
-				intGroups[int[ii]] <- g
-				intGroups[.i] <- g
-
-				message_interaction(int[[ii]], exp[[ix]])
-			}
-		}
-
-		# Interaction terms change roles of other variables and add variables
-		# 	Update all roles and groups
-		#		for i in interactions
-		#			Do not change to old/unfixed interactor to predictor
-		#			Add new/corrected interactor onto right side
-		allGroups <- c(allGroups, intGroups)
-		allRoles <- c(allRoles, intRoles)
-		for (ii in seq_along(int)) {
-			#allRoles[int[ii]] <- ".p" # Don't change to a predictor
-			right[grepl(names(allRoles[int[ii]]), right)] <- int[ii]
-		}
-
-		# The group order should be next to each other
-		# For every level of allGroups there will be unique terms
-		# We need only the FIRST term of that group as the matching key
-		# That matching key is found in the RIGHT side terms
-		# Then, the matching key is injected into the right side term groups
-		for (ig in unique(unlist(allGroups))) {
-			# All terms at a set level
-			groupNames <- names(allGroups == ig)
-
-			# First term in the matching group
-			matchingTerm <- groupNames[!grepl(":", groupNames)][1]
-
-			# Add it as a list and then "flatten"
-			right[right == matchingTerm] <- list(groupNames)
-			right <- unlist(right) |> unique()
-
-		}
-
-	}
-
-	# Remove roles and operations in term names
-	for (i in seq_along(left)) {
-		if (grepl("^\\.[[:lower:]]\\(", left[i])) {
-			left[i] <- gsub("^\\.[[:lower:]]\\(", "", left[i])
-			left[i] <- gsub("\\)$", "", left[i])
-		}
-	}
-	for (i in seq_along(right)) {
-		if (grepl("^\\.[[:lower:]]\\(", right[i])) {
-			right[i] <- gsub("^\\.[[:lower:]]\\(", "", right[i])
-			right[i] <- gsub("\\)$", "", right[i])
-		}
-		if (grepl("^\\.g[[:digit:]]\\(", right[i])) {
-			right[i] <- gsub("^\\.g[[:digit:]]\\(", "", right[i])
-			right[i] <- gsub("\\)$", "", right[i])
-		}
-
-	}
-
-	# Find remaining terms that do not have a role
-	# Right
-	#		Evaluate for explicitly given interaction terms
-	# 	Give them the role of a general predictor
-	# Left
-	# 	Make sure is an "outcome"
-	for (i in left) {
-		if (!(i %in% names(allRoles))) {
-			allRoles[[i]] <- ".o"
-		}
-	}
-	for (i in right) {
-		if (!(i %in% names(allRoles))) {
-			if (grepl(":", i)) {
-				allRoles[[i]] <- ".i"
-			} else {
-				allRoles[[i]] <- ".p"
-			}
-		}
-	}
-
-	# Combine all terms
-	# Ensure correct order of terms
-	both <- c(left, right)
-
-	order(match(names(allGroups), right))
-
-
-	# Re-name into full name
-	for (i in seq_along(allRoles)) {
-		allRoles[[i]] <- names(.roles[which(.roles %in% allRoles[[i]])])
-	}
-
-	# Correct for explicit roles specified in arguments
-	for (i in seq_along(role)) {
-		allRoles[[names(role[i])]] <- role[[i]]
-	}
-
-	# Setup to create new terms using all elements of original formula
-	tm_vector <- new_tm()
-	for (i in 1:length(both)) {
-		# make parameters
-		t <- both[i]
-
-		# Sides
-		sd <- if (t %in% names(allRoles[allRoles == "strata"])) {
-			"meta"
-		} else if (t %in% left) {
-			"left"
-		} else if (t %in% right) {
-			"right"
-		}
-
-		# Data transforms
-		op <- if (t %in% names(allOps)) {
-			allOps[[t]]
-		} else {
-			NA
-		}
-
-		# Roles (every term has a role)
-		rl <- allRoles[[t]]
-
-		# Grouped terms
-		grp <-
-			if (t %in% names(group)) {
-				group[[t]]
-			} else if (t %in% names(allGroups)) {
-				allGroups[[t]]
-			}
-
-		# Labels
-		lb <- if (t %in% names(label)) {
-			label[[t]]
-		} else {
-			NA
-		}
-
-		# Place into term list after casting appropriate classes
-		tm_vector <- append(
-			tm_vector,
-			tm.character(
-				x = vec_cast(t, character()),
-				role = vec_cast(rl, character()),
-				side = vec_cast(sd, character()),
-				label = vec_cast(lb, character()),
-				group = vec_cast(grp, integer()),
-				transformation = vec_cast(op, character()),
-			)
-		)
-
-	}
-
-	# Return as a `tm` vector
-	tm_vector
+	new_tm(
+		term = parsed$term,
+		side = parsed$side,
+		role = parsed$role,
+		label = parsed$label,
+		group = parsed$group,
+		description = parsed$description,
+		type = parsed$type,
+		distribution = parsed$distribution,
+		transformation = parsed$transformation
+	)
 }
 
 #' @rdname tm
@@ -508,6 +241,283 @@ tm.default <- function(x = unspecified(), ...) {
 	)
 }
 
+### Formula parsing -------------------------------------------------------------
+
+#' Walk a formula's syntax tree into term records
+#'
+#' Returns a `data.frame` with one row per term: term, side, role, group,
+#' transformation. Roles/groups here are only those explicitly declared by
+#' shortcut runes (`.x()`, `.g1()`, ...) or structure (`a:b`); defaults are
+#' assigned later.
+#'
+#' @keywords internal
+#' @noRd
+parse_formula_terms <- function(x) {
+
+	stopifnot(inherits(x, "formula"))
+
+	if (length(x) == 3) {
+		records <- c(
+			collect_formula_terms(x[[2]], side = "left"),
+			collect_formula_terms(x[[3]], side = "right")
+		)
+	} else {
+		records <- collect_formula_terms(x[[2]], side = "right")
+	}
+
+	data.frame(
+		term = vapply(records, function(.x) .x$term, character(1)),
+		side = vapply(records, function(.x) .x$side, character(1)),
+		role = vapply(records, function(.x) .x$role, character(1)),
+		group = vapply(records, function(.x) .x$group, integer(1)),
+		transformation = vapply(records, function(.x) .x$transformation, character(1)),
+		label = NA_character_,
+		type = NA_character_,
+		distribution = NA_character_,
+		description = NA_character_,
+		stringsAsFactors = FALSE
+	)
+}
+
+#' @keywords internal
+#' @noRd
+term_record <- function(term,
+												side,
+												role = NA_character_,
+												group = NA_integer_,
+												transformation = NA_character_) {
+	list(
+		term = term,
+		side = side,
+		role = role,
+		group = group,
+		transformation = transformation
+	)
+}
+
+#' Recursive descent through one side of a formula
+#' @keywords internal
+#' @noRd
+collect_formula_terms <- function(expr, side) {
+
+	# Leaves: symbols and literals are terms as-is
+	if (!is.call(expr)) {
+		return(list(term_record(deparse1(expr), side)))
+	}
+
+	fn <- deparse1(expr[[1]])
+
+	# Additive structure recurses; unary +/- and parentheses pass through
+	if (fn %in% c("+", "-") && length(expr) == 3) {
+		return(c(
+			collect_formula_terms(expr[[2]], side),
+			collect_formula_terms(expr[[3]], side)
+		))
+	}
+	if (fn %in% c("+", "-") && length(expr) == 2) {
+		return(collect_formula_terms(expr[[2]], side))
+	}
+	if (fn == "(") {
+		return(collect_formula_terms(expr[[2]], side))
+	}
+
+	# `a * b` expands to `a + b + a:b`
+	if (fn == "*" && length(expr) == 3) {
+		product <- paste0(deparse1(expr[[2]]), ":", deparse1(expr[[3]]))
+		return(c(
+			collect_formula_terms(expr[[2]], side),
+			collect_formula_terms(expr[[3]], side),
+			list(term_record(product, side, role = "interaction"))
+		))
+	}
+
+	# Explicit `a:b` terms are interactions in whole
+	if (fn == ":") {
+		return(list(term_record(deparse1(expr), side, role = "interaction")))
+	}
+
+	# Hierarchical syntax: `(1 | id)` marks a random intercept on `id`;
+	# random slopes such as `(wt | id)` are carried whole
+	if (fn == "|" && length(expr) == 3) {
+		if (identical(expr[[2]], 1) || identical(expr[[2]], 1L)) {
+			return(list(term_record(deparse1(expr[[3]]), side, role = "random")))
+		}
+		return(list(term_record(deparse1(expr), side, role = "random")))
+	}
+
+	# Role shortcut runes, e.g. `.x(term)`
+	if (fn %in% unlist(.roles)) {
+		roleName <- names(.roles)[match(fn, unlist(.roles))]
+		inner <- collect_formula_terms(expr[[2]], side)
+		return(lapply(inner, function(.x) {
+			.x$role <- roleName
+			.x
+		}))
+	}
+
+	# Group tier runes: `.g(term)` (tier 0) or `.g<n>(term)` for any n
+	if (grepl("^\\.g[0-9]*$", fn)) {
+		tier <- sub("^\\.g", "", fn)
+		tier <- if (nzchar(tier)) as.integer(tier) else 0L
+		inner <- collect_formula_terms(expr[[2]], side)
+		return(lapply(inner, function(.x) {
+			.x$group <- tier
+			.x
+		}))
+	}
+
+	# Recognized transformations keep their full call as the term name
+	if (fn %in% .transformations) {
+		return(list(term_record(deparse1(expr), side, transformation = fn)))
+	}
+
+	# Any other call (e.g. `Surv(time, status)`, `cluster(id)`) is opaque
+	list(term_record(deparse1(expr), side))
+}
+
+#' Interaction and mediation shortcuts require an exposure to anchor to;
+#' without one they demote to plain predictors (with a warning)
+#' @keywords internal
+#' @noRd
+demote_orphan_roles <- function(parsed) {
+
+	hasExposure <- any(parsed$role == "exposure", na.rm = TRUE)
+	if (hasExposure) {
+		return(parsed)
+	}
+
+	# Only shortcut-declared interactions demote; explicit `a:b` terms stand
+	shortcutInt <- parsed$role == "interaction" & !grepl(":", parsed$term)
+	shortcutInt[is.na(shortcutInt)] <- FALSE
+	if (any(shortcutInt)) {
+		roleList <- as.list(stats::setNames(
+			rep(.roles$interaction, sum(shortcutInt)),
+			parsed$term[shortcutInt]
+		))
+		warning_interaction_roles(roleList)
+		parsed$role[shortcutInt] <- "predictor"
+	}
+
+	mediators <- parsed$role == "mediator"
+	mediators[is.na(mediators)] <- FALSE
+	if (any(mediators)) {
+		roleList <- as.list(stats::setNames(
+			rep(.roles$mediator, sum(mediators)),
+			parsed$term[mediators]
+		))
+		warning_mediation_roles(roleList)
+		parsed$role[mediators] <- "predictor"
+	}
+
+	parsed
+}
+
+#' Cross each `.i()` shortcut with each exposure, creating explicit `x:i`
+#' product terms placed directly after their base term, grouped so the pair
+#' travels together through formula expansion
+#' @keywords internal
+#' @noRd
+expand_shortcut_interactions <- function(parsed) {
+
+	exposures <- parsed$term[which(parsed$role == "exposure")]
+	intIdx <- which(parsed$role == "interaction" & !grepl(":", parsed$term))
+
+	if (length(exposures) == 0 || length(intIdx) == 0) {
+		return(parsed)
+	}
+
+	pieces <- list()
+	lastCut <- 0L
+	for (i in intIdx) {
+
+		# The base term and its products share a group tier so that patterns
+		# keep them together; allocate the next free tier if none is set
+		if (is.na(parsed$group[i])) {
+			used <- parsed$group[!is.na(parsed$group)]
+			parsed$group[i] <- if (length(used) == 0) 0L else max(used) + 1L
+		}
+		tier <- parsed$group[i]
+
+		products <- lapply(exposures, function(e) {
+			message_interaction(parsed$term[i], e)
+			data.frame(
+				term = paste0(e, ":", parsed$term[i]),
+				side = parsed$side[i],
+				role = "interaction",
+				group = tier,
+				transformation = NA_character_,
+				label = NA_character_,
+				type = NA_character_,
+				distribution = NA_character_,
+				description = NA_character_,
+				stringsAsFactors = FALSE
+			)
+		})
+
+		pieces <- c(
+			pieces,
+			list(parsed[(lastCut + 1):i, , drop = FALSE]),
+			products
+		)
+		lastCut <- i
+	}
+	if (lastCut < nrow(parsed)) {
+		pieces <- c(pieces, list(parsed[(lastCut + 1):nrow(parsed), , drop = FALSE]))
+	}
+
+	out <- do.call(rbind, pieces)
+	rownames(out) <- NULL
+	out
+}
+
+#' Terms without a declared role receive one from formula position
+#' @keywords internal
+#' @noRd
+apply_default_roles <- function(parsed) {
+
+	missingRole <- is.na(parsed$role)
+	parsed$role[missingRole & parsed$side == "left"] <- "outcome"
+	parsed$role[missingRole & parsed$side == "right" &
+								grepl(":", parsed$term)] <- "interaction"
+	parsed$role[is.na(parsed$role) & parsed$side == "right"] <- "predictor"
+
+	parsed
+}
+
+#' Explicit labeling arguments override what was parsed
+#' @keywords internal
+#' @noRd
+apply_term_arguments <- function(parsed, namedArgs) {
+
+	for (field in names(namedArgs)) {
+		vals <- namedArgs[[field]]
+		for (nm in names(vals)) {
+			hit <- parsed$term == nm
+			if (any(hit)) {
+				if (field == "group") {
+					parsed$group[hit] <- as.integer(vals[[nm]])
+				} else {
+					parsed[[field]][hit] <- as.character(vals[[nm]])
+				}
+			}
+		}
+	}
+
+	parsed
+}
+
+### Construction ----------------------------------------------------------------
+
+#' Recycle or default a field against the number of terms
+#' @keywords internal
+#' @noRd
+tm_field <- function(value, n, default = NA_character_) {
+	if (length(value) == 0) {
+		return(rep(default, n))
+	}
+	vec_recycle(value, n)
+}
+
 #' Initialize new term record vector
 #' @keywords internal
 #' @noRd
@@ -520,10 +530,30 @@ new_tm <- function(term = character(),
 									 distribution = character(),
 									 description = character(),
 									 transformation = character(),
+									 level = list(),
 									 order = integer()) {
 
 	# Validation
 	vec_assert(term, ptype = character())
+	stopifnot(is.list(level))
+
+	n <- length(term)
+	if (n > 0) {
+		side <- vec_recycle(tm_field(side, n, "unknown"), n)
+		role <- vec_recycle(tm_field(role, n, "unknown"), n)
+		label <- vec_recycle(tm_field(label, n), n)
+		group <- vec_recycle(tm_field(group, n, NA_integer_), n)
+		type <- vec_recycle(tm_field(type, n), n)
+		distribution <- vec_recycle(tm_field(distribution, n), n)
+		description <- vec_recycle(tm_field(description, n), n)
+		transformation <- vec_recycle(tm_field(transformation, n), n)
+		if (length(level) == 0) {
+			level <- rep(list(character(0)), n)
+		}
+		level <- vec_recycle(level, n)
+		order <- rep(0L, n)
+	}
+
 	vec_assert(role, ptype = character())
 	vec_assert(side, ptype = character())
 	vec_assert(label, ptype = character())
@@ -533,11 +563,6 @@ new_tm <- function(term = character(),
 	vec_assert(distribution, ptype = character())
 	vec_assert(transformation, ptype = character())
 	vec_assert(order, ptype = integer())
-
-	# Forced order
-	if (length(term) > 0) {
-		order <- 0L
-	}
 
 	new_rcrd(
 		list(
@@ -550,6 +575,7 @@ new_tm <- function(term = character(),
 			"type" = type,
 			"distribution" = distribution,
 			"transformation" = transformation,
+			"level" = level,
 			"order" = order
 		),
 		class = "tm"
@@ -564,62 +590,25 @@ is_tm <- function(x) {
 
 #' @export
 format.tm <- function(x, ...) {
-	tms <- vec_data(x)
-	fmt <- character()
 
 	if (vec_size(x) == 0) {
-		fmt <- new_tm()
-	} else if (has_cli() & vec_size(x) > 0) {
-		for (i in 1:nrow(tms)) {
-			if (tms$role[i] == "outcome") {
-				t <- tms$term[i]
-				fmt <- append(fmt, cli::col_yellow(t))
-			}
-
-			if (tms$role[i] == "exposure") {
-				t <- tms$term[i]
-				fmt <- append(fmt, cli::col_blue(t))
-			}
-
-			if (tms$role[i] == "predictor") {
-				t <- tms$term[i]
-				fmt <- append(fmt, cli::col_br_black(t))
-			}
-
-			if (tms$role[i] == "mediator") {
-				t <- tms$term[i]
-				fmt <- append(fmt, cli::col_cyan(t))
-			}
-
-			if (tms$role[i] == "confounder") {
-				t <- tms$term[i]
-				fmt <- append(fmt, cli::col_green(t))
-			}
-
-			if (tms$role[i] == "strata") {
-				t <- tms$term[i]
-				fmt <- append(fmt, cli::col_br_white(t))
-			}
-
-			if (tms$role[i] == "interaction") {
-				t <- tms$term[i]
-				fmt <- append(fmt, cli::col_br_blue(t))
-			}
-
-			if (tms$role[i] == "unknown") {
-				t <- tms$term[i]
-				fmt <- append(fmt, cli::col_black(t))
-			}
-
-		}
-	} else {
-		for (i in 1:nrow(tms)) {
-			fmt <- append(fmt, tms$term[i])
-		}
+		return(character())
 	}
 
-	# return
-	fmt
+	tms <- vec_data(x)
+
+	if (has_cli()) {
+		vapply(seq_len(nrow(tms)), function(i) {
+			color <- .role_colors[tms$role[i]]
+			if (is.na(color)) {
+				color <- "black"
+			}
+			colorFn <- getExportedValue("cli", paste0("col_", color))
+			colorFn(tms$term[i])
+		}, character(1))
+	} else {
+		tms$term
+	}
 }
 
 #' @export
@@ -735,25 +724,38 @@ formula.tm <- function(x, env = parent.frame(), ...) {
 
 	# Create vec_data / proxy to help re-arrange terms as needed
 	# Lose information when converting to just character
-  y <- vec_proxy(x)
+	y <- vec_proxy(x)
 
 	# Create basic structure for formula
 	# 	Handle mediator equations differently than standard formulas
-  #		Results a left and right hand side
+	#		Results a left and right hand side
 	if ("mediator" %in% y$role & !("outcome" %in% y$role)) {
-		left <- y[y$role == "mediator",]$term
+		left <- y[y$role == "mediator", ]$term
 		right <- y[y$side == "right" & y$role != "mediator", ]$term
 	} else {
-		left <- y[y$side == "left",]$term
+		left <- y[y$side == "left", ]$term
 		right <- y[y$side == "right", ]$term
 	}
 
-  f <- paste0(paste0(left, collapse = " + "),
-  						sep = " ~ ",
-  						paste0(right, collapse = " + "))
+	# Random-effect terms render in their hierarchical form; terms that carry
+	# their own grouping syntax (random slopes) are wrapped as-is
+	random <- y[y$role == "random", ]$term
+	if (length(random) > 0) {
+		right <- c(
+			right,
+			ifelse(
+				grepl("|", random, fixed = TRUE),
+				paste0("(", random, ")"),
+				paste0("(1 | ", random, ")")
+			)
+		)
+	}
 
-  #stats::formula(f, env = .GlobalEnv)
-  stats::formula(f, env = env)
+	f <- paste0(paste0(left, collapse = " + "),
+							sep = " ~ ",
+							paste0(right, collapse = " + "))
+
+	stats::formula(f, env = env)
 
 }
 
@@ -793,7 +795,11 @@ update.tm <- function(object, ...) {
 
 			# Term management loop
 			for (j in names(newProps)) {
-				termData[termData$term == j, i] <- newProps[[j]]
+				if (is.list(termData[[i]])) {
+					termData[[i]][termData$term == j] <- list(newProps[[j]])
+				} else {
+					termData[termData$term == j, i] <- newProps[[j]]
+				}
 			}
 		}
 	}
@@ -840,7 +846,7 @@ filter.tm <- function(.data, ...) {
 #' @param x A vector `tm` objects
 #'
 #' @param property A character vector of the following attributes of a `tm`
-#'   object: role, side, label, group, description, type, distribution
+#'   object: role, side, label, group, description, type, distribution, level
 #'
 #' @return A list of `term = property` pairs, where the term is the name of the
 #'   element (e.g. could be the `role' of the term).
@@ -867,4 +873,3 @@ describe <- function(x, property) {
 	as.list(z)
 
 }
-

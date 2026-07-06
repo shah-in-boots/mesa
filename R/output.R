@@ -56,6 +56,19 @@ warning_mediation_roles <- function(roleList) {
 	warning(msg)
 }
 
+#' @keywords internal
+#' @noRd
+message_term_collision <- function(terms) {
+	msg <-
+		paste0(
+			"Combining formulas with conflicting definitions for: `",
+			paste0(terms, collapse = "`, `"),
+			"`. The first (left-most) definition of each term is kept."
+		)
+
+	message(msg)
+}
+
 # Formula simplification messages ----------------------------------------------
 
 #' @keywords internal

@@ -55,3 +55,155 @@ test_that("complex terms can be fit", {
 	expect_equal(m0, m1, ignore_attr = TRUE)
 
 })
+
+# The plan ----
+
+test_that("the fitting plan is inspectable before anything runs", {
+
+	f <-
+		fmls(mpg + hp ~ .x(wt) + .s(am), pattern = "direct") |>
+		subset_data(cyl > 4)
+
+	# Two outcomes x two strata levels x one subset
+	p <- fit_plan(f, data = mtcars)
+	expect_s3_class(p, "tbl_df")
+	expect_equal(nrow(p), 4)
+	expect_named(
+		p,
+		c("formula_index", "formula_call", "formula",
+			"strata_variable", "strata_level", "subset", "subset_expr")
+	)
+
+	# Without data, stratum levels stay unresolved
+	p2 <- fit_plan(f)
+	expect_equal(nrow(p2), 2)
+	expect_true(all(is.na(unlist(p2$strata_level))))
+
+})
+
+# The modeling approach resolves by name ----
+
+test_that("argument order and .fn forms do not matter", {
+
+	object <- fmls(mpg ~ wt + hp)
+
+	# Named arguments in any order (the old parser read `.fn` by position)
+	m1 <- fit(object, data = mtcars, .fn = lm, raw = TRUE)[[1]]
+	expect_s3_class(m1, "lm")
+
+	# A string names the function just as well
+	m2 <- fit(object, .fn = "lm", data = mtcars, raw = TRUE)[[1]]
+	expect_equal(coef(m1), coef(m2))
+
+	# Unresolvable approaches say so
+	expect_error(
+		fit(object, .fn = 42, data = mtcars),
+		regexp = "fitting function"
+	)
+
+})
+
+test_that("parsnip model specifications serve as the modeling approach", {
+
+	skip_if_not_installed("parsnip")
+
+	object <- fmls(mpg ~ .x(wt) + hp)
+	spec <- parsnip::linear_reg()
+
+	# Raw returns the underlying engine fit
+	m1 <- fit(object, .fn = spec, data = mtcars, raw = TRUE)[[1]]
+	expect_s3_class(m1, "lm")
+	expect_equal(coef(m1), coef(lm(mpg ~ wt + hp, data = mtcars)))
+
+	# The mdl path carries the engine's identity forward
+	m2 <- fit(object, .fn = spec, data = mtcars, raw = FALSE)
+	expect_s3_class(m2, "mdl")
+	expect_equal(unlist(field(m2, "modelCall")), "lm")
+	mt <- model_table(engine = m2)
+	expect_true(mt$fit_status[1])
+
+})
+
+# Failures are soft ----
+
+test_that("one failed model does not sink the fleet", {
+
+	# Two outcomes: one fits, one refers to a missing column
+	object <- fmls(mpg + unicorn ~ .x(wt), pattern = "direct")
+
+	# Raw mode warns and keeps the error in place
+	expect_warning(
+		ml <- fit(object, .fn = lm, data = mtcars, raw = TRUE),
+		regexp = "failed to fit"
+	)
+	expect_length(ml, 2)
+	expect_s3_class(ml[[1]], "lm")
+	expect_s3_class(ml[[2]], "error")
+
+	# The mdl path records the failure with its message
+	m <- fit(object, .fn = lm, data = mtcars, raw = FALSE)
+	expect_length(m, 2)
+	mt <- model_table(mixed_luck = m)
+	expect_equal(mt$fit_status, c(TRUE, FALSE))
+
+	# Failed fits fall out of flattening rather than corrupting it
+	flat <- flatten_models(mt)
+	expect_true(all(flat$outcome == "mpg"))
+
+})
+
+# Subsets ride the plan ----
+
+test_that("subset instructions produce one fit per subset", {
+
+	f <-
+		fmls(mpg ~ .x(wt) + hp) |>
+		subset_data(am == 1, cyl > 4)
+
+	m <- fit(f, .fn = lm, data = mtcars, raw = FALSE)
+	expect_length(m, 2)
+
+	si <- field(m, "summaryInfo")
+	expect_equal(si[[1]]$nobs, sum(mtcars$am == 1))
+	expect_equal(si[[2]]$nobs, sum(mtcars$cyl > 4))
+
+	# Provenance lands in the model table
+	mt <- model_table(subsets = m)
+	expect_equal(mt$subset, c("am == 1", "cyl > 4"))
+
+})
+
+# Mixed models through the random-effects role ----
+
+test_that("random-effect terms fit through lme4", {
+
+	skip_if_not_installed("lme4")
+	skip_if_not_installed("broom.mixed")
+
+	f <- fmls(mpg ~ .x(wt) + .r(cyl))
+	m <- fit(f, .fn = lme4::lmer, data = mtcars, raw = FALSE)
+
+	expect_s3_class(m, "mdl")
+	expect_equal(unlist(field(m, "modelCall")), "lmerMod")
+
+	# Fixed effects flow into the parameter table
+	pe <- field(m, "parameterEstimates")[[1]]
+	expect_true(all(c("(Intercept)", "wt") %in% pe$term))
+
+	mt <- model_table(mixed = m)
+	expect_true(mt$fit_status[1])
+
+})
+
+# Model families keep their own degrees of freedom ----
+
+test_that("degrees of freedom follow each model family's accounting", {
+
+	x <- lm(mpg ~ wt + hp, data = mtcars)
+	m <- mdl(x)
+	expect_equal(
+		field(m, "summaryInfo")[[1]]$degrees_freedom,
+		df.residual(x)
+	)
+
+})

@@ -7,7 +7,6 @@
 \alias{apply_direct_pattern}
 \alias{apply_sequential_pattern}
 \alias{apply_parallel_pattern}
-\alias{apply_rolling_interaction_pattern}
 \title{Apply patterns to formulas}
 \usage{
 apply_pattern(x, pattern)
@@ -19,8 +18,6 @@ apply_direct_pattern(x)
 apply_sequential_pattern(x)
 
 apply_parallel_pattern(x)
-
-apply_rolling_interaction_pattern(x)
 }
 \arguments{
 \item{x}{A \code{tm} object}
@@ -47,8 +44,9 @@ the \code{fmls()} function.
 The family of \verb{apply_*_pattern()} functions that are used to expand \code{fmls}
 by specified patterns. These functions are not intended to be used directly
 but as internal functions. They have been exposed to allow for potential
-user-defined use cases.
+user-defined use cases, and new patterns can be added through
+\code{\link[=register_pattern]{register_pattern()}}.
 }
 \details{
-Currently supported patterns are: fundamental, direct, sequential, parallel.
+Built-in patterns are: fundamental, direct, sequential, parallel.
 }

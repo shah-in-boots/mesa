@@ -7,6 +7,9 @@
 \alias{mdl.lm}
 \alias{mdl.glm}
 \alias{mdl.coxph}
+\alias{mdl.lmerMod}
+\alias{mdl.glmerMod}
+\alias{mdl.model_fit}
 \alias{mdl.default}
 \alias{model}
 \title{Model Prototypes}
@@ -21,6 +24,7 @@ mdl(x = unspecified(), ...)
   data_name,
   strata_variable = NA_character_,
   strata_level = NA_character_,
+  subset_name = NA_character_,
   ...
 )
 
@@ -30,6 +34,7 @@ mdl(x = unspecified(), ...)
   data_name = character(),
   strata_variable = character(),
   strata_level = character(),
+  subset_name = character(),
   ...
 )
 
@@ -39,6 +44,7 @@ mdl(x = unspecified(), ...)
   data_name = character(),
   strata_variable = character(),
   strata_level = character(),
+  subset_name = character(),
   ...
 )
 
@@ -48,8 +54,31 @@ mdl(x = unspecified(), ...)
   data_name = character(),
   strata_variable = character(),
   strata_level = character(),
+  subset_name = character(),
   ...
 )
+
+\method{mdl}{lmerMod}(
+  x = unspecified(),
+  formulas = fmls(),
+  data_name = character(),
+  strata_variable = character(),
+  strata_level = character(),
+  subset_name = character(),
+  ...
+)
+
+\method{mdl}{glmerMod}(
+  x = unspecified(),
+  formulas = fmls(),
+  data_name = character(),
+  strata_variable = character(),
+  strata_level = character(),
+  subset_name = character(),
+  ...
+)
+
+\method{mdl}{model_fit}(x, ...)
 
 \method{mdl}{default}(x, ...)
 
@@ -87,6 +116,9 @@ variable}
 
 \item{strata_level}{Value of the level of the term specified by
 \code{strata_variable}}
+
+\item{subset_name}{Label of the \code{\link[=subset_data]{subset_data()}} instruction the model was
+fit under, if any (e.g. \code{"am == 1"})}
 }
 \value{
 An object of the \code{mdl} class, which is essentially an equal-length

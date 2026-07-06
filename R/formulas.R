@@ -41,6 +41,34 @@
 #' \deqn{y = x2}
 #' \deqn{y = x3}
 #'
+#' New patterns can be registered by name through [register_pattern()].
+#'
+#' # Mediation
+#'
+#' When a term carries the _mediator_ role (`.m()`), the expansion generates
+#' the causal triad used to reason about mediation, alongside the covariates
+#' already requested by the pattern:
+#'
+#' 1. `outcome ~ exposure + mediator + covariates` — the exposure effect with
+#' the pathway through the mediator held open
+#'
+#' 1. `mediator ~ exposure` — the exposure's effect on the mediator itself
+#'
+#' 1. `outcome ~ mediator + exposure` — the mediator's effect on the outcome
+#' in the presence of the exposure
+#'
+#' Comparing the exposure estimate across these formulas is what allows an
+#' epidemiologist to judge how much of the total effect travels through the
+#' mediator (per VanderWeele and Robins).
+#'
+#' # Combining
+#'
+#' Families of formulas combine with [c()] or [vctrs::vec_c()]. The term
+#' tables of each family are merged; when the same term arrives with
+#' conflicting definitions (e.g. a plain predictor in one family and an
+#' exposure in another), the first (left-most) definition wins and a message
+#' reports the resolution.
+#'
 #' @inheritSection tm Roles
 #' @inheritSection tm Pluralized Labeling Arguments
 #'
@@ -87,14 +115,15 @@ fmls <- function(x = unspecified(),
 		x <- tm(x)
 	}
 
-	# Check pattern
+	# Check pattern against the registry (see `register_pattern()`)
 	if (length(pattern) > 1) {
 		pattern <- pattern[1] # Direct
 	}
-	if (!pattern %in% .patterns) {
+	if (!pattern %in% formula_patterns()) {
 		stop("The pattern ",
 				 deparse(pattern),
-				 " is not yet supported.",
+				 " is not registered. Available patterns: ",
+				 paste(formula_patterns(), collapse = ", "),
 				 call. = FALSE)
 	}
 
@@ -138,14 +167,17 @@ fmls <- function(x = unspecified(),
 #' @keywords internal
 #' @noRd
 new_fmls <- function(formulaMatrix = data.frame(),
-										 termTable = data.frame()) {
+										 termTable = data.frame(),
+										 instructions = list()) {
 
 	stopifnot(is.data.frame(formulaMatrix))
 	stopifnot(is.data.frame(termTable))
+	stopifnot(is.list(instructions))
 
 	new_data_frame(
 		x = formulaMatrix,
 		termTable = termTable,
+		instructions = instructions,
 		class = "fmls"
 	)
 
@@ -235,12 +267,19 @@ format.fmls <- function(x, color = TRUE, ...) {
 #' @export
 print.fmls <- function(x, ...) {
 
+	# The deck summary: what is about to be fit, at a glance
+	if (length(x) > 0) {
+		cat(fmls_deck_header(x), sep = "\n")
+	}
+
 	# Colorful printing
 	if (length(x) > 1) {
 		cat(format(x), sep = "\n")
 	} else if (length(x) == 1) {
 		cat(format(x))
 	}
+
+	invisible(x)
 }
 
 #' @export
@@ -277,10 +316,39 @@ fmls_ptype2 <- function(x, y, ..., x_arg = "", y_arg = "") {
 
 	dups <- duplicated(tmTab$term)
 
+	# The first (left-most) definition of a term wins; say so
+	if (any(dups)) {
+		message_term_collision(unique(tmTab$term[dups]))
+	}
+
 	# New terms that will be the key scalar attribute
 	newTmTab <- tmTab[!dups, ]
 
-	new_fmls(newMatrix, termTable = newTmTab)
+	new_fmls(newMatrix,
+					 termTable = newTmTab,
+					 instructions = combine_instructions(x, y))
+}
+
+#' Merge subset instructions when families combine (union by name)
+#' @keywords internal
+#' @noRd
+combine_instructions <- function(x, y) {
+	xInst <- attr(x, "instructions")
+	yInst <- attr(y, "instructions")
+	subsets <- c(
+		if (is.null(xInst)) list() else xInst$subsets,
+		if (is.null(yInst)) list() else yInst$subsets
+	)
+	subsets <- subsets[!duplicated(names(subsets))]
+	if (length(subsets) == 0) {
+		return(list())
+	}
+	list(subsets = subsets)
+}
+
+#' @export
+c.fmls <- function(...) {
+	vec_c(...)
 }
 
 #' @keywords internal
@@ -311,7 +379,9 @@ fmls_cast <- function(x, to, ..., x_arg = "", to_arg = "") {
 			to_arg = to_arg
 		)
 
-	new_fmls(newMatrix, termTable = newTmTab)
+	new_fmls(newMatrix,
+					 termTable = newTmTab,
+					 instructions = combine_instructions(x, to))
 }
 
 #' @export
@@ -523,7 +593,7 @@ formulas_to_terms <- function(x) {
 			FUN = function(.x) {
 				.y <-
 					tmTab[tmTab$term %in% names(.x[which(.x == 1)]) |
-									tmTab$role == "strata", ]
+									tmTab$role %in% c("strata", "random"), ]
 				vec_restore(.y, to = tm())
 		})
 

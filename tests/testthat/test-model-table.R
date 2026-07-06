@@ -34,7 +34,7 @@ test_that("model constructors work for initialization", {
 	# Will only handle first model
 	m <- construct_table_from_models(x)
 	expect_s3_class(m, "mdl_tbl")
-	expect_length(m, 15)
+	expect_length(m, 16)
 	expect_equal(nrow(m), 1) # Only one strata level at a time
 
 })
@@ -62,7 +62,7 @@ test_that("can handle list of models appropriately", {
 	expect_s3_class(z, "mdl_tbl")
 	expect_output(print(z), "<mdl_tbl>")
 	expect_equal(nrow(z), 3)
-	expect_length(z, 15)
+	expect_length(z, 16)
 	expect_length(attr(z, "termTable")$term, 7)
 	expect_length(unique(attr(z, "termTable")$term), 6)
 	expect_length(attr(z, "formulaMatrix"), 6)
@@ -106,7 +106,7 @@ test_that("formulas can be input into a model table", {
 	x <- fmls(f, pattern = "sequential")
 	m <- construct_table_from_formulas(list(x))
 	expect_s3_class(m, "mdl_tbl")
-	expect_length(m, 15)
+	expect_length(m, 16)
 	expect_equal(nrow(m), 3)
 
 })
@@ -158,7 +158,7 @@ test_that("attributes of models will adjust appropriately", {
 		fmls(mpg ~ wt + hp + cyl + .s(am), pattern = "sequential") |>
 		fit(.fn = lm, data = mtcars, raw = FALSE) |>
 		model_table()
-	expect_length(m1, 15)
+	expect_length(m1, 16)
 	expect_equal(nrow(m1), 6)
 	expect_length(attr(m1, "formulaMatrix"), 4)
 	expect_equal(nrow(attr(m1, "termTable")), 5)

@@ -58,3 +58,55 @@ footer:
     right: [built_with, colors]
   components:
     colors: Colorspace from **nightfall** palette
+
+reference:
+- title: "Terms: the atoms"
+  desc: >
+    Individual variables carrying their causal identity — a role, a label,
+    levels, and the other attributes that make a term more than a name.
+  contents:
+  - tm
+  - update.tm
+  - describe
+  - set_data
+  - dplyr_extensions
+- title: "Formulas: composition"
+  desc: >
+    Terms join and merge into families of related formulas, expanded by
+    patterns and played with through fluent verbs.
+  contents:
+  - fmls
+  - fluent_verbs
+  - patterns
+  - register_pattern
+  - vocabulary
+- title: "Models: formulas meet data"
+  desc: >
+    A plan is drawn up (formula by stratum by subset), executed against a
+    fitting approach, and wrapped with its causal context intact.
+  contents:
+  - fit.fmls
+  - fit_plan
+  - models
+  - reexports
+- title: "Collections: the notebook of models"
+  desc: >
+    Many models stored, recalled, and compared in one table.
+  contents:
+  - mdl_tbl
+  - model_table_helpers
+  - estimate_interaction
+- title: "Tables: the mesa"
+  desc: >
+    Laying families of models out for papers, built on the `{gt}` package.
+  contents:
+  - tbls
+  - tbl_beta
+  - tbl_hazard
+  - tbl_forest
+  - theme_gt_compact
+- title: "Helpers"
+  contents:
+  - formula_helpers
+  - labeled_formulas_to_named_list
+  - data_helpers

@@ -54,7 +54,54 @@ test_that("fmls-fmls can be combined", {
 })
 
 test_that("fmls and formulas can be interchanged", {
-	skip() # not yet implemented, future TODO
+
+	# Forward: fmls to a list of base formulas
+	f <- fmls(mpg ~ wt + hp + .s(am))
+	fl <- formula(f)
+	expect_type(fl, "list")
+	expect_s3_class(fl[[1]], "formula")
+	expect_equal(deparse1(fl[[1]]), "mpg ~ wt + hp")
+
+	# Backward: base formulas to fmls
+	f2 <- fmls(fl[[1]])
+	expect_s3_class(f2, "fmls")
+	expect_equal(deparse1(formula(f2)[[1]]), "mpg ~ wt + hp")
+
+	# Casting also round-trips
+	f3 <- vec_cast(mpg ~ wt + hp, fmls())
+	expect_s3_class(f3, "fmls")
+	expect_equal(as.character(f3), "mpg ~ wt + hp")
+
+	# Expanded families give one formula per row
+	f4 <- fmls(mpg ~ wt + hp, pattern = "parallel")
+	fl4 <- formula(f4)
+	expect_length(fl4, 2)
+	expect_equal(
+		sort(sapply(fl4, deparse1)),
+		c("mpg ~ hp", "mpg ~ wt")
+	)
+
+})
+
+test_that("fmls combine through c() with collision messaging", {
+
+	x <- fmls(output ~ input + modifier)
+	y <- fmls(output ~ .x(input) + modifier)
+
+	# Conflicting definitions of `input` resolve to the left-most, with a message
+	expect_message(f <- c(x, y), regexp = "conflicting definitions")
+	expect_s3_class(f, "fmls")
+	expect_equal(nrow(f), 2)
+	expect_false("exposure" %in% vec_data(key_terms(f))$role)
+
+	# Flipped order keeps the richer definition
+	expect_message(f <- c(y, x), regexp = "conflicting definitions")
+	expect_true("exposure" %in% vec_data(key_terms(f))$role)
+
+	# No conflict, no message
+	expect_no_message(f <- c(fmls(a ~ b), fmls(x ~ y)))
+	expect_equal(nrow(f), 2)
+
 })
 
 test_that("tm can convert to fmls objects", {

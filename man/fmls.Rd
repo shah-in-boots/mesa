@@ -73,22 +73,52 @@ covariates...
 \deqn{y = x1}
 \deqn{y = x2}
 \deqn{y = x3}
+
+New patterns can be registered by name through \code{\link[=register_pattern]{register_pattern()}}.
+}
+
+\section{Mediation}{
+When a term carries the \emph{mediator} role (\code{.m()}), the expansion generates
+the causal triad used to reason about mediation, alongside the covariates
+already requested by the pattern:
+\enumerate{
+\item \code{outcome ~ exposure + mediator + covariates} — the exposure effect with
+the pathway through the mediator held open
+\item \code{mediator ~ exposure} — the exposure's effect on the mediator itself
+\item \code{outcome ~ mediator + exposure} — the mediator's effect on the outcome
+in the presence of the exposure
+}
+
+Comparing the exposure estimate across these formulas is what allows an
+epidemiologist to judge how much of the total effect travels through the
+mediator (per VanderWeele and Robins).
+}
+
+\section{Combining}{
+Families of formulas combine with \code{\link[=c]{c()}} or \code{\link[vctrs:vec_c]{vctrs::vec_c()}}. The term
+tables of each family are merged; when the same term arrives with
+conflicting definitions (e.g. a plain predictor in one family and an
+exposure in another), the first (left-most) definition wins and a message
+reports the resolution.
 }
 
 \section{Roles}{
 Specific roles the variable plays within the formula. These are of particular
 importance, as they serve as special terms that can effect how a formula is
-interpreted.\tabular{lll}{
-   Role \tab Shortcut \tab Description \cr
-   outcome \tab \code{.o(...)} \tab \strong{outcome} ~ exposure \cr
-   exposure \tab \code{.x(...)} \tab outcome ~ \strong{exposure} \cr
-   predictor \tab \code{.p(...)} \tab outcome ~ exposure + \strong{predictor} \cr
-   confounder \tab \code{.c(...)} \tab outcome + exposure ~ \strong{confounder} \cr
-   mediator \tab \code{.m(...)} \tab outcome \strong{mediator} exposure \cr
-   interaction \tab \code{.i(...)} \tab outcome ~ exposure * \strong{interaction} \cr
-   strata \tab \code{.s(...)} \tab outcome ~ exposure / \strong{strata} \cr
-   group \tab \code{.g(...)} \tab outcome ~ exposure + \strong{group} \cr
-   \emph{unknown} \tab \code{-} \tab not yet assigned \cr
+interpreted. Each role has a causal definition, and each role changes
+behavior downstream — in how formulas expand (\code{\link[=fmls]{fmls()}}), how models are fit
+(\code{\link[=fit]{fit()}}), and how results are displayed.\tabular{llll}{
+   Role \tab Shortcut \tab Definition \tab Downstream behavior \cr
+   outcome \tab \code{.o(...)} \tab the dependent variable; the effect being studied \tab anchors the LHS; multiple outcomes multiply the formula family \cr
+   exposure \tab \code{.x(...)} \tab the variable whose causal effect is under study \tab anchored in every expanded formula; pairs with interactions \cr
+   predictor \tab \code{.p(...)} \tab a covariate with no asserted causal position \tab expanded by the chosen pattern (adjusted for, or rotated through) \cr
+   confounder \tab \code{.c(...)} \tab a common cause of exposure and outcome \tab treated as a covariate; flagged for adjustment displays \cr
+   mediator \tab \code{.m(...)} \tab on the causal pathway between exposure and outcome \tab triggers the mediation triad of formulas (see \code{\link[=fmls]{fmls()}}) \cr
+   interaction \tab \code{.i(...)} \tab a candidate effect modifier of the exposure \tab crossed with each exposure (\code{x:i}), grouped so the pair travels together \cr
+   strata \tab \code{.s(...)} \tab a variable defining subpopulations for separate fits \tab not a covariate; \code{\link[=fit]{fit()}} fits one model per stratum level \cr
+   random \tab \code{.r(...)} \tab a grouping variable for random (hierarchical) effects \tab rendered as \verb{(1 \| term)} for mixed-model engines; excluded from covariate expansion \cr
+   group \tab \code{.g(...)} \tab not a role, but a tier marker for terms that travel together \tab grouped terms enter and leave expanded formulas as one block \cr
+   \emph{unknown} \tab \code{-} \tab not yet assigned \tab treated as a predictor at expansion \cr
 }
 
 
@@ -98,11 +128,9 @@ signify that \code{x1} has the specific role of an \emph{exposure}.
 
 Grouped variables are slightly different in that they are placed together in
 a hierarchy or tier. To indicate the group and the tier, the shortcut can
-have an \code{integer} following the \code{.g}. If no number is given, then it is
-assumed they are all on the same tier. Ex: \code{y ~ x1 + .g1(x2) + .g1(x3)}
-
-\strong{Warning}: Only a single shortcut can be applied to a variable within a
-formula directly.
+have an \code{integer} following the \code{.g} (multi-digit tiers such as \code{.g10} are
+allowed). If no number is given, then it is assumed they are all on the same
+tier (tier zero). Ex: \code{y ~ x1 + .g1(x2) + .g1(x3)}
 }
 
 \section{Pluralized Labeling Arguments}{

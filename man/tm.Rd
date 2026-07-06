@@ -22,6 +22,7 @@ tm(x = unspecified(), ...)
   distribution = character(),
   description = character(),
   transformation = character(),
+  level = list(),
   ...
 )
 
@@ -50,31 +51,18 @@ is_tm(x)
 
 \item{...}{Arguments to be passed to or from other methods}
 
-\item{role}{Specific roles the variable plays within the formula. These are
-of particular importance, as they serve as special terms that can effect
-how a formula is interpreted. Please see the \emph{Roles} section below for
-further details. The options for roles are as below:
-\itemize{
-\item outcome
-\item exposure
-\item predictor
-\item confounder
-\item mediator
-\item interaction
-\item strata
-\item group
-\item unknown
-}}
+\item{role}{Specific roles the variable plays within the formula. Please see
+the \emph{Roles} section for the taxonomy: outcome, exposure, predictor,
+confounder, mediator, interaction, strata, random, unknown.}
 
 \item{side}{Which side of a formula should the term be on. Options are
 \code{c("left", "right", "meta", "unknown")}. The \emph{meta} option refers to a term
-that may apply globally to other terms.}
+that may apply globally to other terms (e.g. strata, random effects).}
 
 \item{label}{Display-quality label describing the variable}
 
 \item{group}{Grouping variable name for modeling or placing terms together.
-An integer value is given to identify which group the term will be in. The
-hierarchy will be \code{1} to \code{n} incrementally.}
+An integer value is given to identify which group the term will be in.}
 
 \item{type}{Type of variable, either categorical (qualitative) or
 continuous (quantitative)}
@@ -86,12 +74,18 @@ subcategorized, e.g. ordinal, continuous, dichotomous, etc}
 the tm, potentially part of a data dictionary}
 
 \item{transformation}{Modification of the term to be applied when
-combining with data}
+combining with data. See \code{\link[=term_transformations]{term_transformations()}} for the recognized
+vocabulary.}
+
+\item{level}{The observed levels of a categorical term, given as a
+\code{character} vector (or a \code{list} of such vectors when creating several
+terms at once). Usually stamped on by \code{\link[=set_data]{set_data()}} once a term has met a
+dataset.}
 }
 \value{
 A \code{tm} object, which is a series of individual terms with
 corresponding attributes, including the role, formula side, label,
-grouping, and other related features.
+grouping, levels, and other related features.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -106,17 +100,20 @@ it using additional information that is more informative for causal modeling.
 \section{Roles}{
 Specific roles the variable plays within the formula. These are of particular
 importance, as they serve as special terms that can effect how a formula is
-interpreted.\tabular{lll}{
-   Role \tab Shortcut \tab Description \cr
-   outcome \tab \code{.o(...)} \tab \strong{outcome} ~ exposure \cr
-   exposure \tab \code{.x(...)} \tab outcome ~ \strong{exposure} \cr
-   predictor \tab \code{.p(...)} \tab outcome ~ exposure + \strong{predictor} \cr
-   confounder \tab \code{.c(...)} \tab outcome + exposure ~ \strong{confounder} \cr
-   mediator \tab \code{.m(...)} \tab outcome \strong{mediator} exposure \cr
-   interaction \tab \code{.i(...)} \tab outcome ~ exposure * \strong{interaction} \cr
-   strata \tab \code{.s(...)} \tab outcome ~ exposure / \strong{strata} \cr
-   group \tab \code{.g(...)} \tab outcome ~ exposure + \strong{group} \cr
-   \emph{unknown} \tab \code{-} \tab not yet assigned \cr
+interpreted. Each role has a causal definition, and each role changes
+behavior downstream — in how formulas expand (\code{\link[=fmls]{fmls()}}), how models are fit
+(\code{\link[=fit]{fit()}}), and how results are displayed.\tabular{llll}{
+   Role \tab Shortcut \tab Definition \tab Downstream behavior \cr
+   outcome \tab \code{.o(...)} \tab the dependent variable; the effect being studied \tab anchors the LHS; multiple outcomes multiply the formula family \cr
+   exposure \tab \code{.x(...)} \tab the variable whose causal effect is under study \tab anchored in every expanded formula; pairs with interactions \cr
+   predictor \tab \code{.p(...)} \tab a covariate with no asserted causal position \tab expanded by the chosen pattern (adjusted for, or rotated through) \cr
+   confounder \tab \code{.c(...)} \tab a common cause of exposure and outcome \tab treated as a covariate; flagged for adjustment displays \cr
+   mediator \tab \code{.m(...)} \tab on the causal pathway between exposure and outcome \tab triggers the mediation triad of formulas (see \code{\link[=fmls]{fmls()}}) \cr
+   interaction \tab \code{.i(...)} \tab a candidate effect modifier of the exposure \tab crossed with each exposure (\code{x:i}), grouped so the pair travels together \cr
+   strata \tab \code{.s(...)} \tab a variable defining subpopulations for separate fits \tab not a covariate; \code{\link[=fit]{fit()}} fits one model per stratum level \cr
+   random \tab \code{.r(...)} \tab a grouping variable for random (hierarchical) effects \tab rendered as \verb{(1 \| term)} for mixed-model engines; excluded from covariate expansion \cr
+   group \tab \code{.g(...)} \tab not a role, but a tier marker for terms that travel together \tab grouped terms enter and leave expanded formulas as one block \cr
+   \emph{unknown} \tab \code{-} \tab not yet assigned \tab treated as a predictor at expansion \cr
 }
 
 
@@ -126,11 +123,17 @@ signify that \code{x1} has the specific role of an \emph{exposure}.
 
 Grouped variables are slightly different in that they are placed together in
 a hierarchy or tier. To indicate the group and the tier, the shortcut can
-have an \code{integer} following the \code{.g}. If no number is given, then it is
-assumed they are all on the same tier. Ex: \code{y ~ x1 + .g1(x2) + .g1(x3)}
+have an \code{integer} following the \code{.g} (multi-digit tiers such as \code{.g10} are
+allowed). If no number is given, then it is assumed they are all on the same
+tier (tier zero). Ex: \code{y ~ x1 + .g1(x2) + .g1(x3)}
+}
 
-\strong{Warning}: Only a single shortcut can be applied to a variable within a
-formula directly.
+\section{Transformations}{
+A term wrapped in a recognized transformation (see \code{\link[=term_transformations]{term_transformations()}})
+keeps its full call as its name — \code{log(x)} remains \code{log(x)} so formulas
+rebuild losslessly — and additionally records the wrapper in its
+\code{transformation} field for downstream interpretation. Unrecognized calls
+(e.g. \code{survival::Surv(time, status)}) are carried as opaque term names.
 }
 
 \section{Pluralized Labeling Arguments}{

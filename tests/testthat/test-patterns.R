@@ -33,9 +33,42 @@ test_that("basic patterns can be applied", {
 
 })
 
-test_that("interaction terms can be rolled through a formula", {
+test_that("grouped covariates stay together in the parallel pattern", {
 
-	x <- tm(wicked ~ .x(witch) + west + .i(green) + magic + hat)
-	fmls(x, pattern = "parallel")
+	# Regression: tiers other than zero used to vanish (group == 0L bug)
+	x <- tm(y ~ .x(ex) + .g1(a) + .g1(b) + .g2(c) + .g2(d))
+	tbl <- apply_parallel_pattern(x)
+	expect_equal(nrow(tbl), 2)
+	expect_named(tbl, c("outcome", "exposure", "covariate_1", "covariate_2"))
+
+	f <- fmls(x, pattern = "parallel")
+	expect_equal(nrow(f), 2)
+	expect_setequal(
+		unname(as.character(f)),
+		c("y ~ ex + a + b", "y ~ ex + c + d")
+	)
+
+})
+
+test_that("patterns are an open registry", {
+
+	# Built-ins are registered
+	expect_true(all(c("direct", "sequential", "parallel", "fundamental") %in%
+										formula_patterns()))
+
+	# Unknown patterns point at the registry
+	expect_error(fmls(y ~ x, pattern = "spiral"), regexp = "not registered")
+
+	# User-defined patterns become available to `fmls()` by name
+	register_pattern("unadjusted", function(x) {
+		tmTab <- vec_proxy(x)
+		tidyr::expand_grid(
+			outcome = tmTab$term[tmTab$role == "outcome"],
+			exposure = tmTab$term[tmTab$role == "exposure"]
+		)
+	})
+	f <- fmls(y ~ .x(ex) + a + b, pattern = "unadjusted")
+	expect_equal(nrow(f), 1)
+	expect_equal(unname(as.character(f)), "y ~ ex")
 
 })

@@ -1,3 +1,53 @@
+# Pattern registry -------------------------------------------------------------
+
+# Patterns are a small open grammar: each is a function `tm -> tbl_df`
+# conforming to the contract documented in `apply_pattern()`. The registry
+# is the authoritative lookup, so new patterns can be added without touching
+# `fmls()` itself.
+.pattern_registry <- new.env(parent = emptyenv())
+
+#' Register a formula expansion pattern
+#'
+#' @description
+#'
+#' `r lifecycle::badge('experimental')`
+#'
+#' Patterns are the rules by which a set of terms expands into a family of
+#' formulas. Each pattern is a function that takes a `tm` vector and returns a
+#' `tbl_df` precursor table (see [apply_pattern()] for the contract). The
+#' built-in patterns (`r paste(.patterns, collapse = ", ")`) are registered
+#' this way; user-defined patterns can join them and become available to
+#' [fmls()] by name.
+#'
+#' @param name A single string naming the pattern
+#'
+#' @param fn A function accepting a `tm` vector and returning a `tbl_df` that
+#'   follows the pattern contract
+#'
+#' @return The pattern name, invisibly
+#'
+#' @examples
+#' # A pattern that ignores covariates entirely
+#' unadjusted <- function(x) {
+#'   apply_fundamental_pattern(x)
+#' }
+#' register_pattern("unadjusted", unadjusted)
+#' "unadjusted" %in% formula_patterns()
+#'
+#' @export
+register_pattern <- function(name, fn) {
+	checkmate::assert_string(name)
+	checkmate::assert_function(fn)
+	assign(name, fn, envir = .pattern_registry)
+	invisible(name)
+}
+
+#' @rdname vocabulary
+#' @export
+formula_patterns <- function() {
+	sort(ls(.pattern_registry))
+}
+
 # Basic patterns ---------------------------------------------------------------
 
 #' Apply patterns to formulas
@@ -5,9 +55,10 @@
 #' The family of `apply_*_pattern()` functions that are used to expand `fmls`
 #' by specified patterns. These functions are not intended to be used directly
 #' but as internal functions. They have been exposed to allow for potential
-#' user-defined use cases.
+#' user-defined use cases, and new patterns can be added through
+#' [register_pattern()].
 #'
-#' Currently supported patterns are: `r paste(.patterns)`.
+#' Built-in patterns are: `r paste(.patterns, collapse = ", ")`.
 #'
 #' @return Returns a `tbl_df` object that has special column names and rows.
 #'   Each row is essentially a precursor to a new formula.
@@ -34,24 +85,20 @@ apply_pattern <- function(x, pattern) {
 	# Only accept objects as `tm` objects
 	validate_class(x, "tm")
 
-	# Send to appropriate function
-	if (pattern == "direct") {
-		tbl <- apply_direct_pattern(x)
-	} else if (pattern == "sequential") {
-		tbl <- apply_sequential_pattern(x)
-	} else if (pattern == "parallel") {
-		tbl <- apply_parallel_pattern(x)
-	} else if (pattern == "fundamental") {
-		tbl <- apply_fundamental_pattern(x)
-	} else if (pattern == "rolling_interaction") {
-		tbl <- apply_rolling_interaction_pattern(x)
-	} else {
+	# Look the pattern up in the registry
+	if (!pattern %in% ls(.pattern_registry)) {
 		stop(
 			"Pattern '",
 			pattern,
-			"' is not yet supported. If this was not a type, consider filing an issue or pull request."
+			"' is not registered. Available patterns: ",
+			paste(formula_patterns(), collapse = ", "),
+			". See `register_pattern()` to add one.",
+			call. = FALSE
 		)
 	}
+
+	patternFn <- get(pattern, envir = .pattern_registry)
+	patternFn(x)
 }
 
 #' @rdname patterns
@@ -269,7 +316,7 @@ apply_parallel_pattern <- function(x) {
 	groupedCov <- list()
 	for (g in groupLevels) {
 	  groupedCov[[as.character(g)]] <-
-	    with(tmTab, term[group == 0L & role != "exposure" & !is.na(group)])
+	    with(tmTab, term[group == g & role != "exposure" & !is.na(group)])
 	}
 
 	# Ungrouped variables
@@ -300,43 +347,10 @@ apply_parallel_pattern <- function(x) {
 	tbl
 }
 
-# Complex patterns -------------------------------------------------------------
+# Registration of built-in patterns ---------------------------------------------
 
-
-#' @rdname patterns
-#' @export
-apply_rolling_interaction_pattern <- function(x) {
-
-	# Goal is to have a single formula and apply interaction through
-	# This would create multiple formulas, one for each interaction term
-	# Cannot know the type of variable for this to work
-	# Must occur within fmls function itself
-
-	# Term table
-	tmTab <- vec_proxy(x)
-
-	# Handle roles
-	out <- tmTab$term[tmTab$role == "outcome"]
-	exp <- tmTab$term[tmTab$role == "exposure"]
-	prd <- tmTab$term[tmTab$role == "predictor"]
-	con <- tmTab$term[tmTab$role == "confounder"]
-	med <- tmTab$term[tmTab$role == "mediator"]
-	int <- tmTab$term[tmTab$role == "interaction"]
-	sta <- tmTab$term[tmTab$role == "strata"]
-
-	# Outcomes and exposures should be set as a "key pair"
-	if (length(out) > 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(outcome = out, exposure = exp)
-	} else if (length(out) > 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid(outcome = out)
-	} else if (length(out) == 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(exposure = exp)
-	} else if (length(out) == 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid()
-	}
-
-	# Crucially, the interaction term marks WHEN in the formula to apply the roll
-	# This means that every term BEFORE the interaction term will be maintained
-
-}
+register_pattern("fundamental", apply_fundamental_pattern)
+register_pattern("direct", apply_direct_pattern)
+register_pattern("sequential", apply_sequential_pattern)
+register_pattern("parallel", apply_parallel_pattern)
 

@@ -157,13 +157,17 @@ construct_table_from_models <- function(x, ...) {
 	nm <- ifelse(is.null(names(x)), NA, ifelse(names(x) == "", NA, names(x)))
 	n <- length(obj)
 	rid <- sapply(obj, rlang::hash)
-	fits <- rep(TRUE, n)
 
 	# Components of the model fields
 	mc <- unlist(field(obj, "modelCall"))
 	ma <- field(obj, "modelArgs")
 	pe <- field(obj, "parameterEstimates")
 	si <- field(obj, "summaryInfo")
+
+	# A model that recorded an error did not fit
+	fits <- sapply(si, function(.x) {
+		is.null(.x$error) || all(is.na(.x$error))
+	})
 
 	# Get terms and formulas
 	mf <- field(obj, "modelFormula")
@@ -223,7 +227,7 @@ construct_table_from_models <- function(x, ...) {
 		}) |>
 		as.character()
 
-	# Get all data names and strata variables back
+	# Get all data names, strata variables, and subsets back
 	da <- field(obj, "dataArgs")
 	did <- sapply(da, function(.x) {
 		.x$dataName
@@ -233,6 +237,13 @@ construct_table_from_models <- function(x, ...) {
 	})
 	slvl <- sapply(da, function(.x) {
 		.x$strataLevel
+	})
+	sub <- sapply(da, function(.x) {
+		if (is.null(.x$subsetName) || length(.x$subsetName) == 0) {
+			NA_character_
+		} else {
+			as.character(.x$subsetName)
+		}
 	})
 
 	# Initialize a new list
@@ -249,6 +260,7 @@ construct_table_from_models <- function(x, ...) {
 		interaction = int,
 		strata = sta,
 		level = slvl,
+		subset = sub,
 		model_parameters = pe,
 		model_summary = si,
 		fit_status = fits
@@ -350,6 +362,7 @@ construct_table_from_formulas <- function(x, ...) {
 		interaction = int,
 		strata = sta,
 		level = NA,
+		subset = NA,
 		model_parameters = NA,
 		model_summary = NA,
 		fit_status = fits
@@ -727,6 +740,7 @@ flatten_models <- function(x, exponentiate = FALSE, which = NULL, ...) {
 			"interaction",
 			"strata",
 			"level",
+			"subset",
 			"model_parameters",
 			"model_summary"
 		))) |>

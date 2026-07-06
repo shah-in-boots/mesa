@@ -118,13 +118,17 @@ labeled_formulas_to_named_list <- function(x) {
 		y <- list()
 	} else if (inherits(x, "formula")) { # If a single formula
 		nm <- lhs(x)
-		val <- rhs(x)
+		val <- labeled_formula_value(x)
 		# If unnamed, then give it the same value as the name
 		if (length(nm) == 0) {
-			nm <- val
+			nm <- as.character(val)[1]
 		}
-		names(val) <- nm
-		y <- as.list(val)
+		if (length(val) > 1) {
+			y <- stats::setNames(list(val), nm)
+		} else {
+			names(val) <- nm
+			y <- as.list(val)
+		}
 	} else if (inherits(x, "list")) { # If a list that contains formulas
 		# Confirm each item is formula
 		stopifnot("If a list is provided, each element must be a `formula`"
@@ -132,10 +136,13 @@ labeled_formulas_to_named_list <- function(x) {
 
 		y <- sapply(x, function(.x) {
 			nm <- lhs(.x)
-			val <- rhs(.x)
+			val <- labeled_formula_value(.x)
 			# If unnamed, then give it the same value as the name
 			if (length(nm) == 0) {
-				nm <- val
+				nm <- as.character(val)[1]
+			}
+			if (length(val) > 1) {
+				return(stats::setNames(list(val), nm))
 			}
 			if (grepl("^[[:digit:]]$", val)) {
 				val <- as.integer(val)
@@ -152,5 +159,22 @@ labeled_formulas_to_named_list <- function(x) {
 
 	# Return
 	y
+}
+
+#' Extract the value a labeling formula assigns
+#'
+#' Vector values written as calls, e.g. `am ~ c("Manual", "Automatic")`, are
+#' evaluated in the formula's environment; anything else falls back to the
+#' deparsed right-hand side.
+#'
+#' @keywords internal
+#' @noRd
+labeled_formula_value <- function(x) {
+	rhsExpr <- x[[length(x)]]
+	if (is.call(rhsExpr) && identical(rhsExpr[[1]], as.name("c"))) {
+		eval(rhsExpr, envir = environment(x))
+	} else {
+		rhs(x)
+	}
 }
 

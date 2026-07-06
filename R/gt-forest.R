@@ -128,10 +128,13 @@ tbl_interaction_forest <- function(object,
 	lvl <- labeled_formulas_to_named_list(level_labels)
 	lvl_nms <- names(lvl)
 	lvl_lab <-
-		lvl |>
-		lapply(str2lang) |>
-		lapply(as.character) |>
-		lapply(utils::tail, -1)
+		lapply(lvl, function(.x) {
+			if (is.character(.x) && length(.x) > 1) {
+				.x
+			} else {
+				utils::tail(as.character(str2lang(.x)), -1)
+			}
+		})
 
 	# Table ----
 

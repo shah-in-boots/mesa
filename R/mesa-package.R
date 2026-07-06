@@ -8,6 +8,8 @@
 #' Internal vctrs methods
 #'
 #' @import vctrs
+#' @importFrom lifecycle deprecated
+#' @importFrom methods setOldClass
 #' @keywords internal
 #' @name mesa-vctrs
 NULL

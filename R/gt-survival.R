@@ -41,6 +41,9 @@ tbl_dichotomous_hazard <- function(object,
 	# 	Ensure correct object type
 	# 	Ensure only one model family is present
 	checkmate::assert_class(object, 'mdl_tbl')
+	if (!requireNamespace('survival', quietly = TRUE)) {
+		stop('The {survival} package is required for hazard tables. Please install it.', call. = FALSE)
+	}
 	if (length(unique(object$name)) > 1) {
 		stop('Cannot combine models from different datasets or regressions into a table safely.')
 	}
@@ -333,6 +336,9 @@ tbl_categorical_hazard <- function(object,
 	# Ensure correct object type
 	# Ensure only one model family is present
 	checkmate::assert_class(object, 'mdl_tbl')
+	if (!requireNamespace('survival', quietly = TRUE)) {
+		stop('The {survival} package is required for hazard tables. Please install it.', call. = FALSE)
+	}
 	if (length(unique(object$name)) > 1) {
 		stop('Cannot combine models from different datasets or regressions into a table safely.')
 	}
