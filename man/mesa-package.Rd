@@ -2,7 +2,6 @@
 % Please edit documentation in R/mesa-package.R
 \docType{package}
 \name{mesa-package}
-\alias{mesa}
 \alias{mesa-package}
 \title{mesa package}
 \description{
