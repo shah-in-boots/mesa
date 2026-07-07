@@ -179,6 +179,7 @@ mdl.lm <- function(x = unspecified(),
 
 	si$degrees_freedom <- model_degrees_freedom(x)
 	si$var_cov <- stats::vcov(x)
+	si$model_link <- model_link_function(x)
 
 	# Creation
 	new_model(
@@ -273,6 +274,7 @@ mdl.lmerMod <- function(x = unspecified(),
 	names(si) <- gsub("\\.", "_", names(si))
 	si$degrees_freedom <- model_degrees_freedom(x)
 	si$var_cov <- tryCatch(as.matrix(stats::vcov(x)), error = function(e) NA)
+	si$model_link <- model_link_function(x)
 
 	# Creation
 	new_model(
@@ -312,6 +314,22 @@ mdl.default <- function(x, ...) {
 			 "` object.",
 			 call. = FALSE
 	)
+}
+
+#' The link function a model's estimates live on, when it declares one
+#' (e.g. "logit" for a binomial `glm`); lets [flatten_models()] decide
+#' whether exponentiation gives a meaningful ratio
+#' @keywords internal
+#' @noRd
+model_link_function <- function(x) {
+	tryCatch({
+		link <- stats::family(x)$link
+		if (is.character(link) && length(link) == 1) {
+			link
+		} else {
+			NA_character_
+		}
+	}, error = function(e) NA_character_)
 }
 
 #' Degrees of freedom by each model family's own accounting

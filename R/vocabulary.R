@@ -56,18 +56,46 @@
 	'glmer'
 )
 
-# Role-to-color mapping for terminal printing (see `format.tm()`)
-.role_colors <- c(
-	'outcome' = 'yellow',
-	'exposure' = 'blue',
-	'predictor' = 'br_black',
-	'mediator' = 'cyan',
-	'confounder' = 'green',
-	'strata' = 'br_white',
-	'interaction' = 'br_blue',
-	'random' = 'magenta',
-	'unknown' = 'black'
+# Role-to-ANSI style map for terminal printing (see `format.tm()`)
+.role_color_styles <- c(
+	"outcome" = "col_yellow",
+	"exposure" = "col_blue",
+	"predictor" = "col_grey",
+	"mediator" = "col_cyan",
+	"confounder" = "col_green",
+	"strata" = "col_magenta",
+	"interaction" = "col_br_magenta",
+	"random" = "col_br_blue",
+	"unknown" = "col_silver"
 )
+
+#' Color term labels by role with cli's named ANSI colors
+#' @keywords internal
+#' @noRd
+mesa_color_roles <- function(text,
+														 role,
+														 color = getOption("mesa.color", TRUE)) {
+	if (!isTRUE(color) || !has_cli()) {
+		return(text)
+	}
+
+	numColors <- getExportedValue("cli", "num_ansi_colors")()
+	if (numColors <= 1) {
+		return(text)
+	}
+
+	styles <- .role_color_styles[as.character(role)]
+	styles[is.na(styles)] <- .role_color_styles[["unknown"]]
+	styles <- unname(styles)
+
+	out <- text
+	for (style in unique(styles)) {
+		idx <- styles == style
+		out[idx] <- getExportedValue("cli", style)(out[idx])
+	}
+
+	out
+}
 
 #' The `mesa` vocabulary
 #'

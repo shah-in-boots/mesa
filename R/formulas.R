@@ -71,6 +71,7 @@
 #'
 #' @inheritSection tm Roles
 #' @inheritSection tm Pluralized Labeling Arguments
+#' @inheritSection tm Printing colors
 #'
 #' @param x Objects of the following types can be used as inputs
 #'
@@ -216,7 +217,9 @@ key_terms <- function(x) {
 }
 
 #' @export
-format.fmls <- function(x, color = TRUE, ...) {
+format.fmls <- function(x,
+												color = getOption("mesa.color", TRUE),
+												...) {
 
 	# Break into matrix and key
 	fmMat <- vec_data(x)
@@ -233,25 +236,25 @@ format.fmls <- function(x, color = TRUE, ...) {
 					# Handle mediation formula
 					.l <-
 						vec_restore(.y[.y$role == "mediator", ], to = tm()) |>
-						format() |>
+						format(color = color) |>
 						paste0(collapse = " + ")
 
 					.r <-
 						vec_restore(.y[.y$side == "right" &
 													 	.y$role != "mediator", ], to = tm()) |>
-						format() |>
+						format(color = color) |>
 						paste0(collapse = " + ")
 
 					.f <- paste(.l, sep = " ~ ", .r)
 				} else {
 					.l <-
 						vec_restore(.y[.y$side == "left", ], to = tm()) |>
-						format() |>
+						format(color = color) |>
 						paste0(collapse = " + ")
 
 					.r <-
 						vec_restore(.y[.y$side == "right", ], to = tm()) |>
-						format() |>
+						format(color = color) |>
 						paste0(collapse = " + ")
 
 					.f <- paste(.l, sep = " ~ ", .r)
@@ -265,7 +268,9 @@ format.fmls <- function(x, color = TRUE, ...) {
 }
 
 #' @export
-print.fmls <- function(x, ...) {
+print.fmls <- function(x,
+											 color = getOption("mesa.color", TRUE),
+											 ...) {
 
 	# The deck summary: what is about to be fit, at a glance
 	if (length(x) > 0) {
@@ -274,9 +279,9 @@ print.fmls <- function(x, ...) {
 
 	# Colorful printing
 	if (length(x) > 1) {
-		cat(format(x), sep = "\n")
+		cat(format(x, color = color), sep = "\n")
 	} else if (length(x) == 1) {
-		cat(format(x))
+		cat(format(x, color = color))
 	}
 
 	invisible(x)
@@ -601,4 +606,3 @@ formulas_to_terms <- function(x) {
 	tms
 
 }
-

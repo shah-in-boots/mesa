@@ -2,11 +2,14 @@
 % Please edit documentation in R/model-table.R
 \name{df_reconstruct}
 \alias{df_reconstruct}
-\title{If objects are model tables, attributes are carried over to subset object}
+\title{Rebuild the scalar attributes of a model table around the rows of \code{x}}
 \usage{
 df_reconstruct(x, to)
 }
 \description{
-If objects are model tables, attributes are carried over to subset object
+The formula matrix keeps only \code{x}'s rows (in \code{x}'s order), the term table
+keeps only terms those rows still use in the roles they still hold, and
+the data list keeps datasets those rows reference (plus any dataset that
+was attached deliberately without being referenced).
 }
 \keyword{internal}

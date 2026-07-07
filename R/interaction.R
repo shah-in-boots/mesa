@@ -90,7 +90,7 @@ estimate_interaction <- function(object,
   # Get the model(s) and corresponding data
   mod <-
     object |>
-    flatten_models() |>
+    flatten_models(exponentiate = FALSE) |>
     dplyr::select(dplyr::any_of(c("model_call", "number", "outcome", "exposure", "interaction", "term", "estimate", "conf_low", "conf_high", "p_value", "nobs", "degrees_freedom", "var_cov")))
 
   # Beta coefficients are based on the model type

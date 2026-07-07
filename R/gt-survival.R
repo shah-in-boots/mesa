@@ -66,7 +66,7 @@ tbl_dichotomous_hazard <- function(object,
 	obj <-
 		object |>
 		dplyr::filter(grepl(paste0(out_nms, collapse = '|'), outcome)) |>
-		flatten_models() |>
+		flatten_models(exponentiate = FALSE) |>
 		dplyr::filter(grepl(paste0(tms_nms, collapse = '|'), term)) |>
 		dplyr::select(number, outcome, term, estimate, conf_low, conf_high, p_value)
 
@@ -361,7 +361,7 @@ tbl_categorical_hazard <- function(object,
 	obj <-
 		object |>
 		dplyr::filter(grepl(paste0(out_nms, collapse = '|'), outcome)) |>
-		flatten_models() |>
+		flatten_models(exponentiate = FALSE) |>
 		dplyr::filter(grepl(paste0(tms_nms, collapse = '|'), term)) |>
 		dplyr::select(number, outcome, term, estimate, conf_low, conf_high, p_value)
 

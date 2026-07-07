@@ -67,6 +67,12 @@
 #' Further implementation details can be seen in the implementation of
 #' [labeled_formulas_to_named_list()].
 #'
+#' @section Printing colors:
+#'
+#' Term printing uses ANSI colors from `cli`, so the user's console or IDE theme
+#' chooses how each named color appears. Set `options(mesa.color = FALSE)` to
+#' disable colors.
+#'
 #' @param x An object that can be coerced to a `tm` object.
 #'
 #' @param role Specific roles the variable plays within the formula. Please see
@@ -589,26 +595,16 @@ is_tm <- function(x) {
 }
 
 #' @export
-format.tm <- function(x, ...) {
+format.tm <- function(x,
+											color = getOption("mesa.color", TRUE),
+											...) {
 
 	if (vec_size(x) == 0) {
 		return(character())
 	}
 
 	tms <- vec_data(x)
-
-	if (has_cli()) {
-		vapply(seq_len(nrow(tms)), function(i) {
-			color <- .role_colors[tms$role[i]]
-			if (is.na(color)) {
-				color <- "black"
-			}
-			colorFn <- getExportedValue("cli", paste0("col_", color))
-			colorFn(tms$term[i])
-		}, character(1))
-	} else {
-		tms$term
-	}
+	mesa_color_roles(tms$term, tms$role, color = color)
 }
 
 #' @export
@@ -616,9 +612,9 @@ obj_print_data.tm <- function(x, ...) {
 	if (vec_size(x) == 0) {
 		new_tm()
 	} else if (vec_size(x) > 1) {
-		cat(format(x), sep = "\n")
+		cat(format(x, ...), sep = "\n")
 	} else {
-		cat(format(x))
+		cat(format(x, ...))
 	}
 }
 

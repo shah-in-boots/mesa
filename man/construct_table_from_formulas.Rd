@@ -7,7 +7,7 @@
 construct_table_from_formulas(x, ...)
 }
 \arguments{
-\item{x}{Vector of \code{fmls} objects}
+\item{x}{Single-element, possibly-named list holding a \code{fmls} object}
 }
 \description{
 Restructure formulas to fit within a model table

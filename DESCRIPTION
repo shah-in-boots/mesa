@@ -48,6 +48,8 @@ Suggests:
     testthat (>= 3.0.0),
     knitr,
     covr,
+    withr,
+    rstudioapi,
     survival,
     parsnip,
     lme4,

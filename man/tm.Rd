@@ -152,3 +152,11 @@ Further implementation details can be seen in the implementation of
 \code{\link[=labeled_formulas_to_named_list]{labeled_formulas_to_named_list()}}.
 }
 
+\section{Printing colors}{
+
+
+Term printing uses ANSI colors from \code{cli}, so the user's console or IDE theme
+chooses how each named color appears. Set \code{options(mesa.color = FALSE)} to
+disable colors.
+}
+

@@ -93,8 +93,9 @@ reference:
   desc: >
     Many models stored, recalled, and compared in one table.
   contents:
-  - mdl_tbl
+  - model_table
   - model_table_helpers
+  - flatten_models
   - estimate_interaction
 - title: "Tables: the mesa"
   desc: >

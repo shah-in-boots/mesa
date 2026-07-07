@@ -10,6 +10,7 @@ validate_model_table(x)
 \item{x}{data frame that will have invariants checked}
 }
 \description{
-Model table object validation
+Runs on every construction: the invariant columns must be present with
+their expected types (see the Invariant columns section of \link{model_table}).
 }
 \keyword{internal}

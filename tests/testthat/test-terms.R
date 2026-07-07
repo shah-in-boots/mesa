@@ -18,6 +18,70 @@ test_that("`tm` objects can be generated and printed", {
 	}
 })
 
+test_that("term role colors use cli named ANSI styles", {
+
+	old <- options(
+		cli.num_colors = 256,
+		mesa.color = TRUE
+	)
+	on.exit(options(old), add = TRUE)
+
+	t <- tm(mpg ~ wt + .s(am))
+	expectedTerms <- c("mpg", "wt", "am")
+
+	expect_equal(cli::ansi_strip(format(t)), expectedTerms)
+
+	expectedRoles <- c(names(term_roles()), "unknown")
+	expect_equal(.role_color_styles, c(
+		"outcome" = "col_yellow",
+		"exposure" = "col_blue",
+		"predictor" = "col_grey",
+		"mediator" = "col_cyan",
+		"confounder" = "col_green",
+		"strata" = "col_magenta",
+		"interaction" = "col_br_magenta",
+		"random" = "col_br_blue",
+		"unknown" = "col_silver"
+	))
+	expect_setequal(names(.role_color_styles), expectedRoles)
+
+	expect_equal(
+		format(t),
+		c(
+			cli::col_yellow("mpg"),
+			cli::col_grey("wt"),
+			cli::col_magenta("am")
+		)
+	)
+
+	options(mesa.color = FALSE)
+	expect_equal(format(t), expectedTerms)
+
+	options(mesa.color = TRUE, cli.num_colors = 1)
+	out <- format(t)
+	expect_equal(cli::ansi_strip(out), expectedTerms)
+	expect_equal(out, expectedTerms)
+
+})
+
+test_that("formula formatting passes color options to terms", {
+
+	old <- options(
+		cli.num_colors = 256,
+		mesa.color = TRUE
+	)
+	on.exit(options(old), add = TRUE)
+
+	f <- fmls(mpg ~ .x(wt) + hp)
+	noColor <- format(f, color = FALSE)
+	colored <- format(f, color = TRUE)
+
+	expect_equal(noColor, "mpg ~ wt + hp")
+	expect_equal(cli::ansi_strip(colored), "mpg ~ wt + hp")
+	expect_false(identical(colored, cli::ansi_strip(colored)))
+
+})
+
 test_that("new `tm` can be made from character/atomic components", {
 
 	ty <- tm(

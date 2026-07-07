@@ -8,7 +8,7 @@ Passes information to \code{new_model_table()} for initialization}
 construct_table_from_models(x, ...)
 }
 \arguments{
-\item{x}{Vector of \code{mdl} objects}
+\item{x}{Single-element, possibly-named list holding a \code{mdl} vector}
 }
 \description{
 Restructure models to fit within a model table

@@ -1,6 +1,26 @@
 # mesa (developmental version)
 
-This development cycle works through Milestones 0–4 of [blueprint.md](https://github.com/shah-in-boots/mesa/blob/main/blueprint.md), rebuilding the term, formula, and fitting layers so the package feels fluid to play with. Design decisions are recorded in `DESIGN.md`.
+This development cycle works through Milestones 0–5 of [blueprint.md](https://github.com/shah-in-boots/mesa/blob/main/blueprint.md), rebuilding the term, formula, fitting, and collection layers so the package feels fluid to play with. Design decisions are recorded in `DESIGN.md`.
+
+## The model table (Milestone 5)
+
+* Printing a `mdl_tbl` now reports the state of the analysis at a glance: how many models are fitted, failed, or awaiting `fit()`; which datasets are attached; the strata and subsets in play; then one readable line per model, ending with pointers to the next move (#18)
+
+* `summary()` maps the fleet — models grouped by dataset, fitting function, outcome, and exposure with their adjustment ranges — lists the terms by causal role, and explains each failure with its error message
+
+* New helpers: `model_failures()` (the attempted-and-errored models with their messages), `term_table()`, `formula_matrix()`, and `model_data()` (documented accessors for the table's attributes)
+
+* `flatten_models()` infers exponentiation from each model's family and link — Cox models and log/logit/cloglog GLMs come back as ratios, `lm` stays linear — with an `exponentiated` marker column, a message when inference kicks in, and `exponentiate = TRUE/FALSE` (or `which =`) as explicit overrides; unfit rows are dropped with a message instead of silently
+
+* Combining model tables is now trustworthy: `model_table(x, y)` combines tables directly, attached datasets survive combination (#26), formula matrices stay parallel to the table's rows, and term tables deduplicate left-most-wins
+
+* `dplyr` verbs reconcile the table's attributes (#23): `filter()`, `arrange()`, `slice()`, `mutate()`, and `[` prune the formula matrix, term table, and data list down to the remaining models (stale strata and role entries are removed — the old #26 symptom); dropping an invariant column returns a plain `data.frame` with a message naming the columns, and `bind_rows()` across unrelated tables points back to `model_table()`
+
+* `model_table()` validates its inputs: raw fitted models are rejected with directions toward `fit(..., raw = FALSE)` or `mdl()` (#46), every construction runs `validate_model_table()`, and the invariant columns are documented in `?model_table`
+
+* A `number` column (the count of right-hand-side terms, i.e. the adjustment degree) is now part of every table; `level` and other provenance columns are type-stable so tables from different datasets combine
+
+* Naming convention settled: spelled-out names are canonical for the public API (`model_table()`), abbreviated forms remain as documented aliases (`mdl_tbl()`) and as the class name
 
 ## New features
 
@@ -23,6 +43,8 @@ This development cycle works through Milestones 0–4 of [blueprint.md](https://
 * `fmls` families combine with `c()`; conflicting term definitions resolve left-most-wins with an explicit message (#42)
 
 * Printing a `fmls` now leads with a deck summary: formula count, outcomes, exposures, strata (with levels), random effects, and subsets
+
+* Term and formula printing now uses `cli` named ANSI colors by role, with `mesa.color` for user control
 
 ## Fixes
 

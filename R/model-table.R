@@ -6,81 +6,119 @@
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' The `model_table()` or `mdl_tbl()` function creates a `mdl_tbl` object that
-#' is composed of either `fmls` objects or `mdl` objects, which are
-#' thin/informative wrappers for generic formulas and hypothesis-based models.
-#' The `mdl_tbl` is a data frame of model information, such as model fit,
-#' parameter estimates, and summary statistics about a model, or a formula if it
-#' has not yet been fit.
+#' `model_table()` creates a `mdl_tbl` object — the notebook of models. It
+#' collects `mdl` vectors (fitted models from [fit()] with `raw = FALSE`),
+#' `fmls` objects (formulas not yet fit), and other `mdl_tbl` objects into a
+#' single data frame where each row is one model: its formula, its causal
+#' roles, its fitting context (data, strata, subsets), and its results.
+#' `mdl_tbl()` is a documented alias; the class itself is named `mdl_tbl`.
+#'
+#' The table is the working surface of an analysis. Its print method
+#' summarizes what has been fit, what failed, and what is still waiting;
+#' [summary()] maps the fleet; [flatten_models()] pulls out estimates;
+#' [model_failures()] explains failures. See [model_table_helpers] for the
+#' full set.
 #'
 #' @details
-#' The table itself allows for ease of organization of model information and has
-#' three additional, major components (stored as scalar attributes).
 #'
-#' 1. A formula matrix that describes the terms used in each model, and how they
-#' are combined.
+#' Along with the row-per-model data, three scalar attributes carry the
+#' context needed to reconstruct any model in the table:
 #'
-#' 1. A term table that describes the terms and their properties and/or labels.
+#' 1. A **formula matrix** ([formula_matrix()]) with one row per model and one
+#' column per term, marking which terms each model's formula contains.
 #'
-#' 1. A list of datasets used for the analyses that can help support additional diagnostic testing.
+#' 1. A **term table** ([term_table()]) describing each term's causal role,
+#' label, and other metadata.
 #'
-#' We go into further detail in the sections below.
+#' 1. A **data list** ([model_data()]) holding datasets attached via
+#' [attach_data()] or the `data` argument, so models can be diagnosed or
+#' re-examined later.
 #'
-#' @section Data List:
-#' The `dataList` attribute stores datasets attached to the model table for
-#' later summaries and table-building workflows.
+#' These attributes are reconciled automatically when tables are combined,
+#' filtered, or otherwise manipulated with `dplyr` verbs.
 #'
-#' @section Term Table:
-#' The `termTable` attribute stores terms and their roles, labels, groups, and
-#' other metadata used to reconstruct model context.
+#' @section Invariant columns:
 #'
-#' @section Formula Matrix:
-#' The `formulaMatrix` attribute stores the relationship between formulas and
-#' terms represented in the model table.
+#' Every `mdl_tbl` carries these columns; they may be reordered by row but not
+#' removed or renamed. Dropping any of them (e.g. through [dplyr::select()])
+#' returns a plain `data.frame` with a message.
 #'
-#' @param ... Named or unnamed `mdl` or `fmls` objects
+#' * `id` — hash identifying the model (links rows to the formula matrix)
+#' * `formula_index` — the model's row of the formula matrix
+#' * `data_id` — name of the dataset the model was fit on
+#' * `name` — the label the object was given when added to the table
+#' * `model_call` — the fitting function (e.g. `lm`, `coxph`); `NA` until fit
+#' * `formula_call` — the model formula as text
+#' * `number` — number of right-hand-side terms (the "adjustment degree")
+#' * `outcome`, `exposure`, `mediator`, `interaction` — terms by causal role
+#' * `strata`, `level` — the stratifying term and this model's stratum
+#' * `subset` — the [subset_data()] instruction the model was fit under
+#' * `model_parameters` — parameter-level estimates (a list of data frames)
+#' * `model_summary` — model-level statistics (a list)
+#' * `fit_status` — `TRUE` if the model fit; `FALSE` if it failed or has not
+#'   been fit yet
 #'
-#' @param data A `data.frame` or `tbl_df` object, named correspondingly to
-#'   the underlying data used in the models (to help match)
+#' @section Combining tables:
+#'
+#' Model tables combine through `model_table(x, y)` (or `vctrs::vec_rbind()`);
+#' formula matrices, term tables, and data lists are merged and deduplicated,
+#' with the first (left-most) definition of a term kept. [dplyr::bind_rows()]
+#' only works when the rows already belong to the first table (it strips
+#' attributes before they can be reconciled); combining unrelated tables with
+#' it returns a plain `data.frame` with a message pointing back to
+#' `model_table()`.
+#'
+#' @param ... `mdl` or `fmls` objects to tabulate (named arguments become the
+#'   `name` column), or `mdl_tbl` objects to combine. A single bare `list()`
+#'   of such objects is also accepted. Raw fitted models (e.g. an `lm`
+#'   object) are not: refit with `fit(..., raw = FALSE)` or wrap with [mdl()].
+#'
+#' @param data A `data.frame` used by the models, attached under the name it
+#'   was passed as (see [attach_data()])
 #'
 #' @param x A `mdl_tbl` object
-#' 
-#' @return A `mdl_tbl` object, which is essentially a `data.frame` with
-#'   additional information on the relevant data, terms, and formulas used to
-#'   generate the models.
 #'
-#' @name mdl_tbl
+#' @return A `mdl_tbl` object: a `tibble` where each row describes one model,
+#'   with the formula matrix, term table, and data list carried as attributes.
+#'
+#' @name model_table
 #' @importFrom tibble tibble new_tibble
 #' @export
-mdl_tbl <- function(..., data = NULL) {
-
-	# Steps:
-	# 	Assess model...
-	# 		Model fit/information
-	# 		Parameter estimates
-	#			Formula/terms
-	#		Re-organize information into...
-	#			Model data frame
-	#			Formula "matrix"
-	#			Terms (+/- labels and other meta info)
+model_table <- function(..., data = NULL) {
 
 	# Call
 	mc <- match.call()
 
 	dots <- rlang::list2(...)
 	if (length(dots) == 0) {
-		return(new_model_table())
+		stop(
+			"`model_table()` needs something to tabulate: ",
+			"`mdl` objects from `fit(..., raw = FALSE)`, `fmls` objects, ",
+			"or other `mdl_tbl` objects.",
+			call. = FALSE
+		)
 	}
 
-	# Initially any number of objects could be given
-	# These are all pushed into a list together
-	# The object may or may not be named, and may or may not be plural
-	if (length(dots) == 1) {
+	# A single, unnamed bare list is a container for its elements
+	if (length(dots) == 1 &&
+			is.null(names(dots)) &&
+			is.list(dots[[1]]) &&
+			!is.object(dots[[1]])) {
+		dots <- dots[[1]]
+	}
 
-		# If unnamed, return to simplest form
-		# If it is named, leave it alone (obviously a named list)
-		if (is.null(names(dots))) {
-			dots <- dots[[1]]
+	# Guard the gate: raw fits and other strangers are turned away with
+	# directions (issue #46)
+	for (i in seq_along(dots)) {
+		el <- dots[[i]]
+		if (!inherits(el, c("mdl", "fmls", "mdl_tbl"))) {
+			stop(
+				"`model_table()` accepts `mdl`, `fmls`, and `mdl_tbl` objects, ",
+				"but was given a `", class(el)[1], "` object. ",
+				"Refit with `fit(..., raw = FALSE)` or wrap a fitted model ",
+				"with `mdl()` first.",
+				call. = FALSE
+			)
 		}
 	}
 
@@ -90,9 +128,10 @@ mdl_tbl <- function(..., data = NULL) {
 	for (i in seq_along(dots)) {
 		if (inherits(dots[[i]], "mdl")) {
 			mtl[[i]] <- construct_table_from_models(dots[i])
-		}
-		if (inherits(dots[[i]], "fmls")) {
-			mtl[[i]] <- construct_table_from_formulas(dots[[i]])
+		} else if (inherits(dots[[i]], "fmls")) {
+			mtl[[i]] <- construct_table_from_formulas(dots[i])
+		} else if (inherits(dots[[i]], "mdl_tbl")) {
+			mtl[[i]] <- dots[[i]]
 		}
 	}
 
@@ -101,21 +140,18 @@ mdl_tbl <- function(..., data = NULL) {
 
 	# Once it comes back as a new class, we need to add data if its available
 	if (!is.null(data)) {
-		datLs <- attr(mdTab, "dataList")
-		dataName <- as.character(mc$data)
-		datLs[[dataName]] <- data
-		attr(mdTab, "dataList") <- datLs
+		mdTab <- attach_data(mdTab, data = data, name = deparse1(mc$data))
 	}
 
 	# Return new class
 	mdTab
 }
 
-#' @rdname mdl_tbl
+#' @rdname model_table
 #' @export
-model_table <- mdl_tbl
+mdl_tbl <- model_table
 
-#' @rdname mdl_tbl
+#' @rdname model_table
 #' @export
 is_model_table <- function(x) {
 	inherits(x, "mdl_tbl")
@@ -124,12 +160,6 @@ is_model_table <- function(x) {
 #' @keywords internal
 #' @noRd
 methods::setOldClass(c("mdl_tbl", "vctrs_vctr"))
-
-#' @export
-print.mdl_tbl <- function(x, ...) {
-	cat(sprintf("<%s>\n", class(x)[[1]]))
-	cli::cat_line(format(x)[-1])
-}
 
 #' @export
 vec_ptype_full.mdl_tbl <- function(x, ...) {
@@ -145,7 +175,7 @@ vec_ptype_abbr.mdl_tbl <- function(x, ...) {
 
 #' Restructure models to fit within a model table
 #' Passes information to `new_model_table()` for initialization
-#' @param x Vector of `mdl` objects
+#' @param x Single-element, possibly-named list holding a `mdl` vector
 #' @keywords internal
 construct_table_from_models <- function(x, ...) {
 
@@ -154,7 +184,12 @@ construct_table_from_models <- function(x, ...) {
 
 	# Meta components of the models
 	obj <- x[[1]] # Removes it from its list
-	nm <- ifelse(is.null(names(x)), NA, ifelse(names(x) == "", NA, names(x)))
+	nm <-
+		if (is.null(names(x)) || is.na(names(x)) || names(x) == "") {
+			NA_character_
+		} else {
+			names(x)
+		}
 	n <- length(obj)
 	rid <- sapply(obj, rlang::hash)
 
@@ -173,6 +208,7 @@ construct_table_from_models <- function(x, ...) {
 	mf <- field(obj, "modelFormula")
 	tl <- lapply(mf, key_terms)
 	fl <- unname(sapply(mf, as.character, USE.NAMES = FALSE))
+	num <- formula_term_count(fl)
 
 	# Formula IDs require checking against the formula matrix
 	fid <- lapply(mf, unlist, recursive = FALSE)
@@ -235,8 +271,14 @@ construct_table_from_models <- function(x, ...) {
 	sta <- sapply(da, function(.x) {
 		.x$strataVariable
 	})
+	# Stratum levels keep their provenance as text so tables from different
+	# datasets (numeric vs factor strata) can combine
 	slvl <- sapply(da, function(.x) {
-		.x$strataLevel
+		if (is.null(.x$strataLevel) || all(is.na(.x$strataLevel))) {
+			NA_character_
+		} else {
+			as.character(.x$strataLevel)
+		}
 	})
 	sub <- sapply(da, function(.x) {
 		if (is.null(.x$subsetName) || length(.x$subsetName) == 0) {
@@ -254,6 +296,7 @@ construct_table_from_models <- function(x, ...) {
 		name = nm,
 		model_call = mc,
 		formula_call = fl,
+		number = num,
 		outcome = out,
 		exposure = exp,
 		mediator = med,
@@ -275,7 +318,7 @@ construct_table_from_models <- function(x, ...) {
 }
 
 #' Restructure formulas to fit within a model table
-#' @param x Vector of `fmls` objects
+#' @param x Single-element, possibly-named list holding a `fmls` object
 #' @keywords internal
 construct_table_from_formulas <- function(x, ...) {
 
@@ -284,7 +327,12 @@ construct_table_from_formulas <- function(x, ...) {
 
 	# Meta components of the models
 	obj <- x[[1]] # Removes it from its list
-	nm <- ifelse(is.null(names(x)), NA, ifelse(names(x) == "", NA, names(x)))
+	nm <-
+		if (is.null(names(x)) || is.na(names(x)) || names(x) == "") {
+			NA_character_
+		} else {
+			names(x)
+		}
 	n <- nrow(obj)
 	rid <- apply(obj, MARGIN = 1, rlang::hash) # Since formulas are matrices
 	fits <- rep(FALSE, n)
@@ -293,6 +341,7 @@ construct_table_from_formulas <- function(x, ...) {
 	mf <- obj
 	tl <- formulas_to_terms(mf)
 	fl <- as.character(stats::formula(mf))
+	num <- formula_term_count(fl)
 
 	# Formula IDs require checking against the formula matrix
 	fid <- apply(mf, MARGIN = 1, list) |> unlist(recursive = FALSE)
@@ -352,30 +401,65 @@ construct_table_from_formulas <- function(x, ...) {
 	res <- df_list(
 		id = rid,
 		formula_index = fid,
-		data_id = NA,
+		data_id = NA_character_,
 		name = nm,
-		model_call = NA,
+		model_call = NA_character_,
 		formula_call = fl,
+		number = num,
 		outcome = out,
 		exposure = exp,
 		mediator = med,
 		interaction = int,
 		strata = sta,
-		level = NA,
-		subset = NA,
-		model_parameters = NA,
-		model_summary = NA,
+		level = NA_character_,
+		subset = NA_character_,
+		model_parameters = vector("list", n),
+		model_summary = vector("list", n),
 		fit_status = fits
 	)
-
-	# Data list (empty by default)
-	datLs <- list()
 
 	# Return
 	new_model_table(res,
 									formulaMatrix = fmMat,
 									termTable = tmTab,
-									dataList = datLs)
+									dataList = list())
+}
+
+#' Count the right-hand-side terms of formulas given as text
+#' @keywords internal
+#' @noRd
+formula_term_count <- function(formulaCalls) {
+	vapply(formulaCalls, function(.f) {
+		tryCatch(
+			length(labels(stats::terms(stats::formula(.f)))),
+			error = function(e) NA_integer_
+		)
+	}, integer(1), USE.NAMES = FALSE)
+}
+
+#' The invariant columns of a model table
+#' @keywords internal
+#' @noRd
+model_table_columns <- function() {
+	c(
+		"id",
+		"formula_index",
+		"data_id",
+		"name",
+		"model_call",
+		"formula_call",
+		"number",
+		"outcome",
+		"exposure",
+		"mediator",
+		"interaction",
+		"strata",
+		"level",
+		"subset",
+		"model_parameters",
+		"model_summary",
+		"fit_status"
+	)
 }
 
 #' @keywords internal
@@ -388,28 +472,108 @@ new_model_table <- function(x = list(),
 	# Invariant rules:
 	#		Can add and remove rows (each row is essentially a model)
 	#		Rows can be re-ordered
-	#		Columns cannot be re-ordered
-	#
-	#	Invariant columns:
-	#		Key Relationship: outcome and exposure, roles, etc
-	#		Context: Formula (giving information on covariates) and Model Type
-	#		Fit: Individual parameters and model level estimates/statistics
+	#		Invariant columns (see `model_table_columns()`) cannot be removed,
+	#		renamed, or re-ordered; new columns may be added after them
 
 	if (length(x) == 0) {
-		stop("No data was available to be coerced to a `mdl_tbl` object.")
+		stop(
+			"No data was available to be coerced to a `mdl_tbl` object.",
+			call. = FALSE
+		)
 	}
 
 	validate_class(formulaMatrix, "data.frame")
 	validate_class(termTable, "data.frame")
 	validate_class(dataList, "list")
 
-	tibble::new_tibble(
+	out <- tibble::new_tibble(
 		x,
 		formulaMatrix = formulaMatrix,
 		termTable = termTable,
 		dataList = dataList,
 		class = "mdl_tbl"
 	)
+
+	validate_model_table(out)
+}
+
+#' Model table object validation
+#'
+#' Runs on every construction: the invariant columns must be present with
+#' their expected types (see the Invariant columns section of [model_table]).
+#' @keywords internal
+#' @param x data frame that will have invariants checked
+validate_model_table <- function(x) {
+
+	missingCols <- setdiff(model_table_columns(), names(x))
+	if (length(missingCols) > 0) {
+		stop(
+			"A `mdl_tbl` requires the invariant column(s) `",
+			paste(missingCols, collapse = "`, `"),
+			"` (see `?model_table`).",
+			call. = FALSE
+		)
+	}
+
+	if (!is.logical(x$fit_status)) {
+		stop("The `fit_status` column of a `mdl_tbl` must be logical.",
+				 call. = FALSE)
+	}
+	if (!is.list(x$model_parameters) || !is.list(x$model_summary)) {
+		stop(
+			"The `model_parameters` and `model_summary` columns of a `mdl_tbl` ",
+			"must be list columns.",
+			call. = FALSE
+		)
+	}
+
+	invisible(x)
+
+}
+
+# Attribute reconciliation -----------------------------------------------------
+
+#' Merge term tables, keeping the first definition of each term/role pair
+#' @keywords internal
+#' @noRd
+merge_term_tables <- function(x, y) {
+
+	combined <- rbind(x, y)
+	if (nrow(combined) == 0) {
+		return(combined)
+	}
+
+	# Left-most wins, consistent with how `fmls` objects combine (issue #42);
+	# the same term may hold different roles (e.g. outcome here, exposure there)
+	key <- paste(combined$term, combined$role, combined$side, sep = "\r")
+	combined[!duplicated(key), , drop = FALSE]
+}
+
+#' Merge formula matrices row-wise, filling absent terms with zero membership
+#' @keywords internal
+#' @noRd
+merge_formula_matrices <- function(x, y) {
+	dplyr::bind_rows(x, y) |>
+		{
+			\(.x) replace(.x, is.na(.x), 0)
+		}()
+}
+
+#' Merge data lists by name, keeping the first copy of a dataset
+#' @keywords internal
+#' @noRd
+merge_data_lists <- function(x, y) {
+	combined <- c(x, y)
+	combined[!duplicated(names(combined))]
+}
+
+#' Does the object carry attributes that parallel its rows?
+#' @keywords internal
+#' @noRd
+has_parallel_attributes <- function(x) {
+	fmMat <- attr(x, "formulaMatrix")
+	tmTab <- attr(x, "termTable")
+	is.data.frame(fmMat) && is.data.frame(tmTab) && nrow(fmMat) == nrow(x)
 }
 
 #' @importFrom dplyr dplyr_reconstruct
@@ -424,80 +588,113 @@ dplyr_row_slice.mdl_tbl <- function(data, i, ...) {
 	model_table_reconstruct(vec_slice(data, i), data)
 }
 
+#' @export
+`[.mdl_tbl` <- function(x, i, j, ..., drop = FALSE) {
+	out <- NextMethod()
+	if (!is.data.frame(out)) {
+		return(out)
+	}
+	model_table_reconstruct(out, x)
+}
+
 #' @keywords internal
 model_table_reconstruct <- function(x, to) {
 	if (model_table_reconstructable(x, to)) {
 		df_reconstruct(x, to)
 	} else {
-		# Return without reconstructing...
-		x <- as.data.frame(x)
-		message("Removing invariant columns in `mdl_tbl` returns `data.frame` object")
-		x
+		lost <- setdiff(model_table_columns(), names(x))
+		message(
+			"Column(s) `",
+			paste(lost, collapse = "`, `"),
+			"` are invariant to a `mdl_tbl`; ",
+			"removing them returns a plain `data.frame`."
+		)
+		as.data.frame(x)
 	}
 
 }
 
-#' If objects are model tables, attributes are carried over to subset object
+#' Rebuild the scalar attributes of a model table around the rows of `x`
+#'
+#' The formula matrix keeps only `x`'s rows (in `x`'s order), the term table
+#' keeps only terms those rows still use in the roles they still hold, and
+#' the data list keeps datasets those rows reference (plus any dataset that
+#' was attached deliberately without being referenced).
 #' @keywords internal
 df_reconstruct <- function(x, to) {
 
-	# Remove global variables
-	term <- role <- NULL
+	# The attribute source is the template when it covers all of `x`'s models;
+	# otherwise `x`'s own attributes (e.g. after `vec_rbind()` merged tables)
+	src <- NULL
+	if (has_parallel_attributes(to) && all(x$id %in% to$id)) {
+		src <- to
+	} else if (has_parallel_attributes(x)) {
+		src <- x
+	}
 
-	validate_model_table(to)
+	if (is.null(src)) {
+		message(
+			"These rows reach beyond the original `mdl_tbl`, so its attributes ",
+			"cannot be reconciled; returning a plain `data.frame`. ",
+			"Combine model tables with `model_table(x, y)` instead."
+		)
+		return(as.data.frame(x))
+	}
 
-	# Formula matrix
-	# Used hash-ids to get the right formulas
-	fmMat <- attr(to, "formulaMatrix")
-	newMat <-
-		fmMat[which(to$id %in% x$id), ] |>
-		{
-			\(.x) {
-				.y <- colSums(.x)
-				.y[is.na(.y)] <- 0
-				.x[which(.y > 0)]
-			}
-		}()
+	# Formula matrix: x's models, in x's row order, dropping terms no model uses
+	idx <- match(x$id, src$id)
+	fmMat <- attr(src, "formulaMatrix")[idx, , drop = FALSE]
+	fmMat <- fmMat[, colSums(fmMat, na.rm = TRUE) > 0, drop = FALSE]
+	rownames(fmMat) <- NULL
 
-	# Special terms and the rest of terms in formulas
-	out <- unique(to$outcome)
-	exp <- unique(to$exposure)
-	med <- unique(to$mediator)
-	int <- unique(to$interaction)
-	sta <- unique(to$strata)
-	special <- stats::na.omit(c(out, exp, med, int, sta))
-	others <- setdiff(names(newMat), special)
+	# Term table: special roles are kept only when x's rows still claim them;
+	# plain covariates are kept when some remaining formula uses them beyond
+	# its own outcome; random effects are meta terms (absent from the matrix
+	# and the columns), so they are carried whole
+	tmTab <- attr(src, "termTable")
+	outs <- stats::na.omit(unique(x$outcome))
+	exps <- stats::na.omit(unique(x$exposure))
+	meds <- stats::na.omit(unique(x$mediator))
+	ints <- stats::na.omit(unique(x$interaction))
+	stas <- stats::na.omit(unique(x$strata))
+	cols <- names(fmMat)
+	specialRoles <- c("outcome", "exposure", "mediator", "interaction", "strata")
 
-	# Terms and term tables
-	tmTab <- attr(to, "termTable")
-	newTab <- dplyr::bind_rows(
-		filter(tmTab, term %in% out & role == "outcome"),
-		filter(tmTab, term %in% exp & role == "exposure"),
-		filter(tmTab, term %in% med & role == "mediator"),
-		filter(tmTab, term %in% int & role == "interaction"),
-		filter(tmTab, term %in% sta & role == "strata"),
-		filter(tmTab, term %in% others)
-	)
+	usedBeyondOutcome <- vapply(cols, function(term) {
+		any(fmMat[[term]] > 0 & (is.na(x$outcome) | x$outcome != term))
+	}, logical(1))
+	rhsCols <- cols[usedBeyondOutcome]
 
-	# Datasets
-	# Combine the datasets and make sure they are unique
-	datLs <- attr(to, "dataList")
-	dataNames <- unique(to$data_id)
-	newDat <- datLs[dataNames]
+	keep <-
+		(tmTab$role == "outcome" & tmTab$term %in% outs) |
+		(tmTab$role == "exposure" & tmTab$term %in% exps) |
+		(tmTab$role == "mediator" & tmTab$term %in% meds) |
+		(tmTab$role == "interaction" &
+		 	(tmTab$term %in% ints | tmTab$term %in% rhsCols)) |
+		(tmTab$role == "strata" & tmTab$term %in% stas) |
+		(tmTab$role == "random") |
+		(!tmTab$role %in% c(specialRoles, "random") & tmTab$term %in% rhsCols)
 
-	# Update attributes of template/target
-	attr(to, "termTable") <- newTab
-	attr(to, "formulaMatrix") <- newMat
-	attr(to, "dataList") <- newDat
+	newTab <- tmTab[keep, , drop = FALSE]
+	rownames(newTab) <- NULL
 
-	# Incorporate new attributes and return
+	# Datasets: those x's rows reference, plus any attached without being
+	# referenced by the source at all (a deliberate `attach_data()`)
+	datLs <- attr(src, "dataList")
+	referenced <- unique(src$data_id)
+	keepData <-
+		names(datLs) %in% unique(x$data_id) | !names(datLs) %in% referenced
+	newDat <- datLs[keepData]
+
+	# Rebuild x with the template's class and the reconciled attributes
 	attrs <- attributes(to)
 	attrs$names <- names(x)
 	attrs$row.names <- .row_names_info(x, type = 0L)
+	attrs$formulaMatrix <- fmMat
+	attrs$termTable <- newTab
+	attrs$dataList <- newDat
 	attributes(x) <- attrs
 
-	# Return the original table (= x) with updated attributes
-	# This will then be "dplyr"-ed into the new table (= to)
 	x
 
 }
@@ -508,48 +705,8 @@ df_reconstruct <- function(x, to) {
 #' @param to the tibble subclass of `mdl_tbl` that would be reconstructed
 model_table_reconstructable <- function(x, to) {
 
-	# Invariant columns must be present
-	XCols <- names(x)
-	ToCols <- names(to)
-	if (all(is.element(XCols, ToCols))) {
-		return(TRUE)
-	} else {
-		return(FALSE)
-	}
-
-}
-
-#' Model table object validation
-#' @keywords internal
-#' @param x data frame that will have invariants checked
-validate_model_table <- function(x) {
-
-	# Invariant columns must be present
-	cols <- names(x)
-
-	modelCols <-
-		c("model_call",
-			"formula_call",
-			"outcome",
-			"model_parameters",
-			"model_summary")
-
-	formulaCols <-
-		c("formula_call", "outcome")
-
-	if (all(modelCols %in% cols)) {
-		colStatus <- TRUE
-	} else if (all(formulaCols %in% cols)) {
-		colStatus <- TRUE
-	} else {
-		colStatus <- FALSE
-	}
-
-	stopifnot(
-		"Model table does not contain invariant columns" = isTRUE(colStatus)
-	)
-
-	invisible(x)
+	# All invariant columns must survive the operation; added columns are fine
+	all(model_table_columns() %in% names(x))
 
 }
 
@@ -563,63 +720,54 @@ mdl_tbl_ptype2 <- function(x, y, ..., x_arg = "", y_arg = "") {
   # Create a temporary/new structure of the table
 	mdTab <- tib_ptype2(x, y, ..., x_arg = x_arg, y_arg = y_arg)
 
-	# Terms must be coalesced together
-	xTm <- attr(x, "termTable")
-	yTm <- attr(y, "termTable")
-	tmTab <-
-		rbind(xTm, yTm) |>
-		unique()
-
-	# Formula matrices must bound together
-	xFm <- attr(x, "formulaMatrix")
-	yFm <- attr(y, "formulaMatrix")
-  fmMat <-
-    dplyr::bind_rows(xFm, yFm) |>
-	  {
-	    \(.x) replace(.x, is.na(.x), 0)
-	  }()
-
-  # Datasets must be pulled together
-  xDat <- attr(x, "dataList")
-  yDat <- attr(y, "dataList")
-  datLs <-
-    list(xDat, yDat) |>
-    purrr::list_flatten()
-
-  # Output with correct scalar attributes
-	new_model_table(x = as.list(mdTab),
-	                formulaMatrix = fmMat,
-	                termTable = tmTab,
-									dataList = datLs)
+	# The prototype's attributes hold both tables' rows so that, when
+	# `vec_rbind()`/`vec_c()` restores the combined rows to this prototype, the
+	# formula matrix stays parallel to the table rows
+  new_model_table(
+  	x = as.list(mdTab),
+  	formulaMatrix = merge_formula_matrices(
+  		attr(x, "formulaMatrix"),
+  		attr(y, "formulaMatrix")
+  	),
+  	termTable = merge_term_tables(
+  		attr(x, "termTable"),
+  		attr(y, "termTable")
+  	),
+  	dataList = merge_data_lists(
+  		attr(x, "dataList"),
+  		attr(y, "dataList")
+  	)
+  )
 
 }
 
 #' @keywords internal
 mdl_tbl_cast <- function(x, to, ..., x_arg = "", to_arg = "") {
 
-	# Terms must be coalesced together
-	toTm <- attr(to, "termTable")
-	xTm <- attr(x, "termTable")
-	tmTab <-
-		rbind(toTm, xTm) |>
-		unique()
-
-	# Formula matrices must bound together
-	toFm <- attr(to, "formulaMatrix")
-	xFm <- attr(x, "formulaMatrix")
-  fmMat <-
-    dplyr::bind_rows(toFm, xFm) |>
-	  {
-	     \(.x) replace(.x, is.na(.x), 0)
-	  }()
-
   # Create a temporary/new structure of the table
   mdTab <- tib_cast(x, to, ..., x_arg = x_arg, to_arg = to_arg)
 
-  # Output with correct scalar attributes
-	new_model_table(x = as.list(mdTab),
-	                formulaMatrix = fmMat,
-	                termTable = tmTab)
+	# The cast keeps x's own formula rows (parity with x's models), widened to
+	# the union of terms; the term table and data list gain `to`'s context
+	# (issue #26: the data list must survive the cast)
+	xFm <- attr(x, "formulaMatrix")
+	toFm <- attr(to, "formulaMatrix")
+	for (col in setdiff(names(toFm), names(xFm))) {
+		xFm[[col]] <- rep(0, nrow(xFm))
+	}
+
+	new_model_table(
+		x = as.list(mdTab),
+		formulaMatrix = xFm,
+		termTable = merge_term_tables(
+			attr(x, "termTable"),
+			attr(to, "termTable")
+		),
+		dataList = merge_data_lists(
+			attr(x, "dataList"),
+			attr(to, "dataList")
+		)
+	)
 
 }
 
@@ -631,140 +779,4 @@ vec_ptype2.mdl_tbl.mdl_tbl <- function(x, y, ...) {
 #' @export
 vec_cast.mdl_tbl.mdl_tbl <- function(x, to, ...) {
 	mdl_tbl_cast(x, to, ...)
-}
-
-# Model Table Helper Functions ------------------------------------------------
-
-#' Model table helper functions
-#'
-#' @description
-#'
-#' `r lifecycle::badge('experimental')`
-#' 
-#' These functions are used to help manage the `mdl_tbl` object. They allow
-#' for specific manipulation of the internal components, and are intended to
-#' generally extend the functionality of the object.
-#'
-#' - `attach_data()`: Attaches a dataset to a `mdl_tbl` object
-#' - `flatten_models()`: Flattens a `mdl_tbl` object down to its specific parameters
-#'
-#' # Attaching Data
-#'
-#' When models are built, oftentimes the included matrix of data is available
-#' within the raw model, however when handling many models, this can be
-#' expensive in terms of memory and space. By attaching datasets independently
-#' that persist regardless of the underlying models, and by knowing which models
-#' used which datasets, it can be ease to back-transform information.
-#'
-#' # Flattening Models
-#'
-#' A `mdl_tbl` object can be flattened to its specific parameters, their
-#' estimates, and model-level summary statistics. This function additionally
-#' helps by allowing for exponentiation of estimates when deemed appropriate.
-#' The user can specify which models to exponentiate by name. This heavily
-#' relies on the [broom::tidy()] functionality.
-#'
-#' @param x A `mdl_tbl` object
-#'
-#' @param data A `data.frame` object that has been used by models
-#'
-#' @param exponentiate A `logical` value that determines whether to exponentiate
-#' the estimates of the models. Default is `FALSE`. If `TRUE`, the user can specify
-#' which models to exponentiate by name using the __which__ argument.
-#'
-#' @param which A `character` vector of model names to exponentiate. Default is `NULL`. If __exponentiate__ is set to `TRUE` and __which__ is set to `NULL`, then all estimates will be exponentiated, which is often a *bad idea*.
-#'
-#' @param ... Arguments to be passed to or from other methods
-#'
-#' @return When using `attach_data()`, this returns a modified version of the
-#'   `mdl_tbl` object however with the dataset attached. When using the
-#'   `flatten_models()` function, this returns a simplified `data.frame` of the
-#'   original model table that contains the model-level and parameter-level
-#'   statistics. 
-#'   
-#' @name model_table_helpers
-NULL
-
-#' @rdname model_table_helpers
-#' @export
-attach_data <- function(x, data, ...) {
-
-  validate_class(x, "mdl_tbl")
-  validate_class(data, "data.frame")
-
-	# Get name of object that will be the dataset
-	mc <- match.call()
-	datLs <- attr(x, 'dataList')
-
-	# Add to data list
-	dataName <- as.character(mc$data)
-	datLs[[dataName]] <- data
-
-	# Update attributes
-	attr(x, 'dataList') <- datLs
-
-	# Return
-	x
-}
-
-#' @rdname model_table_helpers
-#' @export
-flatten_models <- function(x, exponentiate = FALSE, which = NULL, ...) {
-
-	# Remove global variables
-	model_statistic <- model_p_value <- model_parameters <- model_summary <-
-		fit_status <- formula_call <- estimate <- conf_low <- conf_high <- NULL
-
-	validate_class(x, "mdl_tbl")
-
-	y <-
-	  x |>
-		tibble::tibble() |>
-		dplyr::filter(fit_status == TRUE) |>
-		dplyr::mutate(number = sapply(formula_call, function(.x) {
-			.x |>
-				stats::formula() |>
-				stats::terms() |>
-				labels() |>
-				length()
-		}, USE.NAMES = FALSE)) |>
-		dplyr::select(dplyr::any_of(c(
-			"formula_call",
-			"model_call",
-			"data_id",
-			"name",
-			"number",
-			"outcome",
-			"exposure",
-			"mediator",
-			"interaction",
-			"strata",
-			"level",
-			"subset",
-			"model_parameters",
-			"model_summary"
-		))) |>
-		tidyr::unnest_wider(model_summary) |>
-		dplyr::rename(dplyr::any_of(c(
-			model_statistic = 'statistic',
-			model_p_value = 'p_value'
-		))) |>
-		tidyr::unnest(model_parameters)
-
-	# Exponentiate estimates based on user input
-	if (exponentiate) {
-		if (is.null(which)) {
-		  y <-
-		    y |>
-		    dplyr::mutate(dplyr::across(c(estimate, conf_low, conf_high), ~ exp(.x)))
-		} else {
-		  y <-
-		    y |>
-		    dplyr::mutate(dplyr::across(c(estimate, conf_low, conf_high), ~ dplyr::if_else(name %in% which, exp(.x), .x)))
-		}
-	}
-
-	# Return
-	y
-
 }
