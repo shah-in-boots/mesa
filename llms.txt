@@ -173,13 +173,21 @@ fitting approach, and wrapped with its causal context intact.
 
 Many models stored, recalled, and compared in one table.
 
-- [`mdl_tbl()`](https://shah-in-boots.github.io/mesa/reference/mdl_tbl.md)
-  [`model_table()`](https://shah-in-boots.github.io/mesa/reference/mdl_tbl.md)
-  [`is_model_table()`](https://shah-in-boots.github.io/mesa/reference/mdl_tbl.md)
+- [`print(`*`<mdl_tbl>`*`)`](https://shah-in-boots.github.io/mesa/reference/model_table.md)
+  [`summary(`*`<mdl_tbl>`*`)`](https://shah-in-boots.github.io/mesa/reference/model_table.md)
+  [`model_table()`](https://shah-in-boots.github.io/mesa/reference/model_table.md)
+  [`mdl_tbl()`](https://shah-in-boots.github.io/mesa/reference/model_table.md)
+  [`is_model_table()`](https://shah-in-boots.github.io/mesa/reference/model_table.md)
   **\[experimental\]** : Model tables
 - [`attach_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
-  [`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
+  [`model_failures()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
+  [`term_table()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
+  [`formula_matrix()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
+  [`model_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
   **\[experimental\]** : Model table helper functions
+- [`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/flatten_models.md)
+  **\[experimental\]** : Flatten a model table to its parameter
+  estimates
 - [`estimate_interaction()`](https://shah-in-boots.github.io/mesa/reference/estimate_interaction.md)
   **\[experimental\]** : Estimating interaction effect estimates
 

@@ -186,3 +186,9 @@ within a [`list()`](https://rdrr.io/r/base/list.html). For example, the
 
 Further implementation details can be seen in the implementation of
 [`labeled_formulas_to_named_list()`](https://shah-in-boots.github.io/mesa/reference/labeled_formulas_to_named_list.md).
+
+## Printing colors
+
+Term printing uses ANSI colors from `cli`, so the user's console or IDE
+theme chooses how each named color appears. Set
+`options(mesa.color = FALSE)` to disable colors.

@@ -12,4 +12,4 @@ construct_table_from_formulas(x, ...)
 
 - x:
 
-  Vector of `fmls` objects
+  Single-element, possibly-named list holding a `fmls` object

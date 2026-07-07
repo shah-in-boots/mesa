@@ -12,7 +12,7 @@ library(mesa)
 #>     data_frame
 ```
 
-Last updated on July 06, 2026, although still is a work-in-progress.
+Last updated on July 07, 2026, although still is a work-in-progress.
 
 ## Background
 

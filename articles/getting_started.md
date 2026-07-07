@@ -91,22 +91,22 @@ r2Model
 # Creation of a table of models
 rTable <- model_table(mileage = rModel, automatic = r2Model)
 rTable
-#> <mdl_tbl>
-#>   id        formula_index data_id name  model_call formula_call outcome exposure
-#>   <chr>     <list>        <chr>   <chr> <chr>      <chr>        <chr>   <chr>   
-#> 1 07b409cc… <int [3]>     mtcars  mile… lm         mpg ~ wt + … mpg     NA      
-#> 2 96b42229… <dbl [3]>     mtcars  auto… glm        am ~ cyl     am      NA      
-#> 3 b4343db2… <dbl [3]>     mtcars  auto… glm        am ~ cyl + … am      NA      
-#> # ℹ 8 more variables: mediator <chr>, interaction <chr>, strata <lgl>,
-#> #   level <lgl>, subset <chr>, model_parameters <list>, model_summary <list>,
-#> #   fit_status <lgl>
+#> <model_table> 3 models × 3 formulas
+#>   ✔ 3 fitted
+#>   data: mtcars [not attached]
+#> 
+#>        name       model  formula        outcome  n 
+#>   ✔ 1  mileage    lm     mpg ~ wt + hp  mpg      32
+#>   ✔ 2  automatic  glm    am ~ cyl       am       32
+#>   ✔ 3  automatic  glm    am ~ cyl + hp  am       32
+#> # `summary()` maps the fleet; `flatten_models()` extracts estimates
 ```
 
 The `mdl_tbl` class is a useful way to store and manage multiple models,
 and can be used to generate tables for publication or for internal use.
 To quickly access the content (e.g. estimates, standard errors, etc.),
 there is an experimental function called
-[`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
+[`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/flatten_models.md)
 that can be used. Note that we are also exponentiating the coefficients
 for the logistic regression models (called by name).
 
@@ -118,7 +118,7 @@ fTable <-
 
 # Display contents
 fTable
-#> # A tibble: 8 × 35
+#> # A tibble: 8 × 37
 #>   formula_call  model_call data_id name      number outcome exposure mediator
 #>   <chr>         <chr>      <chr>   <chr>      <int> <chr>   <chr>    <chr>   
 #> 1 mpg ~ wt + hp lm         mtcars  mileage        2 mpg     NA       NA      
@@ -129,13 +129,13 @@ fTable
 #> 6 am ~ cyl + hp glm        mtcars  automatic      2 am      NA       NA      
 #> 7 am ~ cyl + hp glm        mtcars  automatic      2 am      NA       NA      
 #> 8 am ~ cyl + hp glm        mtcars  automatic      2 am      NA       NA      
-#> # ℹ 27 more variables: interaction <chr>, strata <lgl>, level <lgl>,
+#> # ℹ 29 more variables: interaction <chr>, strata <lgl>, level <chr>,
 #> #   subset <chr>, term <chr>, estimate <dbl>, std_error <dbl>, statistic <dbl>,
 #> #   p_value <dbl>, conf_low <dbl>, conf_high <dbl>, r_squared <dbl>,
 #> #   adj_r_squared <dbl>, sigma <dbl>, model_statistic <dbl>,
 #> #   model_p_value <dbl>, df <dbl>, logLik <dbl>, AIC <dbl>, BIC <dbl>,
 #> #   deviance <dbl>, df_residual <int>, nobs <int>, degrees_freedom <int>,
-#> #   var_cov <list>, null_deviance <dbl>, df_null <int>
+#> #   var_cov <list>, model_link <chr>, null_deviance <dbl>, df_null <int>, …
 
 # Filter down to relevant models
 fTable |>

@@ -83,13 +83,37 @@
 <ul><li>
 <code>.fn</code> resolves <strong>by name</strong> through <code><a href="https://rdrr.io/r/base/match.call.html" class="external-link">match.call()</a></code> (a function, a string, or a <a href="https://github.com/tidymodels/parsnip" class="external-link">parsnip</a> <code>model_spec</code>); the old positional <code>match.call()[[3]]</code> bug is regression-tested.</li>
 <li>With a parsnip spec, <code><a href="https://generics.r-lib.org/reference/fit.html" class="external-link">fit()</a></code> runs <code><a href="https://generics.r-lib.org/reference/fit.html" class="external-link">parsnip::fit()</a></code> and unwraps the engine fit, so <code><a href="reference/models.html">mdl()</a></code> and the table layers see familiar objects. The <code>.models</code> whitelist is retired; it remains only as documentation.</li>
-<li>Failures are soft: an error becomes a recorded condition (<code>raw = TRUE</code>) or a <code>mdl</code> stub whose <code>summaryInfo$error</code> carries the message; <code><a href="reference/mdl_tbl.html">model_table()</a></code> turns that into <code>fit_status = FALSE</code>, and <code><a href="reference/model_table_helpers.html">flatten_models()</a></code> drops unfit rows.</li>
+<li>Failures are soft: an error becomes a recorded condition (<code>raw = TRUE</code>) or a <code>mdl</code> stub whose <code>summaryInfo$error</code> carries the message; <code><a href="reference/model_table.html">model_table()</a></code> turns that into <code>fit_status = FALSE</code>, and <code><a href="reference/flatten_models.html">flatten_models()</a></code> drops unfit rows.</li>
 <li>Fitted calls are normalized (function name, formula text, data by name) so models compare cleanly against hand-fit references and don’t embed copies of the data.</li>
 <li>Subset provenance is recorded in <code>dataArgs$subsetName</code> and surfaces as the <code>subset</code> column of a <code>mdl_tbl</code>.</li>
 </ul></div>
 <div class="section level2">
 <h2 id="degrees-of-freedom-and-the-variance-covariance-matrix-m4">Degrees of freedom and the variance-covariance matrix (M4)<a class="anchor" aria-label="anchor" href="#degrees-of-freedom-and-the-variance-covariance-matrix-m4"></a></h2>
 <p><code>degrees_freedom</code> now comes from <code><a href="https://rdrr.io/r/stats/df.residual.html" class="external-link">stats::df.residual()</a></code> with a <code>nobs - length(coef)</code> fallback (the old <code>nrow - ncol - 1</code> was an <code>lm</code>-shaped guess, off by one even for <code>lm</code>). The full <code>var_cov</code> matrix <strong>stays</strong> in <code>summaryInfo</code>: <code><a href="reference/estimate_interaction.html">estimate_interaction()</a></code> needs the covariance between the exposure and the product term to compute interaction confidence intervals without the original data.</p>
+</div>
+<div class="section level2">
+<h2 id="naming-convention-m5">Naming convention (M5)<a class="anchor" aria-label="anchor" href="#naming-convention-m5"></a></h2>
+<p>Spelled-out names are canonical for the public API; abbreviated forms are kept as documented aliases and as class names. So <code><a href="reference/model_table.html">model_table()</a></code> is the constructor (<code><a href="reference/model_table.html">mdl_tbl()</a></code> is its alias), the documentation topic is <code>model_table</code>, and helpers spell things out (<code><a href="reference/flatten_models.html">flatten_models()</a></code>, <code><a href="reference/model_table_helpers.html">model_failures()</a></code>, <code><a href="reference/model_table_helpers.html">term_table()</a></code>). The <em>classes</em> stay abbreviated (<code>tm</code>, <code>fmls</code>, <code>mdl</code>, <code>mdl_tbl</code>) because they appear in pipes and prints where brevity reads better. The same pattern already existed as <code><a href="reference/models.html">mdl()</a></code>/<code><a href="reference/models.html">model()</a></code>.</p>
+</div>
+<div class="section level2">
+<h2 id="the-model-tables-invariants-m5">The model table’s invariants (M5)<a class="anchor" aria-label="anchor" href="#the-model-tables-invariants-m5"></a></h2>
+<p>A <code>mdl_tbl</code> has seventeen invariant columns (see <code>model_table_columns()</code> and the Invariant columns section of <code><a href="reference/model_table.html">?model_table</a></code>), validated by <code><a href="reference/validate_model_table.html">validate_model_table()</a></code> on every construction. Rows may be filtered and reordered and new columns added, but removing or renaming an invariant column downgrades the object to a plain <code>data.frame</code> with a message naming the loss. Provenance columns are type-stable (<code>level</code> is stored as character; <code>name</code>, <code>data_id</code>, <code>subset</code> as character; <code>model_parameters</code>/<code>model_summary</code> as list columns even for unfit formulas) so tables from different datasets always combine.</p>
+</div>
+<div class="section level2">
+<h2 id="combining-and-reconciling-model-tables-m5-issue-26">Combining and reconciling model tables (M5, issue #26)<a class="anchor" aria-label="anchor" href="#combining-and-reconciling-model-tables-m5-issue-26"></a></h2>
+<p>The three scalar attributes (<code>formulaMatrix</code>, <code>termTable</code>, <code>dataList</code>) are reconciled rather than copied:</p>
+<ul><li>
+<strong>The formula matrix stays parallel to the table rows</strong> — row <em>i</em> of the matrix describes model <em>i</em>’s formula. <code>vec_ptype2()</code> merges both tables’ rows into the prototype (which is what <code>vec_rbind()</code>/<code>vec_c()</code> restore to), and <code>vec_cast()</code> keeps the cast table’s own rows widened to the union of terms, so the parity invariant survives combination in both directions. The data list survives the cast too (the original #26 defect).</li>
+<li>
+<strong>Term tables deduplicate by (term, role, side), left-most wins</strong> — the same resolution, and the same reasoning, as combining <code>fmls</code> families (issue #42).</li>
+<li>
+<strong>Subsetting prunes from the roles the remaining rows still claim.</strong> <code><a href="https://rdrr.io/r/stats/filter.html" class="external-link">filter()</a></code>, <code>arrange()</code>, <code>slice()</code>, and <code>[</code> rebuild the attributes around the surviving rows: matrix rows are matched by model <code>id</code> (so reordering keeps parity), special-role terms are kept only when a remaining row claims them in that role, plain covariates are kept only when a remaining formula uses them beyond its own outcome, random effects are carried whole (they live outside the matrix), and datasets are kept when referenced — plus any dataset attached deliberately without being referenced.</li>
+<li>
+<strong><code>bind_rows()</code> cannot combine unrelated tables</strong> — dplyr strips attributes before <code>dplyr_reconstruct()</code> runs, so there is nothing left to merge. When the first table covers all the rows it reconciles normally; otherwise it returns a plain <code>data.frame</code> with a message pointing to <code>model_table(x, y)</code>, which combines tables properly.</li>
+</ul></div>
+<div class="section level2">
+<h2 id="flattening-infers-the-estimate-scale-m5">Flattening infers the estimate scale (M5)<a class="anchor" aria-label="anchor" href="#flattening-infers-the-estimate-scale-m5"></a></h2>
+<p><code><a href="reference/flatten_models.html">flatten_models()</a></code> decides exponentiation per model instead of demanding a by-name <code>which=</code> list: <code><a href="reference/models.html">mdl()</a></code> records the family’s link function (<code>summaryInfo$model_link</code>), and Cox-family models or GLMs on a <code>log</code>/<code>logit</code>/<code>cloglog</code> link come back exponentiated (hazard/odds/rate ratios) while everything else stays linear. The decision is reported in a message and an <code>exponentiated</code> column; <code>exponentiate = TRUE/FALSE</code> overrides globally and <code>which=</code> survives for name-based selection. Internal callers (the <code>gt</code> layer, <code><a href="reference/estimate_interaction.html">estimate_interaction()</a></code>) pin <code>exponentiate = FALSE</code> because they need coefficients on the linear scale.</p>
 </div>
 <div class="section level2">
 <h2 id="imports-audit-m0">Imports audit (M0)<a class="anchor" aria-label="anchor" href="#imports-audit-m0"></a></h2>
@@ -105,6 +129,208 @@
 <div class="section level2">
 <h2 id="formula-shorthand-requests-m2-issue-25">Formula shorthand requests (M2, issue #25)<a class="anchor" aria-label="anchor" href="#formula-shorthand-requests-m2-issue-25"></a></h2>
 <p>Added: <code>.r()</code> for random effects; multi-digit <code>.g</code> tiers; nested rune/transformation combinations. Declined for now: a <code>.f()</code> subset rune (see the subsets decision above) and per-term weights (no clear fitting-layer story yet — revisit with M5).</p>
+</div>
+<div class="section level2">
+<h2 id="the-table-grammar-composes-m6">The table grammar composes (M6)<a class="anchor" aria-label="anchor" href="#the-table-grammar-composes-m6"></a></h2>
+<p>Five decisions, made together at the start of M6 (the full specification is subtask 6.1 and extends this entry):</p>
+<ul><li>
+<strong>Two-stage grammar.</strong> An intermediate table-specification object sits between the model collection and the rendered table: <code><a href="reference/mesa-package.html">mesa()</a></code> constructs it, composable verbs refine it, <code>as_gt()</code> renders it. The constructor is named <code><a href="reference/mesa-package.html">mesa()</a></code> (the namesake act of laying models on the table), not <code>tbl()</code>, which would collide with <code><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">dplyr::tbl()</a></code>. <em>Revised (July 2026):</em> the grammar is the deliverable and the only committed API. The <code>tbl_*</code> monoliths are <strong>not</strong> end-points to preserve — their table <em>shapes</em> survive as the named layout presets (<code>"adjustment"</code>, <code>"levels"</code>, <code>"interaction"</code>), while the functions themselves are deprecated or deleted in 6.7/6.9 with no signature-compatibility work. The earlier phrasing (“the one-shot call patterns keep working”) is withdrawn: tables are grown by iteration and composition, not pre-specified by recipe.</li>
+<li>
+<strong>Composition over configuration.</strong> <code>mesa(object)</code> takes no selection arguments; everything else arrives one decision at a time through pipeable verbs (<code>select_*</code>, <code>modify_labels()</code>, <code>add_*</code>, <code>modify_*</code>), each optional and each defaulting sensibly, so a table is grown iteratively the way a <a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a> plot is (staying with the pipe, not <code>+</code>). To make that safe, the spec is <em>declarative and lazily resolved</em>: verbs record instructions, and resolution against the <code>mdl_tbl</code> happens only when the spec is realized by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> or <code>as_gt()</code>. Consequences: verb order is irrelevant, repeating a verb replaces its earlier instruction with a message (the ggplot scale-replacement behavior), and relabeling late never requires reselecting.</li>
+<li>
+<strong>Attached data is canonical.</strong> The <code>dataList</code> attribute of the <code>mdl_tbl</code> is the single source for data-derived statistics (events, person-years, per-level n, factor levels, reference levels). Table functions that need data and cannot find it error with a pointer to <code><a href="reference/model_table_helpers.html">attach_data()</a></code>. <em>Revised (July 2026):</em> with the recipes demoted, there is no <code>data =</code> argument anywhere in the table layer — <code><a href="reference/model_table_helpers.html">attach_data()</a></code> is the single path, and every data-needing error points to it.</li>
+<li>
+<strong>Forest plots are a column type</strong>, not a separate table family: any table specification can include a <code>forest</code> column block, and the interaction-forest shape reduces to <em>interaction rows + forest column</em>.</li>
+<li>
+<strong>Verb naming follows the <a href="https://github.com/ddsjoberg/gtsummary" class="external-link">gtsummary</a> precedent.</strong> Column verbs use <code>add_*</code>; the remaining spec fields are adjusted by <code>modify_layout()</code> / <code>modify_style()</code>. <em>Revised (July 2026):</em> the earlier decision that “the recipe family keeps the <code>tbl_*</code> prefix” is moot now that the recipes are not a committed surface. If a one-call convenience ever proves worth shipping, it ships as a documented grammar chain (a preset plus column verbs), not as new <code>tbl_*</code> API.</li>
+</ul></div>
+<div class="section level2">
+<h2 id="the-table-grammar-specification-m61">The table grammar specification (M6.1)<a class="anchor" aria-label="anchor" href="#the-table-grammar-specification-m61"></a></h2>
+<p>This is the one page that governs every verb, every preset, and every rendered table. It fixes four things before any code is written: the four axes, the cell frame, the statistics vocabulary, and the layouts supported at launch. Everything downstream is an implementation of what follows. (Revised on the July 2026 follow-up review: the cell frame gained <code>row_scope</code>, the forest block was pinned down as render-time, and the presets were decoupled from the <code>tbl_*</code> function names — the individual revisions are marked below.)</p>
+<p>A table is realized in five stages — <em>select → decorate → compute → layout → render</em> — but only the last two need a precise contract, because the first three feed a single object (<code><a href="reference/flatten_models.html">flatten_models()</a></code> output, decorated with term metadata) that the rest of the package already defines. This spec pins down the <strong>layout</strong> (the four axes and the cell frame it produces) and the <strong>statistics</strong> each column can carry.</p>
+<div class="section level3">
+<h3 id="the-four-axes">The four axes<a class="anchor" aria-label="anchor" href="#the-four-axes"></a></h3>
+<p>A publication regression table is a grid, and every cell has a place on four axes. Two axes run vertically (rows, and the bands that group them) and two run horizontally (columns, and the bands that span them):</p>
+<table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th>Axis</th>
+<th>What occupies it</th>
+<th>Drawn from</th>
+</tr></thead><tbody><tr><td><strong>rows</strong></td>
+<td>one of: adjustment sets; term levels; interaction levels; named statistic rows</td>
+<td>the sequential adjustment index within an outcome × exposure family; the term table <code>level</code> / data factor levels; <code><a href="reference/estimate_interaction.html">estimate_interaction()</a></code> levels; literal names (“Events”, “Rate per 100 py”)</td>
+</tr><tr><td><strong>row groups</strong></td>
+<td>a labeled band grouping consecutive rows</td>
+<td>
+<code>outcome</code>; <code>strata</code> + <code>level</code>; <code>interaction</code>; or none</td>
+</tr><tr><td><strong>columns</strong></td>
+<td>a statistic block for one term or term level</td>
+<td>the statistics vocabulary (below) × the selected terms from the term table</td>
+</tr><tr><td><strong>spanners</strong></td>
+<td>a labeled band grouping consecutive columns</td>
+<td>a term <code>label</code> (spanning its levels); an <code>outcome</code>; or none</td>
+</tr></tbody></table><p>The recurring point of confusion, settled here: for a categorical term, the <strong>levels are columns and the term label is their spanner</strong> — not the other way around. (The blueprint’s shorthand “term levels as column spanners” for the hazard layout is imprecise; this table is the authority.)</p>
+</div>
+<div class="section level3">
+<h3 id="the-cell-frame">The cell frame<a class="anchor" aria-label="anchor" href="#the-cell-frame"></a></h3>
+<p>Every table reduces to one <strong>cell frame</strong>, and <code>as_gt()</code> consumes nothing else. It is a long tibble, one row per <em>rendered cell</em> — that is, per (row, displayed column) pair, where “displayed column” is a single finished box (so an estimate-with-CI like <code>1.4 (1.1, 1.8)</code> is one cell, not three):</p>
+<table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr></thead><tbody><tr><td><code>row_group</code></td>
+<td>chr</td>
+<td>label of the row-group band (<code>NA</code> when ungrouped)</td>
+</tr><tr><td><code>row_key</code></td>
+<td>chr</td>
+<td>the stub label of the row within its group; <code>NA</code> for a group-scoped cell; keys beginning with <code>.</code> are reserved rows contributed by column blocks (<code>.axis</code>)</td>
+</tr><tr><td><code>row_index</code></td>
+<td>int</td>
+<td>order of the row within its group (<code>NA</code> for group-scoped cells)</td>
+</tr><tr><td><code>row_scope</code></td>
+<td>chr</td>
+<td>
+<code>"row"</code> (the default) or <code>"group"</code> — a group-scoped cell belongs to the whole <code>row_group</code> band rather than to one row; see “Cells that span rows” below</td>
+</tr><tr><td><code>spanner</code></td>
+<td>chr</td>
+<td>label of the column-spanner band (<code>NA</code> when none)</td>
+</tr><tr><td><code>column_key</code></td>
+<td>chr</td>
+<td>stable identifier of the displayed column within its spanner (e.g. <code>smoking</code>, <code>cyl::cyl8</code>); never shown — used for pivot, ordering, merges, accents</td>
+</tr><tr><td><code>column_index</code></td>
+<td>int</td>
+<td>order of the column</td>
+</tr><tr><td><code>column_label</code></td>
+<td>chr</td>
+<td>the header shown for the column (a statistic name, a level label, or suppressed)</td>
+</tr><tr><td><code>value</code></td>
+<td>list</td>
+<td>the cell’s raw content: a named list of the statistics that render <em>together</em> in this cell (<code>list(estimate =, conf_low =, conf_high =)</code>), or a single numeric/character. Always plain data — a <code>type = "plot"</code> cell holds the same named numeric list, never a built <code>ggplot</code>; plots are drawn at render (see “The forest block is resolved at render”)</td>
+</tr><tr><td><code>type</code></td>
+<td>chr</td>
+<td>how the cell renders: <code>"numeric"</code>, <code>"text"</code>, <code>"reference"</code>, or <code>"plot"</code>
+</td>
+</tr><tr><td><code>format</code></td>
+<td>list</td>
+<td>the cell’s format recipe: <code>digits</code>, a merge <code>pattern</code> (<code>"{estimate} ({conf_low}, {conf_high})"</code>), and any per-cell style override. <code>format</code> is constant within a <code>column_key</code> <em>except</em> for accents, which is exactly why it lives on the cell rather than the column.</td>
+</tr></tbody></table><p><code>as_gt()</code> is then mechanical and lives in one place: (1) expand each named statistic inside <code>value</code> into a working column keyed <code>column_key__stat</code> and pivot wide, with <code>row_group</code> → <code>groupname_col</code> and <code>row_key</code> → <code>rowname_col</code>; (2) <code>fmt_number()</code> by <code>format$digits</code>; (3) <code>cols_merge()</code> each <code>column_key</code>’s working columns back into one displayed column via <code>format$pattern</code>; (4) <code>tab_spanner()</code> from <code>spanner</code>, <code>cols_label()</code> from <code>column_label</code>; (5) apply accents and theme. Because the canonical form is a tibble, testing a table is testing a tibble — snapshot tests compare cell frames, not rendered HTML (this is what makes 6.10 tractable). Two mechanisms extend the mechanical pipeline and live <em>only</em> in the renderer: the rowspan emulation for group-scoped cells and the drawing of plot cells — both specified next, and both existing precisely so the cell frame itself can stay plain data.</p>
+</div>
+<div class="section level3">
+<h3 id="cells-that-span-rows-group-scoped-cells">Cells that span rows (group-scoped cells)<a class="anchor" aria-label="anchor" href="#cells-that-span-rows-group-scoped-cells"></a></h3>
+<p>Some statistics belong to a term, not to any one of its levels. The interaction p-value is the canonical case: <code><a href="reference/estimate_interaction.html">estimate_interaction()</a></code> returns one <code>p_value</code> <em>across</em> the levels, and the old <code><a href="reference/tbl_forest.html">tbl_interaction_forest()</a></code> displayed it floating between the two level rows — implemented as a duplicate-and-white-out hack (the value written into every level row, all but one masked with white zero-size text, the survivor vertically aligned onto the band’s seam). The spec makes this a first-class concept instead. The rule, stated once:</p>
+<p><strong>A statistic computed across a term’s levels attaches to the term, and its placement follows from where the levels sit.</strong></p>
+<ul><li>Where the levels are <strong>columns</strong> (the <code>"levels"</code> layout), a term-scoped statistic gets a displayed column of its own — the rate difference already works this way.</li>
+<li>Where the levels are <strong>rows</strong> (the <code>"interaction"</code> layout), it becomes a <strong>group-scoped cell</strong>: <code>row_scope = "group"</code>, <code>row_key = NA</code>, <code>row_group</code> set to the term’s band, one cell per (group, column).</li>
+</ul><p>Rendering group-scoped cells is the renderer’s job alone, because <a href="https://gt.rstudio.com" class="external-link">gt</a> has no rowspan for body cells: <code>as_gt()</code> emulates one by writing the value into each row of the group, keeping it visible in exactly one row, vertically centered on the band (with two level rows: rendered in the first row with <code>v_align = "bottom"</code>, which is what makes it float on the seam), and masking the duplicates (white text, zero size, borders suppressed). The mask never appears in the cell frame — it is a render artifact, not data. If <a href="https://gt.rstudio.com" class="external-link">gt</a> ever grows body rowspans, only <code>as_gt()</code> changes.</p>
+<p>Term-scoped statistics at launch: the interaction <code>p_value</code> (inside the <code>interaction</code> block) and <code>rate_difference</code>. Any future across-levels statistic inherits this rule rather than inventing a placement.</p>
+</div>
+<div class="section level3">
+<h3 id="the-forest-block-is-resolved-at-render">The forest block is resolved at render<a class="anchor" aria-label="anchor" href="#the-forest-block-is-resolved-at-render"></a></h3>
+<p>A forest column is deliberately <em>not</em> “a column of ggplots”. Three properties, all consequences of “cells are data”, settle how <code>add_forest()</code> interacts with the rest of a table:</p>
+<ol style="list-style-type: decimal"><li>
+<strong>Cell values are numbers.</strong> A forest cell’s <code>value</code> is the same <code>list(estimate =, conf_low =, conf_high =)</code> as an estimate cell, with <code>type = "plot"</code>. The ggplots are built inside <code>as_gt()</code> (via <code><a href="https://gt.rstudio.com/reference/text_transform.html" class="external-link">gt::text_transform()</a></code> + <code>ggplot_image()</code>), never stored in the frame — necessarily so, because the x-scale (limits, intercept, breaks, log vs linear) is a property of the <em>column</em>, computed across all of its cells and overridable through the block’s <code>axis</code> options. A cell frame with a forest column snapshots exactly like one without.</li>
+<li>
+<strong>One reserved row.</strong> The block contributes the bottom axis strip (the drawn x-axis with ticks, labels, and arrows) as a reserved row: <code>row_key = ".axis"</code>, <code>row_group = NA</code>, ordered after every row group, every other column blank, stub label suppressed. This is the <strong>only</strong> sanctioned way a column block may alter the row axis, and the reserved row always sorts last — so adding or removing <code>add_forest()</code> never reorders, regroups, or relabels the substantive rows, and never changes any existing cell. That invariant is testable and 6.8 tests it.</li>
+<li>
+<strong>Style defaults, not style edicts.</strong> The dense look the plots need to read as one continuous canvas (zero row padding, suppressed body borders) enters as the block’s <em>defaults</em> to the style layer, applied at render and overridable by <code>modify_style()</code> — not as scattered <code>tab_options()</code> calls the user cannot reach.</li>
+</ol><p><code>add_forest()</code> errors unless <code>estimate</code> and <code>conf</code> are already in the spec (its cells read them); it computes nothing new.</p>
+</div>
+<div class="section level3">
+<h3 id="the-statistics-vocabulary">The statistics vocabulary<a class="anchor" aria-label="anchor" href="#the-statistics-vocabulary"></a></h3>
+<p>These are the column blocks a table can carry. The “attached data” column is the load-bearing distinction, because it decides whether a table can be built from the model collection alone:</p>
+<table class="table"><colgroup><col width="25%"><col width="25%"><col width="25%"><col width="25%"></colgroup><thead><tr><th>Statistic</th>
+<th>Verb</th>
+<th>Source</th>
+<th>Needs attached data?</th>
+</tr></thead><tbody><tr><td><code>estimate</code></td>
+<td><code>add_estimates()</code></td>
+<td>tidy <code>estimate</code>
+</td>
+<td>no</td>
+</tr><tr><td><code>conf</code></td>
+<td><code>add_estimates()</code></td>
+<td>tidy <code>conf_low</code>, <code>conf_high</code>
+</td>
+<td>no</td>
+</tr><tr><td><code>p</code></td>
+<td><code>add_estimates()</code></td>
+<td>tidy <code>p_value</code>
+</td>
+<td>no</td>
+</tr><tr><td><code>n</code></td>
+<td><code>add_n()</code></td>
+<td>glance <code>nobs</code> (recorded at fit)</td>
+<td>no</td>
+</tr><tr><td><code>events</code></td>
+<td><code>add_events()</code></td>
+<td>
+<code><a href="https://rdrr.io/pkg/survival/man/pyears.html" class="external-link">survival::pyears()</a></code> event counts per level</td>
+<td><strong>yes</strong></td>
+</tr><tr><td><code>rate</code></td>
+<td><code>add_events()</code></td>
+<td>events ÷ person-years</td>
+<td><strong>yes</strong></td>
+</tr><tr><td><code>rate_difference</code></td>
+<td><code>add_rate_difference()</code></td>
+<td>
+<code>pyears()</code> across two levels</td>
+<td><strong>yes</strong></td>
+</tr><tr><td><code>interaction</code></td>
+<td><code>add_interaction()</code></td>
+<td>estimate/CI from the stored <code>var_cov</code> + <code>degrees_freedom</code>; <strong>but</strong> level enumeration and per-level <code>n</code> need the data</td>
+<td>partial (coefficients are dataless; levels and per-level n are not)</td>
+</tr><tr><td><code>forest</code></td>
+<td><code>add_forest()</code></td>
+<td>derived from <code>estimate</code> + <code>conf</code> already present</td>
+<td>no (requires estimate and conf in the spec)</td>
+</tr></tbody></table><p>Two consequences worth stating: model-level <code>n</code> comes free because glance records it at fit time, so a plain estimates-and-n table never needs attached data; but anything <em>per level</em> (events, rates, per-level n) does, and its absence is the error that points to <code><a href="reference/model_table_helpers.html">attach_data()</a></code>.</p>
+<p>Scope is the other load-bearing distinction: most statistics are row-scoped, but <code>rate_difference</code> and the interaction <code>p_value</code> are <strong>term-scoped</strong> (computed across a term’s levels). Their placement follows the group-scoped-cell rule above — a column of their own where levels are columns, a floating group cell where levels are rows.</p>
+</div>
+<div class="section level3">
+<h3 id="default-layouts-and-what-is-supported-at-launch">Default layouts and what is supported at launch<a class="anchor" aria-label="anchor" href="#default-layouts-and-what-is-supported-at-launch"></a></h3>
+<p>A layout <strong>preset</strong> is a complete assignment of the four axes, selected by <code>modify_layout()</code>. <em>Revised (July 2026):</em> presets are named for their <em>shape</em>, not for the retired <code>tbl_*</code> functions — the shapes are the commitment, the functions are not. Any table a monolith produced is recoverable as <em>preset + column verbs</em>, and that chain is the documented form:</p>
+<table class="table"><colgroup><col width="20%"><col width="20%"><col width="20%"><col width="20%"><col width="20%"></colgroup><thead><tr><th>Preset</th>
+<th>rows</th>
+<th>row groups</th>
+<th>columns</th>
+<th>spanners</th>
+</tr></thead><tbody><tr><td>
+<code>"adjustment"</code> (was <code>tbl_beta</code>)</td>
+<td>adjustment sets</td>
+<td>outcomes</td>
+<td>statistic per term/level</td>
+<td>terms (over their levels)</td>
+</tr><tr><td>
+<code>"levels"</code> (was the hazard tables)</td>
+<td>Events, Rate, then adjusted-estimate rows</td>
+<td>outcomes</td>
+<td>term levels</td>
+<td>terms</td>
+</tr><tr><td>
+<code>"interaction"</code> (was <code>tbl_interaction_forest</code>)</td>
+<td>interaction levels</td>
+<td>interaction terms</td>
+<td>n, estimate/CI, forest, p (group-scoped)</td>
+<td>none (single outcome × exposure)</td>
+</tr></tbody></table><p>Launch ships exactly these three presets plus the bare default (a single estimate + CI column block, adjustment-set rows, outcome groups). <code>modify_layout()</code> selects a preset and may swap the row-group dimension between <code>outcome</code> and <code>strata</code> (and <code>interaction</code> for the interaction preset). Everything else <strong>errors clearly rather than half-working</strong>:</p>
+<ul><li>An unrecognized preset errors naming the three supported ones.</li>
+<li>More than one model family per table errors (already enforced); more than one dataset messages.</li>
+<li>A <code>forest</code> column without <code>estimate</code> + <code>conf</code> in the spec errors.</li>
+<li>A data-derived column (<code>events</code>, <code>rate</code>, <code>rate_difference</code>) with no attached data errors, pointing to <code><a href="reference/model_table_helpers.html">attach_data()</a></code>.</li>
+<li>
+<code>rate_difference</code> on a non-dichotomous term errors on an actual level count.</li>
+<li>
+<code>add_interaction()</code> under any preset other than <code>"interaction"</code> errors — it <em>defines</em> the rows (exposure-within-level estimates), so it cannot be an add-on to adjustment-set or statistic rows.</li>
+</ul><p>Deliberately deferred past launch (documented as such, not silently unsupported): outcomes on <strong>columns</strong> (multiple outcomes side by side), exposures side by side beyond what the interaction preset does, and free cross-products of the four axes outside the presets. These return when there is a real table asking for them, exactly as patterns did in M2.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="the-selection-resolver-m62">The selection resolver (M6.2)<a class="anchor" aria-label="anchor" href="#the-selection-resolver-m62"></a></h2>
+<p><code><a href="reference/resolve_selection.html">resolve_selection()</a></code> (in <a href="R/table-selection.R">table-selection.R</a>) is the single internal engine every table verb runs when a specification is realized. Three decisions were fixed here:</p>
+<ul><li>
+<strong>Matching is by identity, never <code><a href="https://rdrr.io/r/base/grep.html" class="external-link">grepl()</a></code>.</strong> Outcomes, exposures, and strata are matched by exact membership against the <code>outcome</code>/<code>exposure</code>/<code>strata</code> columns. Terms resolve through the term table’s variable–level relationship: a continuous term is its own key; a categorical term expands to its bare name <em>plus</em> one key per non-reference level (<code>paste0(term, level)</code>, the treatment-contrast naming <code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">broom::tidy()</a></code> produces). The bare name is always kept so a dichotomous variable modeled numerically (tidy term <code>am</code>) resolves as readily as one modeled as a factor (<code>am1</code>). This retires the substring bugs the old <code>tbl_*</code> functions carried (<code>am</code> selecting <code>gam</code>, <code>wt</code> selecting <code>wt2</code>).</li>
+<li>
+<strong>Levels come from the attached data, stamped onto the term table.</strong> The fit pipeline (<code>fmls() |&gt; fit()</code>) leaves the term table’s <code>level</code>/<code>type</code> fields empty, so <code><a href="reference/resolve_term_metadata.html">resolve_term_metadata()</a></code> runs <code><a href="reference/set_data.html">set_data()</a></code> against the attached dataset before expanding keys. This makes the term table carry the variable–level relationship the blueprint calls for, while keeping the attached data as the canonical source (there is no <code>data =</code> argument). When no data is attached, resolution falls back to bare-name matching — which still fixes the <code>am</code>/<code>gam</code> and <code>wt</code>/<code>wt2</code> cases, only categorical level expansion needs the data.</li>
+<li>
+<strong>Adjustment-set identity is the sequential model index, not the term count.</strong> <code><a href="reference/family_adjustment_index.html">family_adjustment_index()</a></code> groups rows by outcome × exposure × strata × level × subset × data × model, orders each family by adjustment degree (<code>number</code>, ties broken by row order), and numbers them <code>1, 2, 3, …</code>. Two models that share a right-hand-side term count therefore stay distinct (the old <code>number %in% ...</code> selection collided), and each stratum level numbers its own adjustment sets.</li>
+</ul><p>The resolver returns a <code>mesa_selection</code> list (<code>models</code>, <code>adjustment_index</code>, <code>terms</code>, <code>term_keys</code>, <code>labels</code>) that the <code>&lt;mesa&gt;</code> spec (M6.3) will consume at realization. All selection input passes through <code><a href="reference/selection_input.html">selection_input()</a></code> → <code><a href="reference/labeled_formulas_to_named_list.html">labeled_formulas_to_named_list()</a></code>, the single documented mechanism.</p>
 </div>
 <div class="section level2">
 <h2 id="private-data-tests-m0m6">Private-data tests (M0/M6)<a class="anchor" aria-label="anchor" href="#private-data-tests-m0m6"></a></h2>

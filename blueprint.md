@@ -52,7 +52,7 @@ documentation, and vignettes should all follow it.
 | 2\. Formulas | `fmls` | molecules | How do terms combine, and by what pattern do they expand? |
 | 3\. Models | `mdl` | reactions | What happens when a formula meets data and a fitting approach? |
 | 4\. Collections | `mdl_tbl` | notebook | How do I store, recall, and compare many models? |
-| 5\. Tables | `tbl_*` | the mesa | How do I lay the models out for a paper? |
+| 5\. Tables | `mesa` | the mesa | How do I lay the models out for a paper? |
 
 # Where Things Stand
 
@@ -61,11 +61,11 @@ An honest accounting, as of the July 2026 review. The test suite passes
 cases, and the layered concept is sound. But the implementation has
 drifted from the intent in several places.
 
-> **Revision note (July 2026):** Milestones 0 through 4 are complete.
+> **Revision note (July 2026):** Milestones 0 through 5 are complete.
 > Every defect listed below is fixed with a regression test, and the
-> structural debts in the term, formula, and fitting layers are paid
-> down (the `gt` layer debts remain for Milestone 6). Design decisions
-> made along the way are recorded in
+> structural debts in the term, formula, fitting, and collection layers
+> are paid down (the `gt` layer debts remain for Milestone 6). Design
+> decisions made along the way are recorded in
 > [DESIGN.md](https://shah-in-boots.github.io/mesa/DESIGN.md). R CMD
 > check runs clean (0 errors, 0 warnings, 0 notes).
 
@@ -96,10 +96,11 @@ drifted from the intent in several places.
   returns the outcome/exposure grid without rolling anything.~~ *Removed
   in M2; it returns as a registered pattern when it can be done
   properly.*
-- `mdl_tbl_cast()` drops the `dataList` attribute when combining tables
-  — this is the root of issue \#26
-  ([model-table.R](https://shah-in-boots.github.io/mesa/R/model-table.R)).
-  *Still open — this is Milestone 5.*
+- ~~`mdl_tbl_cast()` drops the `dataList` attribute when combining
+  tables — this is the root of issue \#26
+  ([model-table.R](https://shah-in-boots.github.io/mesa/R/model-table.R)).~~
+  *Fixed in M5; combination reconciles all three attributes, with
+  cross-dataset tests.*
 - ~~[`lifecycle::badge()`](https://lifecycle.r-lib.org/reference/badge.html)
   is used throughout the documentation but
   [lifecycle](https://lifecycle.r-lib.org/) is not declared in
@@ -138,9 +139,10 @@ drifted from the intent in several places.
   *Still open — this is Milestone 6. The private-data tests moved to
   `tests/manual/` so the automated suite and R CMD check stand on their
   own.*
-- Naming is split between abbreviated and spelled-out forms (`mdl_tbl`
-  vs `model_table`, `fmls`, `tm`) without a stated convention. *Still
-  open — decided in Milestone 5.*
+- ~~Naming is split between abbreviated and spelled-out forms (`mdl_tbl`
+  vs `model_table`, `fmls`, `tm`) without a stated convention.~~
+  *Decided in M5: spelled-out functions are canonical, abbreviated
+  aliases and class names remain (see DESIGN.md).*
 - ~~Repository hygiene: `sandbox.R` and `ex.R` sit at the top level,
   built vignette artifacts (`getting_started.html`, `.R`) are committed,
   `test-dev.R` is a placeholder, and `test-gt.R` is empty.~~ *Cleaned in
@@ -220,10 +222,10 @@ Labeling/closing on GitHub itself remains a by-hand step.
 |----|----|
 | \#5 (level argument for `tm`) | Done in M1 — the `level` field |
 | \#6 (Terms) | Done in M1 — role taxonomy spec and parser rewrite |
-| \#18, \#46 (`mdl_tbl` construction and warnings) | Milestone 5 |
-| \#23 (dplyr verb support) | Milestone 5 |
+| \#18, \#46 (`mdl_tbl` construction and warnings) | Done in M5 — validation, rejection of raw fits, the status print/summary |
+| \#23 (dplyr verb support) | Done in M5 — verbs reconcile attributes, with invariant messaging |
 | \#25 (formula shorthand requests) | Decided in M1/M2 — see DESIGN.md; close after review |
-| \#26 (combining tables loses attributes) | Milestone 5 |
+| \#26 (combining tables loses attributes) | Done in M5 — reconciliation on combine and subset |
 | \#30 (hazard tables) | Milestone 6 |
 | \#42 (merging formulas with special terms) | Done in M2 — [`c()`](https://rdrr.io/r/base/c.html) with collision messaging |
 | \#47, \#48 (`gt` implementation and beta tables) | Milestone 6 |
@@ -373,7 +375,7 @@ inspectable formula x stratum x subset plan, and
 Fail softly: a failed fit becomes a recorded error —
 `fit_status = FALSE` with the message in the model table, a warning plus
 the condition object in raw mode — and
-[`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
+[`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/flatten_models.md)
 skips unfit rows.
 
 Support mixed models through the random-effects role:
@@ -388,7 +390,7 @@ Correct `degrees_freedom` per model family
 needs the exposure-product covariance without the original data (see
 DESIGN.md).
 
-## Milestone 5 — The collection (`mdl_tbl`)
+## Milestone 5 — The collection (`mdl_tbl`) ✅
 
 *The notebook of models: storage, recall, and combination must be
 trustworthy before the table layer can be.*
@@ -398,31 +400,50 @@ trustworthy before the table layer can be.*
 > truthfully reflects failed fits.
 
 Fix attribute reconciliation when combining tables: `mdl_tbl_cast()`
-must carry `dataList` through, and combined formula matrices/term tables
-must deduplicate correctly (issue \#26), with tests that bind tables
-from different datasets.
+carries `dataList` through, formula matrices stay row-parallel to the
+table, and term tables deduplicate left-most-wins (issue \#26), with
+tests that bind tables from different datasets. `model_table(x, y)`
+combines tables directly.
 
 Complete `dplyr` verb support with tests for `filter`, `select`,
-`mutate`, `arrange`, `bind_rows`, and the invariant-column messaging
-(issue \#23).
+`mutate`, `arrange`, `bind_rows`, `[`, and the invariant-column
+messaging (issue \#23). Subsetting now prunes attributes from the roles
+the remaining rows claim (the stale-strata TODO); `bind_rows` across
+unrelated tables downgrades loudly (dplyr strips attributes before
+reconstruction — see DESIGN.md) and points to
+[`model_table()`](https://shah-in-boots.github.io/mesa/reference/model_table.md).
 
-Settle the naming convention across the package — one canonical public
-name per class, with the other kept as a documented alias
-(e.g. [`model_table()`](https://shah-in-boots.github.io/mesa/reference/mdl_tbl.md)
-canonical,
-[`mdl_tbl()`](https://shah-in-boots.github.io/mesa/reference/mdl_tbl.md)
-alias) — and state the convention in the design note.
+Settle the naming convention across the package: spelled-out names
+canonical for the public API
+([`model_table()`](https://shah-in-boots.github.io/mesa/reference/model_table.md)),
+abbreviated forms kept as documented aliases
+([`mdl_tbl()`](https://shah-in-boots.github.io/mesa/reference/model_table.md))
+and class names. Recorded in
+[DESIGN.md](https://shah-in-boots.github.io/mesa/DESIGN.md).
 
 Rework
-[`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
-exponentiation: infer sensible defaults from the model family (binomial
-`glm`/`coxph` exponentiate; `lm` does not) rather than the by-name
-`which=` argument, keeping an explicit override.
+[`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/flatten_models.md)
+exponentiation: inferred from the model family/link (`coxph` and
+log/logit GLMs exponentiate; `lm` does not) with an `exponentiated`
+marker, keeping `exponentiate =` and `which =` as explicit overrides.
+[`mdl()`](https://shah-in-boots.github.io/mesa/reference/models.md) now
+records the link function to support the inference.
 
 Run
 [`validate_model_table()`](https://shah-in-boots.github.io/mesa/reference/validate_model_table.md)
-on construction, document the invariant columns, and improve the
-warnings around construction (issues \#18, \#46).
+on construction, document the invariant columns
+([`?model_table`](https://shah-in-boots.github.io/mesa/reference/model_table.md)),
+and improve the warnings around construction — raw fitted models are
+rejected with directions (issues \#18, \#46). The `mdl_tbl` print now
+leads with fitted/failed/unfit status, data attachment, and next-step
+hints; [`summary()`](https://rdrr.io/r/base/summary.html) maps the
+fleet;
+[`model_failures()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md),
+[`term_table()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md),
+[`formula_matrix()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md),
+and
+[`model_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
+round out the helper set.
 
 Prune `validation.R` of code referring to retired classes
 (`model_archetype`) so validation reflects the real object model.
@@ -432,39 +453,335 @@ Prune `validation.R` of code referring to retired classes
 *The destination: a grammar for laying out multiple models in
 publication tables, built on [gt](https://gt.rstudio.com).*
 
-Write the table grammar as a specification before refactoring code: rows
-are terms and their levels; columns are statistics (beta, confidence
-interval, n, p); spanners are models, adjustment sets, or outcomes; row
-groups are strata or subgroups. This one page governs every `tbl_*`
-function (issues \#47, \#48).
+> **Decisions (July 2026, recorded in
+> [DESIGN.md](https://shah-in-boots.github.io/mesa/DESIGN.md)):** the
+> table layer is a **composition-first grammar**. A bare
+> [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa-package.md)
+> constructor lifts a `mdl_tbl` onto an inspectable table specification;
+> small pipeable verbs narrow the selection, add columns, and adjust
+> styling — in any order, each with a sensible default when unset;
+> `as_gt()` renders. The user grows a table iteratively the way a
+> [ggplot2](https://ggplot2.tidyverse.org) plot is grown (staying with
+> the pipe, not `+`), and is never asked for more than one decision per
+> verb. **The grammar is the deliverable and the only committed API**
+> (revised July 2026): the old `tbl_*` monoliths are not end-points —
+> their table *shapes* survive as the named layout presets
+> (`"adjustment"`, `"levels"`, `"interaction"`), and the functions
+> themselves are deprecated or deleted in 6.7/6.9 with no
+> signature-compatibility work. Attached data
+> ([`attach_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md))
+> is the canonical source for every data-derived statistic; forest plots
+> are a column type, not a separate family.
 
-Extract the shared pipeline from the four monoliths into composable
-internal steps: select models → flatten → format estimates → lay out
-rows/columns → hand to [gt](https://gt.rstudio.com); each `tbl_*`
-function becomes a thin recipe over these steps.
+### The shape of the grammar
 
-Standardize the labeled-formula argument handling
-([`labeled_formulas_to_named_list()`](https://shah-in-boots.github.io/mesa/reference/labeled_formulas_to_named_list.md))
-as the single documented mechanism for variable-plus-label input across
-all table functions.
+Every table is the same five stages; the four monoliths differ only in
+which options they pick at each stage. Each stage becomes a pure
+internal function, and every preset is a path through them:
 
-Replace the skipped private-data tests (AFEQT, CARRS) with public-data
-equivalents (`mtcars`,
+    mdl_tbl --select--> model rows --decorate--> labeled estimates --compute--> statistics
+                                                 --layout--> cell frame --render--> gt
+
+1.  **Select** — which models (outcomes, exposures, adjustment sets,
+    strata) and which terms, chosen by labeled formulas.
+2.  **Decorate** — join each estimate row with its term metadata: role
+    and label from the term table, factor levels and reference level
+    from the attached data, `level_labels` overrides.
+3.  **Compute** — optional statistics beyond the coefficients: n, events
+    and rates by person-years, rate differences, interaction effect
+    estimates.
+4.  **Layout** — assign content to the four axes and reduce to the *cell
+    frame*, a tidy tibble with one row per table cell (`row_key`,
+    `column_key`, `group`, `spanner`, `value`, `fmt`).
+5.  **Render** — translate the cell frame into
+    [gt](https://gt.rstudio.com) calls; nothing before this stage
+    touches [gt](https://gt.rstudio.com).
+
+The four axes (this vocabulary governs every table; issues \#47, \#48):
+
+| Axis | Holds | Examples |
+|----|----|----|
+| rows | terms and their levels, or adjustment sets, or interaction levels | the `"adjustment"` preset puts adjustment sets on rows; the `"levels"` preset puts term levels on columns and statistics rows below |
+| columns | statistic blocks | estimate, confidence interval, p, n, events, rate, rate difference, forest |
+| spanners | groupings of columns | a term and its levels; a model family; an outcome |
+| row groups | groupings of rows | outcomes, strata, subgroups, interaction terms |
+
+The `<mesa>` specification object is **declarative**: it carries
+instructions, not results — `selection` (which models and terms,
+recorded by the `select_*` verbs), `labels` (term, level, and column
+relabelings), `columns` (an ordered list of column *blocks*, each with
+its type, statistics, labels, and format), `layout` (the axis
+assignment), and `style` (accents, digits, missing text). Resolution —
+running the selection against the `mdl_tbl`, decorating with metadata,
+computing data statistics — happens when the spec is *realized* by
+[`print()`](https://rdrr.io/r/base/print.html) or `as_gt()`, which is
+what makes verb order irrelevant and late overrides cheap.
+
+The verb families:
+
+| Family | Verbs | What they do |
+|----|----|----|
+| construct | `mesa(object)` | bare: everything fitted goes on the mesa, labeled by defaults |
+| select | `select_outcomes()`, `select_exposures()`, `select_terms()`, `select_adjustment()`, `select_strata()` | narrow what is shown; labeled-formula input, so selecting and labeling are one gesture |
+| relabel | `modify_labels()` | rename terms, levels, or columns late, without reselecting (absorbs the old `level_labels` argument) |
+| columns | `add_estimates()`, `add_n()`, `add_events()`, `add_rate_difference()`, `add_interaction()`, `add_forest()` | append column blocks (the [gtsummary](https://github.com/ddsjoberg/gtsummary) precedent) |
+| arrange | `modify_layout()`, `modify_style()` | axis assignment; accents, digits, missing text |
+| realize | `as_gt()`, [`print()`](https://rdrr.io/r/base/print.html) | render; preview the pending specification |
+
+Composition rules: every verb is optional and defaults sensibly (a bare
+`mesa(mt) |> as_gt()` renders estimate + CI for everything fitted);
+verbs may arrive in any order; repeating a verb replaces its earlier
+instruction with a message (the [ggplot2](https://ggplot2.tidyverse.org)
+scale-replacement behavior). So iteration looks like:
+
+``` r
+
+mt |> mesa()                                          # look at what's on the mesa
+mt |> mesa() |> select_outcomes(death ~ "Death") |>   # narrow as you go
+  select_adjustment(1 ~ "Unadjusted", 3 ~ "+ Demographics") |>
+  add_estimates(list(beta ~ "HR", conf ~ "95% CI")) |>
+  add_events(followup = time) |>
+  modify_labels(smoking ~ "Smoking status") |>        # rethink a label late
+  as_gt()
+```
+
+The constructor is named
+[`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa-package.md)
+— laying models on the mesa is the package’s namesake act — and not
+`tbl()`, which would collide with
+[`dplyr::tbl()`](https://dplyr.tidyverse.org/reference/tbl.html).
+
+File layout as the work lands: `R/table-spec.R` (constructor, print,
+validation), `R/table-columns.R` (the `add_*` verbs), `R/table-render.R`
+(`as_gt()`, the only file importing [gt](https://gt.rstudio.com) layout
+functions), `R/table-presets.R` (the layout presets and, while they
+last, the deprecated `tbl_*` shims); `R/gt.R` keeps the shared argument
+documentation and
+[`theme_gt_compact()`](https://shah-in-boots.github.io/mesa/reference/theme_gt_compact.md);
+`gt-beta.R`, `gt-survival.R`, and `gt-forest.R` retire as the presets
+reproduce their tables.
+
+### Defects found on review (July 2026)
+
+Carried into the subtasks below rather than patched in place, so each
+fix lands inside the stage that owns it:
+
+- Term and outcome filtering uses
+  [`grepl()`](https://rdrr.io/r/base/grep.html) substring matching
+  throughout, so term `am` also selects `gam`, and `wt` selects `wt2`;
+  [`estimate_interaction()`](https://shah-in-boots.github.io/mesa/reference/estimate_interaction.md)
+  likewise takes “first grep match” positions. *(fixed by 6.2, 6.9)*
+- The hazard tables flatten with `exponentiate = FALSE` and never
+  exponentiate, yet label the column `HR (95% CI)` — the displayed
+  values are log-hazards. *(fixed by 6.4’s inference default)*
+- The rate-difference confidence interval uses `qnorm(0.9725)` where a
+  95% interval needs `qnorm(0.975)`, and the `person_years` argument is
+  ignored (person-years are hard-coded `/ 100`). *(fixed by 6.5)*
+- [`tbl_categorical_hazard()`](https://shah-in-boots.github.io/mesa/reference/tbl_hazard.md)
+  gates rate differences on `length(levels(dat[[t]]) == 2)` — a
+  precedence bug that is truthy for any level count. *(fixed by 6.5)*
+- [`tbl_interaction_forest()`](https://shah-in-boots.github.io/mesa/reference/tbl_forest.md)’s
+  `invert` argument is dead code (`if (FALSE)`). *(fixed by 6.8)*
+- [`tbl_beta()`](https://shah-in-boots.github.io/mesa/reference/tbl_beta.md)
+  accents only recognize a `p <` criterion and ignore the instruction
+  side (bold is hard-coded). *(fixed by 6.6)*
+- Adjustment sets are selected by the `number` column, which is the raw
+  term count — two models in a family with the same term count collide.
+  *(fixed by 6.2)*
+
+### Subtasks
+
+Order: 6.1 → 6.2 → 6.3 are sequential; 6.4 and 6.5 are independent once
+6.3 lands; 6.6 needs 6.4; 6.7 needs 6.6; 6.8 and 6.9 build on 6.6; 6.10
+rides along every PR with a closing sweep.
+
+**6.1 Write the grammar specification (one page, in DESIGN.md).** Done —
+see “The table grammar specification (M6.1)” in
+[DESIGN.md](https://shah-in-boots.github.io/mesa/DESIGN.md). It fixes
+the four axes (rows, row groups, columns, spanners), the cell frame (the
+long tibble `as_gt()` consumes), the statistics vocabulary with its
+attached-data requirements, and the three launch presets
+(`"adjustment"`, `"levels"`, `"interaction"`) with the combinations that
+error and those deferred past launch. One correction landed while
+writing it: for categorical terms, the **levels are the columns and the
+term label is their spanner** (the shorthand “term levels as column
+spanners” above was imprecise) — the DESIGN.md axes table is the
+authority. Revised on the July 2026 follow-up review, in three places:
+**(1)** the cell frame gained `row_scope` (`"row"`/`"group"`), so a
+statistic computed *across* a term’s levels — the interaction p-value
+that visually floats between two level rows in the old forest table — is
+first-class data rather than the duplicate-and-white-out hack; **(2)**
+the forest block was pinned down as **render-time** — forest cells hold
+plain numbers, the shared x-scale is a column property resolved across
+all its cells, the bottom axis strip is a reserved `.axis` row sorted
+last, and the block’s dense-padding/borderless look enters as style
+*defaults* `modify_style()` can override — so adding a forest column
+never changes any other cell; **(3)** the presets were decoupled from
+the `tbl_*` function names — the shapes are committed, the functions are
+not.
+
+**6.2 The selection resolver.** Done —
+[`resolve_selection()`](https://shah-in-boots.github.io/mesa/reference/resolve_selection.md)
+in
+[table-selection.R](https://shah-in-boots.github.io/mesa/R/table-selection.R)
+is the shared engine: it filters a `mdl_tbl` by outcome, exposure,
+strata, and adjustment set (exact membership against the provenance
+columns), and resolves requested terms to the exact tidy-term keys they
+cover. Term levels (`cyl6`, `cyl8`) resolve through the term table’s
+variable–level relationship — stamped from the attached data via
+[`set_data()`](https://shah-in-boots.github.io/mesa/reference/set_data.md),
+since the fit pipeline leaves levels empty — so a categorical term
+expands to its bare name plus one key per non-reference level, and
+[`match_term_keys()`](https://shah-in-boots.github.io/mesa/reference/match_term_keys.md)
+maps tidy names back to variables by identity. Adjustment-set identity
+is the *sequential model index* within an outcome × exposure (× strata ×
+subset × data) family
+([`family_adjustment_index()`](https://shah-in-boots.github.io/mesa/reference/family_adjustment_index.md)),
+ordered by adjustment degree with row-order tie-breaking, so colliding
+term counts stay distinct. All selection input flows through one
+mechanism
+([`selection_input()`](https://shah-in-boots.github.io/mesa/reference/selection_input.md)
+→
+[`labeled_formulas_to_named_list()`](https://shah-in-boots.github.io/mesa/reference/labeled_formulas_to_named_list.md));
+unresolvable selections error clearly rather than half-working. Tests in
+[test-table-selection.R](https://shah-in-boots.github.io/mesa/tests/testthat/test-table-selection.R)
+cover the adversarial names (`am`/`gam`, `wt`/`wt2`), categorical level
+resolution, colliding term counts, per-stratum adjustment numbering,
+order-independence, and the error paths.
+
+**6.3 The `<mesa>` specification, constructor, and selection verbs.**
+`mesa(object)` is deliberately bare: it validates — `mdl_tbl` only,
+fitted rows only, a single model family per table (error), a single
+dataset (message) — and puts everything fitted on the mesa with default
+labels from the term table and attached data. The `select_*` verbs and
+`modify_labels()` record instructions on the spec; because resolution is
+deferred to realization, they compose in any order and a repeated verb
+replaces its instruction with a message. Realization decorates the
+selected rows with role, label, level, and reference-level metadata, and
+injects reference rows for categorical terms (generalizing `tbl_beta`’s
+`_ref` logic); data-derived metadata comes from the `dataList`, and when
+it is missing the error points to
+[`attach_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md).
+[`print()`](https://rdrr.io/r/base/print.html) shows what is on the mesa
+— the models, the declared axes, the column blocks so far — so iterating
+means printing, adjusting one verb, printing again. `as_gt()` on a bare
+spec renders a minimal default table (estimate + CI), so the grammar is
+usable from the first verb. Tests assert order-independence: any
+permutation of the same verbs realizes to the same table.
+
+**6.4 Model-statistic columns.**
+`add_estimates(columns = list(beta ~ ..., conf ~ ..., p ~ ...), exponentiate = NULL, digits = 2)`:
+estimate/CI/p blocks, with exponentiation deferred to the M5 family
+inference by default (this is what corrects the hazard-scale defect);
+`add_n()` from the recorded `nobs`. Each verb appends a column block of
+instructions; computation and formatting happen at realization, and
+re-calling a verb replaces its block with a message.
+
+**6.5 Data-statistic columns.**
+`add_events(followup, person_years = 100)`: events and incidence rates
+per term level via
+[`survival::pyears()`](https://rdrr.io/pkg/survival/man/pyears.html)
+(Suggests-guarded) on the attached data, resolved through the models’
+`data_id`. `add_rate_difference(conf_level = 0.95)` completes issue
+\#30: correct critical value (`qnorm(0.975)`), `person_years` honored,
+restricted to dichotomous terms by an actual level-count check. Rate
+difference is a *term-scoped* statistic (computed across two levels): in
+the `"levels"` layout it occupies its own column, per the
+group-scoped-cell rule in the 6.1 spec. There is no `data =` argument
+anywhere in the table layer —
+[`attach_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
+is the single path, and every data-needing error points to it.
+
+**6.6 The renderer.** `as_gt(x)`: reduce the column blocks and layout to
+the cell frame, pivot, and emit the [gt](https://gt.rstudio.com) calls —
+spanners, column merges by pattern, labels, stub indentation, alignment,
+missing text — in one place;
+[`theme_gt_compact()`](https://shah-in-boots.github.io/mesa/reference/theme_gt_compact.md)
+remains compatible. Two mechanisms live only here (per the 6.1 spec):
+group-scoped cells (`row_scope = "group"`) are emulated —
+[gt](https://gt.rstudio.com) has no body-cell rowspan — by writing the
+value into each row of its group, keeping exactly one visible and
+vertically centered on the band, and masking the duplicates (the old
+forest table’s white-out trick, now documented in one place); and
+`type = "plot"` cells are drawn here from their numeric values, so a
+forest column shares one x-scale computed across all of its cells, with
+the reserved `.axis` row emitted last.
+`modify_style(accents, digits, missing_text)` generalizes the accents
+machinery: criteria on any statistic (`p < 0.05`, `estimate > 1`),
+instructions beyond bold (italic, color), applied at render.
+
+**6.7 The presets prove the grammar (the monoliths retire).** Reproduce
+the adjustment and hazard monoliths as plain grammar chains on public
+data (`mtcars`,
 [`survival::lung`](https://rdrr.io/pkg/survival/man/lung.html),
-simulated data) so the table layer is actually covered (currently:
-`test-gt-beta.R`, `test-gt-forest.R`, `test-gt-survival.R` skips).
+simulated data): the `"adjustment"` chain for
+[`tbl_beta()`](https://shah-in-boots.github.io/mesa/reference/tbl_beta.md),
+the `"levels"` chain for
+[`tbl_dichotomous_hazard()`](https://shah-in-boots.github.io/mesa/reference/tbl_hazard.md)/[`tbl_categorical_hazard()`](https://shah-in-boots.github.io/mesa/reference/tbl_hazard.md)
+— asserting content equivalence where the old outputs were right, and
+the corrected values where they were wrong (the HR scale). (The
+`"interaction"` chain closes in 6.9, once `add_interaction()` and
+`add_forest()` exist.) The chains land as documented examples
+([`?mesa`](https://shah-in-boots.github.io/mesa/reference/mesa-package.md),
+the vignette seed), not as new functions: the `tbl_*` signatures are
+explicitly **not** a compatibility target. Once a chain reproduces its
+monolith, the corresponding `tbl_*()` is either deprecated with
+[lifecycle](https://lifecycle.r-lib.org/) pointing at its chain (the
+deprecation message is the migration doc) or deleted outright — decide
+per function here, biased toward deletion while the package is
+pre-release.
 
-Stabilize the hazard tables (`tbl_dichotomous_hazard`,
-`tbl_categorical_hazard`), including the unfinished
-`rate_difference`/`person_years` machinery (issue \#30).
+**6.8 The forest column.** `add_forest(axis, width, options)` appends a
+column block available to any table, not just interaction tables; it
+errors unless `estimate` + `conf` are already in the spec, because its
+cells read them and compute nothing new. Per the 6.1 spec, the block is
+resolved at render: forest cells enter the cell frame as numbers
+(`type = "plot"`); `as_gt()` resolves the shared x-scale (limits,
+intercept, breaks, log vs linear) across the whole column with the
+block’s `axis` options overriding the guesses, draws each cell via
+[`gt::text_transform()`](https://gt.rstudio.com/reference/text_transform.html) +
+`ggplot_image()`, emits the bottom axis strip as the reserved `.axis`
+row after all row groups, and applies the block’s
+dense-padding/borderless style *defaults*, which `modify_style()` can
+override. Test the invariant this buys: adding or dropping
+`add_forest()` changes no other cell in the frame — only the forest
+column and the `.axis` row appear or disappear. Implement `invert` for
+real (reciprocal estimates, swapped interval bounds, mirrored axis) or
+remove the argument — today it is dead code behind `if (FALSE)`.
 
-Stabilize `tbl_interaction_forest` and generalize
+**6.9 Interaction rows.** Generalize
 [`estimate_interaction()`](https://shah-in-boots.github.io/mesa/reference/estimate_interaction.md)
 beyond binary interaction terms (categorical levels, per the TODO in
-[interaction.R](https://shah-in-boots.github.io/mesa/R/interaction.R)).
+[interaction.R](https://shah-in-boots.github.io/mesa/R/interaction.R)):
+per-level estimates from the variance–covariance matrix, exact term
+matching (no more first-`grep`-match positions), tests against
+hand-computed references. `add_interaction()` requires the
+`"interaction"` layout — it *defines* the rows (one per interaction
+level, grouped by interaction term) and errors under any other preset.
+Its statistics carry two scopes, distinct in the cell frame: the
+per-level cells (estimate/CI; per-level `n`, which needs attached data)
+are ordinary rows, while the single across-levels `p_value` is a
+**group-scoped cell** (`row_scope = "group"`) that the renderer floats
+over the level rows — the 6.1 spec’s answer to the white-out hack in
+today’s
+[`tbl_interaction_forest()`](https://shah-in-boots.github.io/mesa/reference/tbl_forest.md)
+(see
+[test-gt-forest.R](https://shah-in-boots.github.io/mesa/tests/testthat/test-gt-forest.R),
+which asserts the masked/aligned cells directly). The old forest table
+is then just the chain *`"interaction"` layout + `add_n()` +
+`add_estimates()` + `add_forest()`*; verify it here the way 6.7 verified
+the other two monoliths, then deprecate or delete
+[`tbl_interaction_forest()`](https://shah-in-boots.github.io/mesa/reference/tbl_forest.md)
+on the same terms.
 
-Snapshot tests on rendered `gt` structure so table regressions are
-visible in review.
+**6.10 Coverage and the closing sweep.** Snapshot tests on the **cell
+frame** for every preset and the bare default (cell frames are plain
+tibbles, so table regressions diff cleanly in review), plus a thin layer
+of rendered-`gt` structure checks; the skipped private-data tests
+(`test-gt-beta.R`, `test-gt-forest.R`, `test-gt-survival.R`) replaced by
+the public-data suites grown in 6.2–6.9; `tests/manual/` re-run against
+the new layer; `_pkgdown.yml` reference regrouped (grammar → column
+verbs → renderer → presets); NEWS.md entry.
 
 ## Milestone 7 — Telling the story
 

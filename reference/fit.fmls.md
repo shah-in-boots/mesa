@@ -14,7 +14,7 @@ before it runs.
 
 Failures are soft: if one model in a batch cannot be fit, it is recorded
 with its error message (`fit_status` becomes `FALSE` in a downstream
-[`model_table()`](https://shah-in-boots.github.io/mesa/reference/mdl_tbl.md))
+[`model_table()`](https://shah-in-boots.github.io/mesa/reference/model_table.md))
 rather than sinking the rest of the fleet.
 
 ## Usage
@@ -58,7 +58,7 @@ fit(object, .fn, ..., data, raw = TRUE)
   objects as the fitting function made them (for `{parsnip}`
   specifications, the underlying engine fit). When `FALSE`, returns a
   `mdl` vector that carries the causal context forward into
-  [`model_table()`](https://shah-in-boots.github.io/mesa/reference/mdl_tbl.md).
+  [`model_table()`](https://shah-in-boots.github.io/mesa/reference/model_table.md).
 
 ## Value
 

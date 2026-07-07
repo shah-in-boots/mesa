@@ -13,4 +13,4 @@ construct_table_from_models(x, ...)
 
 - x:
 
-  Vector of `mdl` objects
+  Single-element, possibly-named list holding a `mdl` vector

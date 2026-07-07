@@ -2,58 +2,80 @@
 
 **\[experimental\]**
 
-These functions are used to help manage the `mdl_tbl` object. They allow
-for specific manipulation of the internal components, and are intended
-to generally extend the functionality of the object.
+These functions manage and interrogate a `mdl_tbl` object – they are the
+working verbs of the notebook of models:
 
-- `attach_data()`: Attaches a dataset to a `mdl_tbl` object
+- `attach_data()`: attaches a dataset to the table for later recall
 
-- `flatten_models()`: Flattens a `mdl_tbl` object down to its specific
-  parameters
+- `model_failures()`: returns the models that were attempted but failed,
+  with their error messages
+
+- `term_table()`: the terms behind the table, as a `tm` vector with
+  their causal roles
+
+- `formula_matrix()`: the model-by-term membership matrix
+
+- `model_data()`: the datasets attached to the table
+
+See
+[`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/flatten_models.md)
+for extracting parameter estimates.
 
 ## Usage
 
 ``` r
-attach_data(x, data, ...)
+attach_data(x, data, name = NULL, ...)
 
-flatten_models(x, exponentiate = FALSE, which = NULL, ...)
+model_failures(x, ...)
+
+term_table(x, ...)
+
+# S3 method for class 'mdl_tbl'
+term_table(x, ...)
+
+# S3 method for class 'fmls'
+term_table(x, ...)
+
+formula_matrix(x, ...)
+
+# S3 method for class 'mdl_tbl'
+formula_matrix(x, ...)
+
+# S3 method for class 'fmls'
+formula_matrix(x, ...)
+
+model_data(x, name = NULL, ...)
 ```
 
 ## Arguments
 
 - x:
 
-  A `mdl_tbl` object
+  A `mdl_tbl` object (or, for `term_table()` and `formula_matrix()`, a
+  `fmls` object)
 
 - data:
 
   A `data.frame` object that has been used by models
 
+- name:
+
+  For `attach_data()`, the name to store the dataset under (defaults to
+  the expression `data` was passed as); for `model_data()`, the name of
+  a single attached dataset to return (when `NULL`, the full named list
+  is returned)
+
 - ...:
 
   Arguments to be passed to or from other methods
 
-- exponentiate:
-
-  A `logical` value that determines whether to exponentiate the
-  estimates of the models. Default is `FALSE`. If `TRUE`, the user can
-  specify which models to exponentiate by name using the **which**
-  argument.
-
-- which:
-
-  A `character` vector of model names to exponentiate. Default is
-  `NULL`. If **exponentiate** is set to `TRUE` and **which** is set to
-  `NULL`, then all estimates will be exponentiated, which is often a
-  *bad idea*.
-
 ## Value
 
-When using `attach_data()`, this returns a modified version of the
-`mdl_tbl` object however with the dataset attached. When using the
-`flatten_models()` function, this returns a simplified `data.frame` of
-the original model table that contains the model-level and
-parameter-level statistics.
+`attach_data()` returns the modified `mdl_tbl`; `model_failures()`
+returns a `tibble` with one row per failed model and its `error`
+message; `term_table()` returns a `tm` vector; `formula_matrix()`
+returns a `tibble`; `model_data()` returns a named `list` of data frames
+(or a single `data.frame` when `name` is given).
 
 ## Attaching Data
 
@@ -61,15 +83,7 @@ When models are built, oftentimes the included matrix of data is
 available within the raw model, however when handling many models, this
 can be expensive in terms of memory and space. By attaching datasets
 independently that persist regardless of the underlying models, and by
-knowing which models used which datasets, it can be ease to
-back-transform information.
-
-## Flattening Models
-
-A `mdl_tbl` object can be flattened to its specific parameters, their
-estimates, and model-level summary statistics. This function
-additionally helps by allowing for exponentiation of estimates when
-deemed appropriate. The user can specify which models to exponentiate by
-name. This heavily relies on the
-[`broom::tidy()`](https://generics.r-lib.org/reference/tidy.html)
-functionality.
+knowing which models used which datasets, it can be easy to
+back-transform information. The dataset is stored under the name it was
+passed as (or an explicit `name`), and should match the `data_id` column
+of the models that used it.
