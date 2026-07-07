@@ -260,8 +260,8 @@ resolve_selection <- function(x,
 			stop(
 				"No adjustment set numbered ",
 				paste(badIdx, collapse = ", "),
-				" is available. Adjustment sets run 1–", max(availIdx),
-				" within each outcome × exposure family.",
+				" is available. Adjustment sets run 1\u2013", max(availIdx),
+				" within each outcome \u00d7 exposure family.",
 				call. = FALSE
 			)
 		}
