@@ -44,11 +44,12 @@ as_gt.mesa <- function(x, ...) {
 
 #' Realize a `<mesa>` to its decorated estimate rows
 #'
-#' Runs the *select* and *decorate* stages of the grammar. Returns a long
-#' tibble with one row per displayed estimate, plus an injected reference row
-#' for each categorical term, carrying the metadata the layout stages need:
-#' the causal role, the term and level labels, the level and reference flags,
-#' the adjustment-set index and label, and the estimate itself.
+#' Runs the *select*, *decorate*, and *compute* stages of the grammar. Returns
+#' a long tibble with one row per displayed estimate, plus an injected
+#' reference row for each categorical term, carrying the metadata the layout
+#' stages need: the causal role, the term and level labels, the level and
+#' reference flags, the adjustment-set index and label, the estimate itself,
+#' and any data-derived statistics the column blocks request.
 #' @keywords internal
 #' @noRd
 realize_mesa <- function(x) {
@@ -81,9 +82,13 @@ realize_mesa <- function(x) {
 		)
 	}
 
-	# Estimates on the inferred scale (Cox / logit families exponentiate); the
-	# decision is carried in `exponentiated`, so the message is redundant here
-	flat <- suppressMessages(flatten_models(models))
+	# Estimates on the inferred scale (Cox / logit families exponentiate) unless
+	# an `add_estimates()` block overrides it; the decision is carried in
+	# `exponentiated`, so the message is redundant here
+	estBlock <- mesa_column_block(x, "estimates")
+	flat <- suppressMessages(
+		flatten_models(models, exponentiate = estBlock$exponentiate)
+	)
 	# `level` in a flattened row is the model's stratum level; free the name for
 	# the term's factor level, which decoration adds next
 	flat$stratum_level <- flat$level
@@ -141,6 +146,11 @@ realize_mesa <- function(x) {
 	# estimate but holds the term's place among its levels
 	refRows <- inject_reference_rows(dec)
 	dec <- dplyr::bind_rows(dec, refRows)
+
+	# Stage 3 — compute: the data-derived statistics the column blocks request
+	# (events and rates per level, the term-scoped rate difference), resolved
+	# against the attached data through each model's `data_id`
+	dec <- compute_data_statistics(dec, x)
 
 	# Labels: outcomes and adjustment sets from the recorded selection; terms and
 	# levels from `modify_labels()`
@@ -324,70 +334,253 @@ naToBlank <- function(v) ifelse(is.na(v), "", as.character(v))
 
 # The minimal renderer --------------------------------------------------------
 
-#' Render the decorated frame as a minimal estimate-and-interval table
+#' Render the decorated frame as a minimal statistic-column table
 #'
-#' The bare default of the grammar: one displayed column per term level (its
-#' point estimate and confidence interval merged into a single box), adjustment
-#' sets on rows, outcomes as row groups. Categorical terms span their level
-#' columns, with the reference level shown blank. The full cell-frame renderer
-#' (spanners, merges, forest, group-scoped cells) lands in M6.6.
+#' The interim renderer of the grammar: one displayed column per term level and
+#' statistic, adjustment sets on rows, outcomes as row groups. Without an
+#' `add_estimates()` block the bare default shows the point estimate and
+#' confidence interval merged into a single box; the block chooses the
+#' statistics (`beta`, `conf`, `p`), their labels, and the digits, and
+#' `add_n()` prepends the model-level observation count. Categorical terms
+#' span their level columns, with the reference level shown blank. The full
+#' cell-frame renderer (merges, forest, group-scoped cells) lands in M6.6.
 #' @keywords internal
 #' @noRd
 render_minimal <- function(dec, spec) {
 
-	digits <- if (is.null(spec$style$digits)) 2 else spec$style$digits
+	estBlock <- mesa_column_block(spec, "estimates")
+	nBlock <- mesa_column_block(spec, "n")
+	evBlock <- mesa_column_block(spec, "events")
+	rdBlock <- mesa_column_block(spec, "rate_difference")
+
+	digits <-
+		if (!is.null(estBlock)) {
+			estBlock$digits
+		} else if (is.null(spec$style$digits)) 2 else spec$style$digits
 	missing_text <- if (is.null(spec$style$missing_text)) "" else spec$style$missing_text
 
-	# The finished estimate box: "estimate (low, high)", blank when absent
-	dec$cell <- format_estimate(
-		dec$estimate, dec$conf_low, dec$conf_high, digits, missing_text
+	# Which estimate statistics are displayed and under what headers: the bare
+	# default is the merged estimate + CI; `modify_labels(columns=)` overrides
+	# the headers late
+	statistics <-
+		if (is.null(estBlock)) {
+			list(beta = "Estimate", conf = "95% CI")
+		} else {
+			estBlock$statistics
+		}
+	for (nm in names(spec$labels$columns)) {
+		if (nm %in% names(statistics)) {
+			statistics[[nm]] <- as.character(spec$labels$columns[[nm]])
+		}
+	}
+	showEst <- any(c("beta", "conf") %in% names(statistics))
+	showP <- "p" %in% names(statistics)
+	# The data statistics sit ahead of the estimates within a level (the old
+	# hazard tables' reading order: events, rate, then the adjusted estimates)
+	statCols <- c(
+		if (!is.null(evBlock)) c("events", "rate"),
+		if (showEst) "est", if (showP) "p"
 	)
 
-	# A stub that keeps stratified / subset / multi-dataset rows distinct even in
-	# the minimal layout, and a stable column key per displayed term level
-	dec$stub <- paste0(dec$adj_label, row_qualifier(dec))
-	dec$col_key <- ifelse(is.na(dec$level), dec$variable,
-												paste0(dec$variable, "::", dec$level))
+	# The data-statistic headers, overridable late by `modify_labels(columns=)`
+	dataHeaders <- list(
+		events = "Events",
+		rate = if (!is.null(evBlock)) {
+			paste0("Rate per ", evBlock$person_years, " person-years")
+		},
+		rate_difference = if (!is.null(rdBlock)) {
+			paste0("Rate difference (", format(rdBlock$conf_level * 100), "% CI)")
+		}
+	)
+	for (nm in names(spec$labels$columns)) {
+		if (nm %in% names(dataHeaders)) {
+			dataHeaders[[nm]] <- as.character(spec$labels$columns[[nm]])
+		}
+	}
 
-	# Column order: term order (as decorated), reference level first within a term
-	colOrder <- unique(dec$col_key[order(
-		match(dec$variable, unique(dec$variable)),
-		!dec$is_reference, naToBlank(dec$level)
+	# An explicit `add_estimates()` always shows its statistic labels as the
+	# column headers (the term label moves up to a spanner); only the bare
+	# default keeps the compact term-label headers
+	statHeaders <- !is.null(estBlock) || length(statCols) > 1
+
+	# The header of the merged estimate box: "HR (95% CI)" when both statistics
+	# are present, either alone otherwise
+	estHeader <-
+		if (all(c("beta", "conf") %in% names(statistics))) {
+			paste0(statistics$beta, " (", statistics$conf, ")")
+		} else if ("beta" %in% names(statistics)) {
+			statistics$beta
+		} else if ("conf" %in% names(statistics)) {
+			statistics$conf
+		}
+
+	# The finished cells: the estimate box honors which of beta/conf are shown
+	dec$cell_est <- format_estimate(
+		dec$estimate, dec$conf_low, dec$conf_high, digits, missing_text,
+		show_beta = "beta" %in% names(statistics),
+		show_conf = "conf" %in% names(statistics)
+	)
+	dec$cell_p <- format_p_value(dec$p_value, missing_text)
+	if (!is.null(evBlock)) {
+		dec$cell_events <- format_count(dec$events, missing_text)
+		dec$cell_rate <- ifelse(
+			is.na(dec$rate),
+			missing_text,
+			formatC(dec$rate, format = "f", digits = evBlock$digits)
+		)
+	}
+
+	# A stub that keeps stratified / subset / multi-dataset rows distinct even in
+	# the minimal layout
+	dec$stub <- paste0(dec$adj_label, row_qualifier(dec))
+
+	# One long cell per (term level, statistic column), keyed stably
+	cells <- do.call(rbind, lapply(statCols, function(s) {
+		d <- dec
+		d$stat <- s
+		d$cell <- switch(
+			s,
+			est = d$cell_est, p = d$cell_p,
+			events = d$cell_events, rate = d$cell_rate
+		)
+		d
+	}))
+	cells$col_key <- paste0(
+		ifelse(is.na(cells$level), cells$variable,
+					 paste0(cells$variable, "::", cells$level)),
+		"::", cells$stat
+	)
+
+	# The rate difference is term-scoped — computed across a term's levels — so
+	# where the levels are columns it gets one displayed column per term (the
+	# group-scoped-cell rule of the 6.1 spec), constant down its rows
+	if (!is.null(rdBlock) && "rate_diff" %in% names(dec)) {
+		rd <- dec
+		rd$stat <- "rate_difference"
+		rd$cell <- format_estimate(
+			rd$rate_diff, rd$rate_diff_low, rd$rate_diff_high,
+			evBlock$digits, missing_text
+		)
+		rd$level <- NA_character_
+		rd$level_label <- NA_character_
+		rd$is_reference <- FALSE
+		rd$col_key <- paste0(rd$variable, "::rate_difference")
+		rd <- rd[!duplicated(paste(rd$outcome_label, rd$stub, rd$col_key)), ,
+						 drop = FALSE]
+		cells <- rbind(cells, rd)
+	}
+
+	# Column order: term order (as decorated), reference level first within a
+	# term, data statistics before the estimate and p within a level, the
+	# term-scoped rate difference after the term's level columns
+	statOrder <- c(statCols, "rate_difference")
+	colOrder <- unique(cells$col_key[order(
+		match(cells$variable, unique(cells$variable)),
+		cells$stat == "rate_difference",
+		!cells$is_reference, naToBlank(cells$level),
+		match(cells$stat, statOrder)
 	)])
 
 	# Row order preserved from the decorated frame
 	rowKeys <- unique(dec[c("outcome_label", "stub")])
 
 	wide <-
-		dec[c("outcome_label", "stub", "col_key", "cell")] |>
+		cells[c("outcome_label", "stub", "col_key", "cell")] |>
 		tidyr::pivot_wider(names_from = "col_key", values_from = "cell")
 	ord <- match(
 		paste(wide$outcome_label, wide$stub),
 		paste(rowKeys$outcome_label, rowKeys$stub)
 	)
-	wide <- wide[order(ord), c("outcome_label", "stub", colOrder), drop = FALSE]
+
+	# The model-level n, recorded at fit time, sits ahead of the term columns
+	nKey <- character()
+	if (!is.null(nBlock)) {
+		nKey <- ".n"
+		nLookup <- dec[!duplicated(paste(dec$outcome_label, dec$stub)), ,
+									 drop = FALSE]
+		wide[[nKey]] <- nLookup$nobs[match(
+			paste(wide$outcome_label, wide$stub),
+			paste(nLookup$outcome_label, nLookup$stub)
+		)]
+	}
+	wide <- wide[order(ord), c("outcome_label", "stub", nKey, colOrder),
+							 drop = FALSE]
 
 	gtbl <-
 		gt::gt(wide, rowname_col = "stub", groupname_col = "outcome_label") |>
 		gt::sub_missing(missing_text = missing_text)
 
 	# Column labels and spanners, per displayed term
-	labelLookup <- dec[!duplicated(dec$col_key), , drop = FALSE]
 	colLabels <- list()
+	if (!is.null(nBlock)) {
+		nLabel <- nBlock$label
+		if (!is.null(spec$labels$columns[["n"]])) {
+			nLabel <- as.character(spec$labels$columns[["n"]])
+		}
+		colLabels[[nKey]] <- nLabel
+	}
+	statLabel <- function(s) {
+		switch(
+			s,
+			est = estHeader,
+			p = statistics$p,
+			events = dataHeaders$events,
+			rate = dataHeaders$rate,
+			rate_difference = dataHeaders$rate_difference
+		)
+	}
+
+	labelLookup <- cells[!duplicated(cells$col_key), , drop = FALSE]
 	for (v in unique(dec$variable)) {
 		vCols <- labelLookup[labelLookup$variable == v, , drop = FALSE]
 		vCols <- vCols[match(intersect(colOrder, vCols$col_key), vCols$col_key), ,
 									 drop = FALSE]
 		termLabel <- vCols$term_label[1]
 
+		# The term-scoped rate difference never sits under a level spanner: it
+		# carries its own header directly, inside the term's outer spanner
+		rdCols <- vCols[vCols$stat == "rate_difference", , drop = FALSE]
+		lvlCols <- vCols[vCols$stat != "rate_difference", , drop = FALSE]
+		for (i in seq_len(nrow(rdCols))) {
+			colLabels[[rdCols$col_key[i]]] <- statLabel(rdCols$stat[i])
+		}
+
 		if (isTRUE(vCols$categorical[1])) {
-			# Levels are the columns; the term label is their spanner
-			for (i in seq_len(nrow(vCols))) {
-				lab <- vCols$level_label[i]
-				colLabels[[vCols$col_key[i]]] <- if (is.na(lab)) "" else lab
+			# Levels are the columns; the term label is their spanner. With
+			# statistic headers, each level becomes an inner spanner over its
+			# statistic columns
+			if (statHeaders) {
+				for (lv in unique(lvlCols$level)) {
+					lvCols <- lvlCols[lvlCols$level %in% lv, , drop = FALSE]
+					lab <- lvCols$level_label[1]
+					gtbl <- gt::tab_spanner(
+						gtbl,
+						label = if (is.na(lab)) "" else lab,
+						columns = dplyr::all_of(lvCols$col_key),
+						id = paste0("sp::", v, "::", lv)
+					)
+					for (i in seq_len(nrow(lvCols))) {
+						colLabels[[lvCols$col_key[i]]] <- statLabel(lvCols$stat[i])
+					}
+				}
+			} else {
+				for (i in seq_len(nrow(lvlCols))) {
+					lab <- lvlCols$level_label[i]
+					colLabels[[lvlCols$col_key[i]]] <- if (is.na(lab)) "" else lab
+				}
 			}
 			gtbl <- gt::tab_spanner(
-				gtbl, label = termLabel, columns = dplyr::all_of(vCols$col_key)
+				gtbl, label = termLabel, columns = dplyr::all_of(vCols$col_key),
+				id = paste0("sp::", v)
+			)
+		} else if (statHeaders) {
+			# Statistic headers under a term-label spanner
+			for (i in seq_len(nrow(lvlCols))) {
+				colLabels[[lvlCols$col_key[i]]] <- statLabel(lvlCols$stat[i])
+			}
+			gtbl <- gt::tab_spanner(
+				gtbl, label = termLabel, columns = dplyr::all_of(vCols$col_key),
+				id = paste0("sp::", v)
 			)
 		} else {
 			# A single column carries the term label directly
@@ -423,17 +616,47 @@ row_qualifier <- function(dec) {
 }
 
 #' Format an estimate with its interval into a single display string
+#'
+#' Honors which of the point estimate and interval are shown: both merge into
+#' `"estimate (low, high)"`, either renders alone, and a missing estimate is
+#' the `missing_text`.
 #' @keywords internal
 #' @noRd
-format_estimate <- function(estimate, low, high, digits, missing_text) {
+format_estimate <- function(estimate, low, high, digits, missing_text,
+														show_beta = TRUE, show_conf = TRUE) {
 	num <- function(v) formatC(v, format = "f", digits = digits)
+	conf <- ifelse(
+		is.na(low) | is.na(high),
+		NA_character_,
+		paste0("(", num(low), ", ", num(high), ")")
+	)
 	ifelse(
 		is.na(estimate),
 		missing_text,
-		ifelse(
-			is.na(low) | is.na(high),
-			num(estimate),
-			paste0(num(estimate), " (", num(low), ", ", num(high), ")")
-		)
+		if (show_beta && show_conf) {
+			ifelse(is.na(conf), num(estimate), paste(num(estimate), conf))
+		} else if (show_beta) {
+			num(estimate)
+		} else {
+			ifelse(is.na(conf), missing_text, conf)
+		}
+	)
+}
+
+#' Format whole-number counts (events, n) for display
+#' @keywords internal
+#' @noRd
+format_count <- function(n, missing_text) {
+	ifelse(is.na(n), missing_text, formatC(n, format = "f", digits = 0))
+}
+
+#' Format p-values for display: three decimals, `<0.001` below
+#' @keywords internal
+#' @noRd
+format_p_value <- function(p, missing_text) {
+	ifelse(
+		is.na(p),
+		missing_text,
+		ifelse(p < 0.001, "<0.001", formatC(p, format = "f", digits = 3))
 	)
 }

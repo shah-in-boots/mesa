@@ -342,7 +342,7 @@ format.mesa <- function(x, ...) {
 	columnsLine <-
 		if (length(x$columns) > 0) {
 			paste0("  columns: ",
-						 paste(vapply(x$columns, function(b) b$type, character(1)),
+						 paste(vapply(x$columns, describe_column_block, character(1)),
 						 			collapse = ", "))
 		} else {
 			"  columns: estimate + CI (default)"

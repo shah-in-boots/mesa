@@ -101,6 +101,11 @@ reference:
   desc: >
     Laying families of models out for papers, built on the `{gt}` package.
   contents:
+  - mesa
+  - modify_labels
+  - add_estimates
+  - add_events
+  - as_gt
   - tbls
   - tbl_beta
   - tbl_hazard
