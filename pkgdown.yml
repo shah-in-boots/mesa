@@ -1,10 +1,10 @@
 pandoc: 3.8.3
-pkgdown: 2.2.0
+pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   articles/development: development.html
   getting_started: getting_started.html
-last_built: 2026-07-07T02:36Z
+last_built: 2026-07-08T20:32Z
 urls:
   reference: https://shah-in-boots.github.io/mesa/reference
   article: https://shah-in-boots.github.io/mesa/articles

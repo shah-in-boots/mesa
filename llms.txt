@@ -196,6 +196,39 @@ Many models stored, recalled, and compared in one table.
 Laying families of models out for papers, built on the
 [gt](https://gt.rstudio.com) package.
 
+- [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  [`select_outcomes()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  [`select_exposures()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  [`select_terms()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  [`select_adjustment()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  [`select_strata()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  [`print(`*`<mesa>`*`)`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  [`format(`*`<mesa>`*`)`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  **\[experimental\]** :
+
+  The `<mesa>` table specification
+
+- [`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md)
+  **\[experimental\]** : Relabel terms, levels, or columns late
+
+- [`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md)
+  [`add_n()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md)
+  **\[experimental\]** :
+
+  Add model-statistic columns to a `<mesa>`
+
+- [`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+  [`add_rate_difference()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+  **\[experimental\]** :
+
+  Add data-statistic columns to a `<mesa>`
+
+- [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+  **\[experimental\]** :
+
+  Render a `<mesa>` specification to a [gt](https://gt.rstudio.com)
+  table
+
 - [`tbls`](https://shah-in-boots.github.io/mesa/reference/tbls.md) :
 
   Extensions of [gt](https://gt.rstudio.com) package for multiple models

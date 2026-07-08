@@ -242,10 +242,11 @@ is subtask 6.1 and extends this entry):
 
 - **Two-stage grammar.** An intermediate table-specification object sits
   between the model collection and the rendered table:
-  [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa-package.md)
-  constructs it, composable verbs refine it, `as_gt()` renders it. The
-  constructor is named
-  [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa-package.md)
+  [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  constructs it, composable verbs refine it,
+  [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+  renders it. The constructor is named
+  [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
   (the namesake act of laying models on the table), not `tbl()`, which
   would collide with
   [`dplyr::tbl()`](https://dplyr.tidyverse.org/reference/tbl.html).
@@ -259,17 +260,19 @@ is subtask 6.1 and extends this entry):
   and composition, not pre-specified by recipe.
 - **Composition over configuration.** `mesa(object)` takes no selection
   arguments; everything else arrives one decision at a time through
-  pipeable verbs (`select_*`, `modify_labels()`, `add_*`, `modify_*`),
-  each optional and each defaulting sensibly, so a table is grown
-  iteratively the way a [ggplot2](https://ggplot2.tidyverse.org) plot is
-  (staying with the pipe, not `+`). To make that safe, the spec is
-  *declarative and lazily resolved*: verbs record instructions, and
-  resolution against the `mdl_tbl` happens only when the spec is
-  realized by [`print()`](https://rdrr.io/r/base/print.html) or
-  `as_gt()`. Consequences: verb order is irrelevant, repeating a verb
-  replaces its earlier instruction with a message (the ggplot
-  scale-replacement behavior), and relabeling late never requires
-  reselecting.
+  pipeable verbs (`select_*`,
+  [`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md),
+  `add_*`, `modify_*`), each optional and each defaulting sensibly, so a
+  table is grown iteratively the way a
+  [ggplot2](https://ggplot2.tidyverse.org) plot is (staying with the
+  pipe, not `+`). To make that safe, the spec is *declarative and lazily
+  resolved*: verbs record instructions, and resolution against the
+  `mdl_tbl` happens only when the spec is realized by
+  [`print()`](https://rdrr.io/r/base/print.html) or
+  [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md).
+  Consequences: verb order is irrelevant, repeating a verb replaces its
+  earlier instruction with a message (the ggplot scale-replacement
+  behavior), and relabeling late never requires reselecting.
 - **Attached data is canonical.** The `dataList` attribute of the
   `mdl_tbl` is the single source for data-derived statistics (events,
   person-years, per-level n, factor levels, reference levels). Table
@@ -333,11 +336,12 @@ authority.)
 
 ### The cell frame
 
-Every table reduces to one **cell frame**, and `as_gt()` consumes
-nothing else. It is a long tibble, one row per *rendered cell* — that
-is, per (row, displayed column) pair, where “displayed column” is a
-single finished box (so an estimate-with-CI like `1.4 (1.1, 1.8)` is one
-cell, not three):
+Every table reduces to one **cell frame**, and
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+consumes nothing else. It is a long tibble, one row per *rendered cell*
+— that is, per (row, displayed column) pair, where “displayed column” is
+a single finished box (so an estimate-with-CI like `1.4 (1.1, 1.8)` is
+one cell, not three):
 
 | Field | Type | Meaning |
 |----|----|----|
@@ -353,20 +357,20 @@ cell, not three):
 | `type` | chr | how the cell renders: `"numeric"`, `"text"`, `"reference"`, or `"plot"` |
 | `format` | list | the cell’s format recipe: `digits`, a merge `pattern` (`"{estimate} ({conf_low}, {conf_high})"`), and any per-cell style override. `format` is constant within a `column_key` *except* for accents, which is exactly why it lives on the cell rather than the column. |
 
-`as_gt()` is then mechanical and lives in one place: (1) expand each
-named statistic inside `value` into a working column keyed
-`column_key__stat` and pivot wide, with `row_group` → `groupname_col`
-and `row_key` → `rowname_col`; (2) `fmt_number()` by `format$digits`;
-(3) `cols_merge()` each `column_key`’s working columns back into one
-displayed column via `format$pattern`; (4) `tab_spanner()` from
-`spanner`, `cols_label()` from `column_label`; (5) apply accents and
-theme. Because the canonical form is a tibble, testing a table is
-testing a tibble — snapshot tests compare cell frames, not rendered HTML
-(this is what makes 6.10 tractable). Two mechanisms extend the
-mechanical pipeline and live *only* in the renderer: the rowspan
-emulation for group-scoped cells and the drawing of plot cells — both
-specified next, and both existing precisely so the cell frame itself can
-stay plain data.
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md) is
+then mechanical and lives in one place: (1) expand each named statistic
+inside `value` into a working column keyed `column_key__stat` and pivot
+wide, with `row_group` → `groupname_col` and `row_key` → `rowname_col`;
+(2) `fmt_number()` by `format$digits`; (3) `cols_merge()` each
+`column_key`’s working columns back into one displayed column via
+`format$pattern`; (4) `tab_spanner()` from `spanner`, `cols_label()`
+from `column_label`; (5) apply accents and theme. Because the canonical
+form is a tibble, testing a table is testing a tibble — snapshot tests
+compare cell frames, not rendered HTML (this is what makes 6.10
+tractable). Two mechanisms extend the mechanical pipeline and live
+*only* in the renderer: the rowspan emulation for group-scoped cells and
+the drawing of plot cells — both specified next, and both existing
+precisely so the cell frame itself can stay plain data.
 
 ### Cells that span rows (group-scoped cells)
 
@@ -392,14 +396,16 @@ its placement follows from where the levels sit.**
   `row_group` set to the term’s band, one cell per (group, column).
 
 Rendering group-scoped cells is the renderer’s job alone, because
-[gt](https://gt.rstudio.com) has no rowspan for body cells: `as_gt()`
+[gt](https://gt.rstudio.com) has no rowspan for body cells:
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
 emulates one by writing the value into each row of the group, keeping it
 visible in exactly one row, vertically centered on the band (with two
 level rows: rendered in the first row with `v_align = "bottom"`, which
 is what makes it float on the seam), and masking the duplicates (white
 text, zero size, borders suppressed). The mask never appears in the cell
 frame — it is a render artifact, not data. If
-[gt](https://gt.rstudio.com) ever grows body rowspans, only `as_gt()`
+[gt](https://gt.rstudio.com) ever grows body rowspans, only
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
 changes.
 
 Term-scoped statistics at launch: the interaction `p_value` (inside the
@@ -414,7 +420,9 @@ properties, all consequences of “cells are data”, settle how
 
 1.  **Cell values are numbers.** A forest cell’s `value` is the same
     `list(estimate =, conf_low =, conf_high =)` as an estimate cell,
-    with `type = "plot"`. The ggplots are built inside `as_gt()` (via
+    with `type = "plot"`. The ggplots are built inside
+    [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+    (via
     [`gt::text_transform()`](https://gt.rstudio.com/reference/text_transform.html) +
     `ggplot_image()`), never stored in the frame — necessarily so,
     because the x-scale (limits, intercept, breaks, log vs linear) is a
@@ -447,13 +455,13 @@ table can be built from the model collection alone:
 
 | Statistic | Verb | Source | Needs attached data? |
 |----|----|----|----|
-| `estimate` | `add_estimates()` | tidy `estimate` | no |
-| `conf` | `add_estimates()` | tidy `conf_low`, `conf_high` | no |
-| `p` | `add_estimates()` | tidy `p_value` | no |
-| `n` | `add_n()` | glance `nobs` (recorded at fit) | no |
-| `events` | `add_events()` | [`survival::pyears()`](https://rdrr.io/pkg/survival/man/pyears.html) event counts per level | **yes** |
-| `rate` | `add_events()` | events ÷ person-years | **yes** |
-| `rate_difference` | `add_rate_difference()` | `pyears()` across two levels | **yes** |
+| `estimate` | [`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md) | tidy `estimate` | no |
+| `conf` | [`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md) | tidy `conf_low`, `conf_high` | no |
+| `p` | [`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md) | tidy `p_value` | no |
+| `n` | [`add_n()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md) | glance `nobs` (recorded at fit) | no |
+| `events` | [`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md) | [`survival::pyears()`](https://rdrr.io/pkg/survival/man/pyears.html) event counts per level | **yes** |
+| `rate` | [`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md) | events ÷ person-years | **yes** |
+| `rate_difference` | [`add_rate_difference()`](https://shah-in-boots.github.io/mesa/reference/add_events.md) | `pyears()` across two levels | **yes** |
 | `interaction` | `add_interaction()` | estimate/CI from the stored `var_cov` + `degrees_freedom`; **but** level enumeration and per-level `n` need the data | partial (coefficients are dataless; levels and per-level n are not) |
 | `forest` | `add_forest()` | derived from `estimate` + `conf` already present | no (requires estimate and conf in the spec) |
 
@@ -561,6 +569,181 @@ through
 →
 [`labeled_formulas_to_named_list()`](https://shah-in-boots.github.io/mesa/reference/labeled_formulas_to_named_list.md),
 the single documented mechanism.
+
+## The `<mesa>` specification (M6.3)
+
+[`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md) (in
+[table-spec.R](https://shah-in-boots.github.io/mesa/R/table-spec.R)) is
+the constructor of the grammar’s declarative object; the verbs refine it
+and [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+(in
+[table-render.R](https://shah-in-boots.github.io/mesa/R/table-render.R))
+realizes it. Four decisions were fixed here, all following from the
+composition-first entry above.
+
+- **The spec carries five instruction slots, never results.** A `<mesa>`
+  is a list of `selection` (the raw labeled-formula input each
+  `select_*` verb records), `labels` (the
+  [`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md)
+  term/level/column relabelings), `columns` (the ordered `add_*` blocks
+  — empty until M6.4), `layout` (preset plus row-group dimension), and
+  `style` (digits, missing text). It also holds the fitted `mdl_tbl` it
+  was built from. Nothing is resolved against the table until
+  realization, which is what makes verb order irrelevant and late
+  overrides cheap. Each verb owns exactly one slot and a repeat replaces
+  that slot with a message (the ggplot scale-replacement behavior) —
+  including
+  [`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md),
+  whose slot is the whole label set.
+
+- **The constructor validates, then lays out only the fitted rows.**
+  [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  keeps the rows `model_table_status()` calls `"fitted"` and sets the
+  failed/unfit ones aside (erroring if none remain), because an unfit
+  formula has no estimate to display. A table mixing model families
+  (more than one `model_call`) **errors** — `lm` and `coxph` estimates
+  are not interpretable in one table — while more than one attached
+  dataset only **messages**, since data-derived statistics resolve each
+  model against its own `data_id`. This is the M5 status vocabulary and
+  the M6 “attached data is canonical” rule meeting at the constructor.
+
+- **Realization is select → decorate, and it injects reference rows.**
+  `realize_mesa()` runs the M6.2 resolver, flattens the selected models
+  on the inferred scale
+  ([`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/flatten_models.md)
+  with the M5 family/link default, so Cox/logit come back as ratios),
+  keeps only the parameter rows whose tidy key maps to a displayed term
+  (via
+  [`match_term_keys()`](https://shah-in-boots.github.io/mesa/reference/match_term_keys.md),
+  never [`grepl()`](https://rdrr.io/r/base/grep.html)), and joins each
+  with its role/label/level/reference metadata. The displayed terms
+  default to the models’ exposures when
+  [`select_terms()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  is unset (falling back to every non-outcome, non-meta term). For every
+  categorical term it then injects one **reference row** per model
+  context — the reference level carrying no estimate — generalizing
+  `tbl_beta`’s `_ref` column into plain data. The per-model adjustment
+  index is carried onto the parameter rows by matching each back to its
+  model by identity, so colliding term counts stay distinct. The output
+  is the decorated long tibble the later stages (compute → layout →
+  render) consume.
+
+- **The bare
+  [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+  is a minimal renderer, deliberately interim.** `render_minimal()`
+  pivots the decorated frame to one displayed column per term level
+  (estimate and CI merged into one box), adjustment sets on rows,
+  outcomes as row groups, categorical terms spanning their level columns
+  with the reference level shown blank. It is the smallest thing that
+  makes the grammar usable from the first verb; the full cell-frame
+  renderer (spanners, `cols_merge`, forest, group-scoped cells) is M6.6,
+  at which point
+  [`as_gt.mesa()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+  moves to consuming the cell frame and `render_minimal()` retires.
+  [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+  itself is a new S3 generic (no collision —
+  [gt](https://gt.rstudio.com) does not export one).
+
+## Model-statistic column blocks (M6.4)
+
+[`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md)
+and
+[`add_n()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md)
+(in
+[table-columns.R](https://shah-in-boots.github.io/mesa/R/table-columns.R))
+are the first column verbs. Each records a *column block* — an
+instruction list on the spec’s ordered `columns` slot — and defers all
+computation and formatting to realization, like every other verb;
+re-calling a verb replaces its block of the same type, in place, with a
+message. Decisions fixed here:
+
+- **Exponentiation defaults to the M5 family inference.**
+  `add_estimates(exponentiate = NULL)` passes `NULL` through to
+  [`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/flatten_models.md),
+  whose family/link inference decides the scale per model — this is what
+  corrects the old hazard-scale defect (log-hazards labeled `HR`).
+  `TRUE`/`FALSE` overrides globally. The realized frame keeps the
+  `exponentiated` marker, so the decision is always inspectable.
+- **The statistic vocabulary keeps `tbl_beta`’s names.** The recognized
+  estimate statistics are `beta`, `conf`, and `p` (the 6.1 vocabulary’s
+  `estimate`/`conf`/`p`, under the labeled-formula names the old
+  `columns =` argument already used). Unknown names error at verb time —
+  recording a bad block and failing at render would waste the laziness.
+- **`beta` and `conf` merge into one displayed cell.** Per the
+  cell-frame spec, `1.4 (1.1, 1.8)` is one cell; the merged column’s
+  header is composed from both labels (`"HR (95% CI)"`). `p` is its own
+  column. P-values render with three decimals (`<0.001` below); `digits`
+  governs the estimate and interval.
+- **An explicit block shows statistic headers; the bare default stays
+  compact.** Without
+  [`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md),
+  a term’s single estimate column carries the term label (and a
+  categorical term’s levels are the headers). With an explicit block,
+  the statistic labels are the headers and the term label moves up to a
+  spanner — for categorical terms, each level becomes an inner spanner
+  over its statistic columns (gt stacks the term spanner above). This
+  keeps the bare `mesa(mt) |> as_gt()` render unchanged while making the
+  verb’s labels always visible.
+- **[`add_n()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md)
+  reads the recorded `nobs`** (glance, recorded at fit), so an
+  estimates-and-n table never needs attached data — the load-bearing
+  distinction in the 6.1 statistics vocabulary. Column-header overrides
+  arrive late through
+  `modify_labels(columns = list(beta ~ "OR", n ~ "Obs"))`.
+
+## Data-statistic column blocks (M6.5)
+
+[`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+and
+[`add_rate_difference()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+(in
+[table-columns.R](https://shah-in-boots.github.io/mesa/R/table-columns.R))
+are the first data-derived column blocks — the other side of the 6.1
+vocabulary’s load-bearing distinction. They record like every verb; a
+*compute* stage in `realize_mesa()` (`compute_data_statistics()`) runs
+once per dataset × outcome × term at realization, resolving each model’s
+`data_id` against the attached data — there is no `data =` argument
+anywhere in the table layer, and every data-needing error points to
+[`attach_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md).
+Decisions fixed here:
+
+- **The statistics live on the decorated frame, reference rows
+  included.** `events` and `rate` are stamped per level — the reference
+  level has events even though it has no estimate, which is what makes
+  the old hazard tables’ reference column recoverable — and the
+  term-scoped `rate_diff`/`rate_diff_low`/`rate_diff_high` repeat down
+  their term’s rows. The interim renderer gives the rate difference a
+  column of its own after the term’s level columns (the
+  group-scoped-cell rule: levels are columns here, so a term-scoped
+  statistic is a column); M6.6’s cell frame will carry the same values
+  with `row_scope`.
+- **The event indicator comes from the outcome itself.** A plain outcome
+  names its own event column; a `Surv()` outcome carries it as the
+  `event` argument (or, unnamed, the last argument) — parsed by
+  `outcome_event_column()`, never guessed. `followup` is the verb’s one
+  required argument (bare name or string), and `scale` (default
+  `365.25`, `pyears()`’s own convention for follow-up in days) converts
+  it to years.
+- **The issue \#30 defects die in the compute stage, with regression
+  tests.** The interval uses `qnorm(1 - (1 - conf_level)/2)` —
+  `qnorm(0.975)` at the default, not the old `qnorm(0.9725)`;
+  `person_years` scales the person-time denominator instead of a
+  hard-coded `/ 100` (rates and the difference scale linearly with it);
+  and the dichotomous restriction is `length(levels) != 2` on the
+  attached-data factor — an actual count, where the old gate
+  `length(levels(x) == 2)` was truthy for any level count. The
+  difference is non-reference minus reference (level 2 − level 1), with
+  the Poisson standard error `sqrt(e2/pt2² + e1/pt1²)`.
+- **[`add_rate_difference()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+  depends on the events block.** It reads the follow-up, person-years,
+  and scale
+  [`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+  recorded (one source of truth for the person-time computation, the
+  same precedent as `add_forest()` reading `estimate` + `conf`); the
+  check runs at realization, not verb time, so the verbs stay
+  order-independent. [survival](https://github.com/therneau/survival)
+  stays in Suggests — the guard errors at realization only when an
+  events block is actually present.
 
 ## Private-data tests (M0/M6)
 

@@ -10,6 +10,9 @@
 <url><loc>https://shah-in-boots.github.io/mesa/blueprint.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/index.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/news/index.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/add_estimates.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/add_events.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/as_gt.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/construct_table_from_formulas.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/construct_table_from_models.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/data_helpers.html</loc></url>
@@ -30,10 +33,12 @@
 <url><loc>https://shah-in-boots.github.io/mesa/reference/match_term_keys.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/mesa-package.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/mesa-vctrs.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/mesa.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/model_table.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/model_table_helpers.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/model_table_reconstructable.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/models.html</loc></url>
+<url><loc>https://shah-in-boots.github.io/mesa/reference/modify_labels.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/patterns.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/reexports.html</loc></url>
 <url><loc>https://shah-in-boots.github.io/mesa/reference/register_pattern.html</loc></url>

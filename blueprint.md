@@ -456,11 +456,12 @@ publication tables, built on [gt](https://gt.rstudio.com).*
 > **Decisions (July 2026, recorded in
 > [DESIGN.md](https://shah-in-boots.github.io/mesa/DESIGN.md)):** the
 > table layer is a **composition-first grammar**. A bare
-> [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa-package.md)
+> [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
 > constructor lifts a `mdl_tbl` onto an inspectable table specification;
 > small pipeable verbs narrow the selection, add columns, and adjust
 > styling — in any order, each with a sensible default when unset;
-> `as_gt()` renders. The user grows a table iteratively the way a
+> [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+> renders. The user grows a table iteratively the way a
 > [ggplot2](https://ggplot2.tidyverse.org) plot is grown (staying with
 > the pipe, not `+`), and is never asked for more than one decision per
 > verb. **The grammar is the deliverable and the only committed API**
@@ -514,19 +515,20 @@ its type, statistics, labels, and format), `layout` (the axis
 assignment), and `style` (accents, digits, missing text). Resolution —
 running the selection against the `mdl_tbl`, decorating with metadata,
 computing data statistics — happens when the spec is *realized* by
-[`print()`](https://rdrr.io/r/base/print.html) or `as_gt()`, which is
-what makes verb order irrelevant and late overrides cheap.
+[`print()`](https://rdrr.io/r/base/print.html) or
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md),
+which is what makes verb order irrelevant and late overrides cheap.
 
 The verb families:
 
 | Family | Verbs | What they do |
 |----|----|----|
 | construct | `mesa(object)` | bare: everything fitted goes on the mesa, labeled by defaults |
-| select | `select_outcomes()`, `select_exposures()`, `select_terms()`, `select_adjustment()`, `select_strata()` | narrow what is shown; labeled-formula input, so selecting and labeling are one gesture |
-| relabel | `modify_labels()` | rename terms, levels, or columns late, without reselecting (absorbs the old `level_labels` argument) |
-| columns | `add_estimates()`, `add_n()`, `add_events()`, `add_rate_difference()`, `add_interaction()`, `add_forest()` | append column blocks (the [gtsummary](https://github.com/ddsjoberg/gtsummary) precedent) |
+| select | [`select_outcomes()`](https://shah-in-boots.github.io/mesa/reference/mesa.md), [`select_exposures()`](https://shah-in-boots.github.io/mesa/reference/mesa.md), [`select_terms()`](https://shah-in-boots.github.io/mesa/reference/mesa.md), [`select_adjustment()`](https://shah-in-boots.github.io/mesa/reference/mesa.md), [`select_strata()`](https://shah-in-boots.github.io/mesa/reference/mesa.md) | narrow what is shown; labeled-formula input, so selecting and labeling are one gesture |
+| relabel | [`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md) | rename terms, levels, or columns late, without reselecting (absorbs the old `level_labels` argument) |
+| columns | [`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md), [`add_n()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md), [`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md), [`add_rate_difference()`](https://shah-in-boots.github.io/mesa/reference/add_events.md), `add_interaction()`, `add_forest()` | append column blocks (the [gtsummary](https://github.com/ddsjoberg/gtsummary) precedent) |
 | arrange | `modify_layout()`, `modify_style()` | axis assignment; accents, digits, missing text |
-| realize | `as_gt()`, [`print()`](https://rdrr.io/r/base/print.html) | render; preview the pending specification |
+| realize | [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md), [`print()`](https://rdrr.io/r/base/print.html) | render; preview the pending specification |
 
 Composition rules: every verb is optional and defaults sensibly (a bare
 `mesa(mt) |> as_gt()` renders estimate + CI for everything fitted);
@@ -546,16 +548,17 @@ mt |> mesa() |> select_outcomes(death ~ "Death") |>   # narrow as you go
 ```
 
 The constructor is named
-[`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa-package.md)
-— laying models on the mesa is the package’s namesake act — and not
+[`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md) —
+laying models on the mesa is the package’s namesake act — and not
 `tbl()`, which would collide with
 [`dplyr::tbl()`](https://dplyr.tidyverse.org/reference/tbl.html).
 
 File layout as the work lands: `R/table-spec.R` (constructor, print,
 validation), `R/table-columns.R` (the `add_*` verbs), `R/table-render.R`
-(`as_gt()`, the only file importing [gt](https://gt.rstudio.com) layout
-functions), `R/table-presets.R` (the layout presets and, while they
-last, the deprecated `tbl_*` shims); `R/gt.R` keeps the shared argument
+([`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md),
+the only file importing [gt](https://gt.rstudio.com) layout functions),
+`R/table-presets.R` (the layout presets and, while they last, the
+deprecated `tbl_*` shims); `R/gt.R` keeps the shared argument
 documentation and
 [`theme_gt_compact()`](https://shah-in-boots.github.io/mesa/reference/theme_gt_compact.md);
 `gt-beta.R`, `gt-survival.R`, and `gt-forest.R` retire as the presets
@@ -599,26 +602,27 @@ rides along every PR with a closing sweep.
 see “The table grammar specification (M6.1)” in
 [DESIGN.md](https://shah-in-boots.github.io/mesa/DESIGN.md). It fixes
 the four axes (rows, row groups, columns, spanners), the cell frame (the
-long tibble `as_gt()` consumes), the statistics vocabulary with its
-attached-data requirements, and the three launch presets
-(`"adjustment"`, `"levels"`, `"interaction"`) with the combinations that
-error and those deferred past launch. One correction landed while
-writing it: for categorical terms, the **levels are the columns and the
-term label is their spanner** (the shorthand “term levels as column
-spanners” above was imprecise) — the DESIGN.md axes table is the
-authority. Revised on the July 2026 follow-up review, in three places:
-**(1)** the cell frame gained `row_scope` (`"row"`/`"group"`), so a
-statistic computed *across* a term’s levels — the interaction p-value
-that visually floats between two level rows in the old forest table — is
-first-class data rather than the duplicate-and-white-out hack; **(2)**
-the forest block was pinned down as **render-time** — forest cells hold
-plain numbers, the shared x-scale is a column property resolved across
-all its cells, the bottom axis strip is a reserved `.axis` row sorted
-last, and the block’s dense-padding/borderless look enters as style
-*defaults* `modify_style()` can override — so adding a forest column
-never changes any other cell; **(3)** the presets were decoupled from
-the `tbl_*` function names — the shapes are committed, the functions are
-not.
+long tibble
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+consumes), the statistics vocabulary with its attached-data
+requirements, and the three launch presets (`"adjustment"`, `"levels"`,
+`"interaction"`) with the combinations that error and those deferred
+past launch. One correction landed while writing it: for categorical
+terms, the **levels are the columns and the term label is their
+spanner** (the shorthand “term levels as column spanners” above was
+imprecise) — the DESIGN.md axes table is the authority. Revised on the
+July 2026 follow-up review, in three places: **(1)** the cell frame
+gained `row_scope` (`"row"`/`"group"`), so a statistic computed *across*
+a term’s levels — the interaction p-value that visually floats between
+two level rows in the old forest table — is first-class data rather than
+the duplicate-and-white-out hack; **(2)** the forest block was pinned
+down as **render-time** — forest cells hold plain numbers, the shared
+x-scale is a column property resolved across all its cells, the bottom
+axis strip is a reserved `.axis` row sorted last, and the block’s
+dense-padding/borderless look enters as style *defaults*
+`modify_style()` can override — so adding a forest column never changes
+any other cell; **(3)** the presets were decoupled from the `tbl_*`
+function names — the shapes are committed, the functions are not.
 
 **6.2 The selection resolver.** Done —
 [`resolve_selection()`](https://shah-in-boots.github.io/mesa/reference/resolve_selection.md)
@@ -654,28 +658,76 @@ order-independence, and the error paths.
 fitted rows only, a single model family per table (error), a single
 dataset (message) — and puts everything fitted on the mesa with default
 labels from the term table and attached data. The `select_*` verbs and
-`modify_labels()` record instructions on the spec; because resolution is
-deferred to realization, they compose in any order and a repeated verb
-replaces its instruction with a message. Realization decorates the
-selected rows with role, label, level, and reference-level metadata, and
-injects reference rows for categorical terms (generalizing `tbl_beta`’s
-`_ref` logic); data-derived metadata comes from the `dataList`, and when
-it is missing the error points to
+[`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md)
+record instructions on the spec; because resolution is deferred to
+realization, they compose in any order and a repeated verb replaces its
+instruction with a message. Realization decorates the selected rows with
+role, label, level, and reference-level metadata, and injects reference
+rows for categorical terms (generalizing `tbl_beta`’s `_ref` logic);
+data-derived metadata comes from the `dataList`, and when it is missing
+the error points to
 [`attach_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md).
 [`print()`](https://rdrr.io/r/base/print.html) shows what is on the mesa
 — the models, the declared axes, the column blocks so far — so iterating
-means printing, adjusting one verb, printing again. `as_gt()` on a bare
-spec renders a minimal default table (estimate + CI), so the grammar is
-usable from the first verb. Tests assert order-independence: any
-permutation of the same verbs realizes to the same table.
+means printing, adjusting one verb, printing again.
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md) on
+a bare spec renders a minimal default table (estimate + CI), so the
+grammar is usable from the first verb. Tests assert order-independence:
+any permutation of the same verbs realizes to the same table. Done — the
+`<mesa>` object and its five declarative slots (`selection`, `labels`,
+`columns`, `layout`, `style`) live in
+[table-spec.R](https://shah-in-boots.github.io/mesa/R/table-spec.R) with
+the constructor, the five `select_*` verbs,
+[`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md),
+and [`print()`](https://rdrr.io/r/base/print.html); realization and the
+minimal renderer live in
+[table-render.R](https://shah-in-boots.github.io/mesa/R/table-render.R).
+[`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md) lays
+only the fitted rows out, errors on a mixed model family, and messages
+on more than one dataset. The verbs record raw labeled-formula
+instructions and defer every lookup to `realize_mesa()`, which runs the
+M6.2 resolver, flattens on the inferred scale, decorates each estimate
+with its term metadata, and injects one reference row per categorical
+term per model context.
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+renders the bare default (estimate + CI, adjustment rows, outcome
+groups) through an interim `render_minimal()`; the full cell-frame
+renderer is 6.6. The decision is recorded in “The `<mesa>` specification
+(M6.3)” in [DESIGN.md](https://shah-in-boots.github.io/mesa/DESIGN.md);
+tests in
+[test-table-spec.R](https://shah-in-boots.github.io/mesa/tests/testthat/test-table-spec.R)
+cover the validation gates, order-independence (permuted verbs realize
+to identical frames), reference-row injection, lazy error surfacing,
+[`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md),
+and the bare render.
 
 **6.4 Model-statistic columns.**
 `add_estimates(columns = list(beta ~ ..., conf ~ ..., p ~ ...), exponentiate = NULL, digits = 2)`:
 estimate/CI/p blocks, with exponentiation deferred to the M5 family
 inference by default (this is what corrects the hazard-scale defect);
-`add_n()` from the recorded `nobs`. Each verb appends a column block of
+[`add_n()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md)
+from the recorded `nobs`. Each verb appends a column block of
 instructions; computation and formatting happen at realization, and
-re-calling a verb replaces its block with a message.
+re-calling a verb replaces its block with a message. Done — the verbs
+live in
+[table-columns.R](https://shah-in-boots.github.io/mesa/R/table-columns.R)
+and record blocks on the spec’s `columns` slot; the interim renderer
+consumes them (statistic choice, merged `beta (conf)` headers, a `p`
+column, block digits, the `n` column from the recorded `nobs`), and
+`realize_mesa()` passes the block’s `exponentiate` through to
+[`flatten_models()`](https://shah-in-boots.github.io/mesa/reference/flatten_models.md)
+— `NULL` defers to the M5 inference, which is the hazard-scale
+correction. An explicit
+[`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md)
+shows its statistic labels as headers with the term label as spanner;
+the bare default keeps the compact term-label headers.
+`modify_labels(columns = )` overrides the headers late. Decision notes
+in “Model-statistic column blocks (M6.4)” in
+[DESIGN.md](https://shah-in-boots.github.io/mesa/DESIGN.md); tests in
+[test-table-columns.R](https://shah-in-boots.github.io/mesa/tests/testthat/test-table-columns.R)
+cover verb validation, block replacement, both exponentiation paths
+against hand-fit references, labels/digits reaching the render,
+order-independence, and the nested categorical spanners.
 
 **6.5 Data-statistic columns.**
 `add_events(followup, person_years = 100)`: events and incidence rates
@@ -690,7 +742,26 @@ the `"levels"` layout it occupies its own column, per the
 group-scoped-cell rule in the 6.1 spec. There is no `data =` argument
 anywhere in the table layer —
 [`attach_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md)
-is the single path, and every data-needing error points to it.
+is the single path, and every data-needing error points to it. Done —
+the verbs live in
+[table-columns.R](https://shah-in-boots.github.io/mesa/R/table-columns.R)
+with the *compute* stage (`compute_data_statistics()`) that
+`realize_mesa()` now runs after decoration: events and rates are stamped
+per term level (reference rows included), the rate difference per term,
+each dataset × outcome × term computed once through its `data_id`. The
+event indicator resolves from the outcome itself (a plain column, or the
+event argument of a `Surv()` outcome);
+[`add_rate_difference()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+reads the follow-up/person-years/scale recorded by
+[`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+and errors at realization without it, keeping the verbs
+order-independent. The interim renderer shows events and rates ahead of
+the estimates under each level and the rate difference as its own
+term-scoped column. All three issue-#30 defects have regression tests in
+[test-table-columns.R](https://shah-in-boots.github.io/mesa/tests/testthat/test-table-columns.R)
+against hand-computed `pyears()` references; decision notes in
+“Data-statistic column blocks (M6.5)” in
+[DESIGN.md](https://shah-in-boots.github.io/mesa/DESIGN.md).
 
 **6.6 The renderer.** `as_gt(x)`: reduce the column blocks and layout to
 the cell frame, pivot, and emit the [gt](https://gt.rstudio.com) calls —
@@ -722,8 +793,8 @@ the `"levels"` chain for
 the corrected values where they were wrong (the HR scale). (The
 `"interaction"` chain closes in 6.9, once `add_interaction()` and
 `add_forest()` exist.) The chains land as documented examples
-([`?mesa`](https://shah-in-boots.github.io/mesa/reference/mesa-package.md),
-the vignette seed), not as new functions: the `tbl_*` signatures are
+([`?mesa`](https://shah-in-boots.github.io/mesa/reference/mesa.md), the
+vignette seed), not as new functions: the `tbl_*` signatures are
 explicitly **not** a compatibility target. Once a chain reproduces its
 monolith, the corresponding `tbl_*()` is either deprecated with
 [lifecycle](https://lifecycle.r-lib.org/) pointing at its chain (the
@@ -736,9 +807,11 @@ column block available to any table, not just interaction tables; it
 errors unless `estimate` + `conf` are already in the spec, because its
 cells read them and compute nothing new. Per the 6.1 spec, the block is
 resolved at render: forest cells enter the cell frame as numbers
-(`type = "plot"`); `as_gt()` resolves the shared x-scale (limits,
-intercept, breaks, log vs linear) across the whole column with the
-block’s `axis` options overriding the guesses, draws each cell via
+(`type = "plot"`);
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+resolves the shared x-scale (limits, intercept, breaks, log vs linear)
+across the whole column with the block’s `axis` options overriding the
+guesses, draws each cell via
 [`gt::text_transform()`](https://gt.rstudio.com/reference/text_transform.html) +
 `ggplot_image()`, emits the bottom axis strip as the reserved `.axis`
 row after all row groups, and applies the block’s
@@ -768,9 +841,11 @@ today’s
 (see
 [test-gt-forest.R](https://shah-in-boots.github.io/mesa/tests/testthat/test-gt-forest.R),
 which asserts the masked/aligned cells directly). The old forest table
-is then just the chain *`"interaction"` layout + `add_n()` +
-`add_estimates()` + `add_forest()`*; verify it here the way 6.7 verified
-the other two monoliths, then deprecate or delete
+is then just the chain *`"interaction"` layout +
+[`add_n()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md) +
+[`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md) +
+`add_forest()`*; verify it here the way 6.7 verified the other two
+monoliths, then deprecate or delete
 [`tbl_interaction_forest()`](https://shah-in-boots.github.io/mesa/reference/tbl_forest.md)
 on the same terms.
 
