@@ -23,11 +23,15 @@ plot is grown:
 Because the specification is declarative — the verbs record instructions
 and resolution happens only at
 [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)/[`print()`](https://rdrr.io/r/base/print.html)
-— the verbs may arrive in any order, and a repeated verb replaces its
-earlier instruction with a message (the `{ggplot2}` scale-replacement
-behavior). A bare `mesa(mt) |> as_gt()` already renders a minimal
-estimate-and-interval table, so the grammar is usable from the first
-verb.
+— the verbs may arrive in any order. **A verb replaces only what you
+name.** Repeating a verb with the same instruction — the same selection
+dimension, block type, style field, or label name — replaces just that
+instruction with a message, and leaves everything else recorded on the
+specification standing (the `{ggplot2}` `labs()` merge behavior);
+calling a `select_*()` verb with no arguments clears that dimension,
+which is the way to undo an earlier selection. A bare
+`mesa(mt) |> as_gt()` already renders a minimal estimate-and-interval
+table, so the grammar is usable from the first verb.
 
 ## Usage
 
@@ -59,10 +63,13 @@ format(x, ...)
 
 - ...:
 
-  For the selection verbs, labeled-formula selection input (a `formula`,
-  a `list` of formulas, or a `character` vector — see
-  [`labeled_formulas_to_named_list()`](https://shah-in-boots.github.io/mesa/reference/labeled_formulas_to_named_list.md));
-  for [`print()`](https://rdrr.io/r/base/print.html), unused
+  For `mesa()`, unused — it deliberately takes no selection arguments,
+  and an unused argument errors; for the selection verbs,
+  labeled-formula selection input (a `formula`, a `list` of formulas, or
+  a `character` vector — see
+  [`labeled_formulas_to_named_list()`](https://shah-in-boots.github.io/mesa/reference/labeled_formulas_to_named_list.md)),
+  or nothing at all to clear that dimension's selection; for
+  [`print()`](https://rdrr.io/r/base/print.html), unused
 
 - x:
 
@@ -92,3 +99,26 @@ statistics are read from.
 render,
 [`model_table()`](https://shah-in-boots.github.io/mesa/reference/model_table.md)
 for the model collection
+
+## Examples
+
+``` r
+# The "adjustment" chain — adjustment sets on rows, outcomes as row
+# groups, a statistic block per term (the retired `tbl_beta()` shape)
+d <- mtcars
+d$cyl <- factor(d$cyl)
+mt <-
+  fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential") |>
+  fit(.fn = lm, data = d, raw = FALSE) |>
+  model_table(data = d)
+mt |>
+  mesa() |>
+  select_adjustment(1 ~ "Unadjusted", 3 ~ "Fully adjusted") |>
+  add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI")) |>
+  modify_labels(wt ~ "Weight (1000 lbs)") |>
+  as_gt()
+
+
+  
+
+```

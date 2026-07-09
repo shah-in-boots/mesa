@@ -111,7 +111,13 @@ Many models stored, recalled, and compared in one table.
 ## Tables: the mesa
 
 Laying families of models out for papers, built on the
-[gt](https://gt.rstudio.com) package.
+[gt](https://gt.rstudio.com) package: a specification grown by verbs,
+rendered in one place.
+
+### The grammar
+
+The declarative specification and the verbs that narrow, relabel, lay
+out, and style it.
 
 - [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
   [`select_outcomes()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
@@ -128,6 +134,20 @@ Laying families of models out for papers, built on the
 - [`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md)
   **\[experimental\]** : Relabel terms, levels, or columns late
 
+- [`modify_layout()`](https://shah-in-boots.github.io/mesa/reference/modify_layout.md)
+  **\[experimental\]** :
+
+  Choose a layout preset for a `<mesa>`
+
+- [`modify_style()`](https://shah-in-boots.github.io/mesa/reference/modify_style.md)
+  **\[experimental\]** :
+
+  Style a `<mesa>` at render
+
+### Column verbs
+
+Each verb appends a column block; computation waits for realization.
+
 - [`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md)
   [`add_n()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md)
   **\[experimental\]** :
@@ -140,25 +160,25 @@ Laying families of models out for papers, built on the
 
   Add data-statistic columns to a `<mesa>`
 
+- [`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md)
+  **\[experimental\]** :
+
+  Add a forest column to a `<mesa>`
+
+- [`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md)
+  **\[experimental\]** :
+
+  Add interaction rows to a `<mesa>`
+
+### The renderer
+
+Realization and the emitted [gt](https://gt.rstudio.com) table.
+
 - [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
   **\[experimental\]** :
 
   Render a `<mesa>` specification to a [gt](https://gt.rstudio.com)
   table
-
-- [`tbls`](https://shah-in-boots.github.io/mesa/reference/tbls.md) :
-
-  Extensions of [gt](https://gt.rstudio.com) package for multiple models
-
-- [`tbl_beta()`](https://shah-in-boots.github.io/mesa/reference/tbl_beta.md)
-  : Table of linear and generalized models
-
-- [`tbl_dichotomous_hazard()`](https://shah-in-boots.github.io/mesa/reference/tbl_hazard.md)
-  [`tbl_categorical_hazard()`](https://shah-in-boots.github.io/mesa/reference/tbl_hazard.md)
-  : Table of hazard ratios
-
-- [`tbl_interaction_forest()`](https://shah-in-boots.github.io/mesa/reference/tbl_forest.md)
-  : Forest plot and table
 
 - [`theme_gt_compact()`](https://shah-in-boots.github.io/mesa/reference/theme_gt_compact.md)
   :

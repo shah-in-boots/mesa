@@ -2,12 +2,14 @@
 
 **\[experimental\]**
 
-When using categorical interaction terms in a `mdl_tbl` object,
-estimates on interaction terms and their confidence intervals can be
-evaluated. The effect of interaction on the estimates is based on the
-levels of interaction term. The estimates and intervals can be derived
-through the `estimate_interaction()` function. The approach is based on
-the method described by Figueiras et al. (1998).
+When a model in a `mdl_tbl` carries an interaction term, the exposure's
+effect *within each level* of the interaction variable — and its
+confidence interval — can be derived from the stored coefficients and
+variance-covariance matrix, without refitting. The approach follows
+Figueiras et al. (1998): within the reference level the effect is the
+exposure coefficient; within level *j* it is the exposure coefficient
+plus the level's interaction coefficient, with variance
+`var(b_exp) + var(b_j) + 2 cov(b_exp, b_j)`.
 
 ## Usage
 
@@ -39,16 +41,17 @@ estimate_interaction(object, exposure, interaction, conf_level = 0.95, ...)
 
 ## Value
 
-A `data.frame` with `n = levels(interaction)` rows (for the presence or
-absence of the interaction term) and `n = 5` columns:
+A `tibble` with one row per level of the interaction variable (the
+reference level first) and `n = 6` columns:
 
-- estimate: beta coefficient for the interaction effect based on level
+- estimate: the exposure's effect within the interaction level
 
-- conf_low: lower bound of confidence interval for the estimate
+- conf_low: lower bound of the confidence interval for the estimate
 
-- conf_high: higher bound of confidence interval for the estimate
+- conf_high: upper bound of the confidence interval for the estimate
 
 - p_value: p-value for the overall interaction effect *across levels*
+  (the same value on every row)
 
 - nobs: number of observations within the interaction level
 
@@ -56,12 +59,18 @@ absence of the interaction term) and `n = 5` columns:
 
 ## Details
 
-The `estimate_interaction()` requires a `mdl_tbl` object that is a
-single row in length. Filtering the `mdl_tbl` should occur prior to
-passing it to this function. Additionally, this function assumes the
-interaction term is binary. If it is categorical, the current
-recommendation is to use dummy variables for the corresponding levels
-prior to modeling.
+`estimate_interaction()` requires a `mdl_tbl` subset to a single row;
+filter before calling. The interaction variable may be **binary or
+categorical**: every level of the attached-data factor yields a row, the
+reference level first. Terms are matched to the model's coefficients by
+**identity** (the tidy keys `exposure:interactionLevel`, either variable
+order), and the variance-covariance matrix is indexed by coefficient
+name — never by [`grepl()`](https://rdrr.io/r/base/grep.html) position.
+
+The `p_value` is the single across-levels test of interaction: with one
+interaction coefficient (a binary interaction) it is that coefficient's
+p-value; with several (a categorical interaction) it is the joint Wald
+chi-square test of all the interaction coefficients against zero.
 
 ## References
 

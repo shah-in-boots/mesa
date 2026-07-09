@@ -31,7 +31,7 @@ add_estimates(
   x,
   columns = list(beta ~ "Estimate", conf ~ "95% CI", p ~ "P value"),
   exponentiate = NULL,
-  digits = 2
+  digits = NULL
 )
 
 add_n(x, label = "N")
@@ -59,7 +59,9 @@ add_n(x, label = "N")
 
 - digits:
 
-  Number of digits the estimate and interval are formatted to
+  Number of digits the estimate and interval are formatted to; unset,
+  the table-wide default applies (see
+  [`modify_style()`](https://shah-in-boots.github.io/mesa/reference/modify_style.md))
 
 - label:
 
@@ -83,8 +85,11 @@ mesa.
 
 ### Formatting
 
-`digits` applies to the estimate and its interval. P-values render with
-three decimals, with values below shown as `<0.001`.
+`digits` applies to the estimate and its interval; left unset, it falls
+to the table-wide default
+([`modify_style()`](https://shah-in-boots.github.io/mesa/reference/modify_style.md)'s
+`digits`, or 2). P-values render with three decimals, with values below
+shown as `<0.001`.
 
 ## See also
 

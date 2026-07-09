@@ -17,8 +17,11 @@ or a specific level:
   (`0 ~ "Absent"`).
 
 Column (statistic) relabelings are supplied through `columns` and
-consumed by the column verbs. Like every verb, a repeated
-`modify_labels()` replaces its earlier instruction with a message.
+consumed by the column verbs. Like every verb, `modify_labels()` merges:
+naming a term, level, or column again replaces just that one label, with
+a message naming it, while every other label already recorded — from
+this call or an earlier one — stands (the `{ggplot2}` `labs()` merge
+behavior). So rethinking one label late never forces restating the rest.
 
 ## Usage
 

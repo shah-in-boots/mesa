@@ -34,8 +34,14 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/development.html">Development Log</a></li>
-    <li><a class="dropdown-item" href="../articles/getting_started.html">Getting Started</a></li>
+<li><a class="dropdown-item" href="../articles/terms.html">1. Terms and Causal Roles</a></li>
+    <li><a class="dropdown-item" href="../articles/formulas.html">2. Formulas and Patterns</a></li>
+    <li><a class="dropdown-item" href="../articles/playing.html">3. Playing with Data</a></li>
+    <li><a class="dropdown-item" href="../articles/fitting.html">4. Fitting and Model Tables</a></li>
+    <li><a class="dropdown-item" href="../articles/causal-reasoning.html">6. The Causal Reasoning</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>More</h6></li>
+    <li><a class="dropdown-item" href="../articles/development.html">Development Log</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -73,7 +79,7 @@
 <span><span class="co">#&gt; The following object is masked from 'package:vctrs':</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;     data_frame</span></span></code></pre></div>
-<p>Last updated on July 08, 2026, although still is a
+<p>Last updated on July 09, 2026, although still is a
 work-in-progress.</p>
 <div class="section level2">
 <h2 id="background">Background<a class="anchor" aria-label="anchor" href="#background"></a>
@@ -186,6 +192,127 @@ seen, which are by no means correct nor exhaustive, are below:</p>
 </tr>
 </tbody>
 </table>
+</div>
+<div class="section level2">
+<h2 id="the-blueprint-from-organic-growth-to-a-deliberate-grammar">The blueprint: from organic growth to a deliberate grammar<a class="anchor" aria-label="anchor" href="#the-blueprint-from-organic-growth-to-a-deliberate-grammar"></a>
+</h2>
+<p>The package grew organically for a long time — class by class,
+problem by problem, the sandbox scripts and one-off <code>tbl_*()</code>
+functions accumulating the way a research project’s helper functions
+always do. At some point that stopped being sustainable: the same
+filtering logic was duplicated across four table functions, the term
+parser walked a formula positionally instead of by its syntax tree, and
+the causal roles this article opens with were not actually first-class
+anywhere in the code that mattered.</p>
+<p><a href="https://github.com/shah-in-boots/mesa/blob/main/blueprint.md" class="external-link">blueprint.md</a>
+is the response — a milestone-by-milestone map, revised in place as the
+thinking evolved, with design decisions recorded as they were made in
+<code>DESIGN.md</code> rather than left to be reconstructed from commit
+messages later. The grammar it settles on is the five-layer build-up
+this package is now organized around, matching the “smallest atoms up”
+epistemology this article opened with:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Layer</th>
+<th>Class</th>
+<th>Question it answers</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>1. Terms</td>
+<td><code>tm</code></td>
+<td>What is this variable, and what role does it play?</td>
+</tr>
+<tr class="even">
+<td>2. Formulas</td>
+<td><code>fmls</code></td>
+<td>How do terms combine, and by what pattern do they expand?</td>
+</tr>
+<tr class="odd">
+<td>3. Models</td>
+<td><code>mdl</code></td>
+<td>What happens when a formula meets data and a fitting approach?</td>
+</tr>
+<tr class="even">
+<td>4. Collections</td>
+<td><code>mdl_tbl</code></td>
+<td>How do I store, recall, and compare many models?</td>
+</tr>
+<tr class="odd">
+<td>5. Tables</td>
+<td><code>mesa</code></td>
+<td>How do I lay the models out for a paper?</td>
+</tr>
+</tbody>
+</table>
+<p>Each layer has its own vignette now (<code><a href="../articles/terms.html">vignette("terms")</a></code>
+through <code><a href="../articles/mesa.html">vignette("mesa")</a></code>), and the causal reasoning behind
+the role vocabulary — Hill’s viewpoints, Pearl’s do-calculus,
+VanderWeele and Robins on mediation and effect modification — has its
+own as well (<code><a href="../articles/causal-reasoning.html">vignette("causal-reasoning")</a></code>), rather than
+living only in this article’s inspiration table.</p>
+<div class="section level3">
+<h3 id="what-changed-milestone-by-milestone">What changed, milestone by milestone<a class="anchor" aria-label="anchor" href="#what-changed-milestone-by-milestone"></a>
+</h3>
+<ul>
+<li>
+<strong>M0–M2</strong> cleared the workbench and rebuilt the term
+and formula layers on firmer ground: the <code><a href="../reference/tm.html">tm.formula()</a></code>
+parser became a recursive walk of the formula’s syntax tree instead of a
+positional scan, the role and pattern vocabularies moved out of a frozen
+<code>sysdata.rda</code> into inspectable, extensible registries, and
+the random-effects role (<code>.r()</code>) and multi-digit group tiers
+were added.</li>
+<li>
+<strong>M3–M4</strong> are where the package started to feel the way
+it was meant to: <code><a href="../reference/set_data.html">set_data()</a></code> lets a family classify itself
+against a dataset, the fluent verbs (<code><a href="../reference/fluent_verbs.html">add_strata()</a></code>,
+<code><a href="../reference/fluent_verbs.html">subset_data()</a></code>, and the rest) made formulas something to
+play with rather than construct once and discard, and fitting became
+plan-then-execute — <code><a href="../reference/fit_plan.html">fit_plan()</a></code> builds an inspectable
+formula × stratum × subset grid, <code><a href="https://generics.r-lib.org/reference/fit.html" class="external-link">fit()</a></code> executes it, and a
+failure marks <code>fit_status = FALSE</code> instead of sinking a batch
+of twenty models.</li>
+<li>
+<strong>M5</strong> made the model collection (<code>mdl_tbl</code>)
+trustworthy: combining tables no longer silently dropped attached data,
+<code>dplyr</code> verbs reconcile the table’s internal attributes down
+to the surviving rows, and <code><a href="../reference/flatten_models.html">flatten_models()</a></code> started
+inferring exponentiation from the model’s family and link instead of
+demanding it be named.</li>
+<li>
+<strong>M6</strong> is the largest single piece of work the
+blueprint describes: the four <code>tbl_*()</code> monoliths — each
+duplicating the same filter-decorate-format logic with its own bugs —
+were replaced by a composition-first grammar. <code><a href="../reference/mesa.html">mesa()</a></code> lifts
+a fitted <code>mdl_tbl</code> onto a declarative specification; small
+pipeable verbs narrow, label, add columns, and style it, in any order;
+every table reduces to one <strong>cell frame</strong> before
+<code><a href="../reference/as_gt.html">as_gt()</a></code> ever touches <a href="https://gt.rstudio.com" class="external-link">gt</a>, which is what makes
+the table layer’s regressions testable as plain tibbles instead of
+rendered HTML. The old monolith shapes survive as named layout presets
+(<code>"adjustment"</code>, <code>"levels"</code>,
+<code>"interaction"</code>); the functions themselves did not survive,
+deleted outright rather than deprecated, on the reasoning that a
+pre-release package should not carry a compatibility burden for an API
+it is actively trying to leave behind.</li>
+<li>
+<strong>M7</strong>, the milestone this article’s revision belongs
+to, is documentation and release hygiene: the vignette-per-layer set,
+this rewritten article, and a README built around one dataset and one
+causal question rather than a class list.</li>
+</ul>
+<p>The full defect list, the design decisions, and the milestones still
+open are in <code>blueprint.md</code> and <code>DESIGN.md</code>
+themselves — this article summarizes the arc; those two documents remain
+the source of truth and are kept current as the package continues to
+evolve.</p>
+</div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

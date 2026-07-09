@@ -19,8 +19,14 @@
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/development.html">Development Log</a></li>
-    <li><a class="dropdown-item" href="../articles/getting_started.html">Getting Started</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/terms.html">1. Terms and Causal Roles</a></li>
+    <li><a class="dropdown-item" href="../articles/formulas.html">2. Formulas and Patterns</a></li>
+    <li><a class="dropdown-item" href="../articles/playing.html">3. Playing with Data</a></li>
+    <li><a class="dropdown-item" href="../articles/fitting.html">4. Fitting and Model Tables</a></li>
+    <li><a class="dropdown-item" href="../articles/causal-reasoning.html">6. The Causal Reasoning</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>More</h6></li>
+    <li><a class="dropdown-item" href="../articles/development.html">Development Log</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><a class="external-link nav-link" href="https://github.com/shah-in-boots/mesa/"><span class="fa fab fa-github fa-lg"></span></a></li>
@@ -200,7 +206,12 @@
       </dl></div><div class="section level2">
       <h2 id="tables-the-mesa">Tables: the mesa<a class="anchor" aria-label="anchor" href="#tables-the-mesa"></a></h2>
 
-      <div class="section-desc"><p>Laying families of models out for papers, built on the <a href="https://gt.rstudio.com" class="external-link">gt</a> package.</p></div>
+      <div class="section-desc"><p>Laying families of models out for papers, built on the <a href="https://gt.rstudio.com" class="external-link">gt</a> package: a specification grown by verbs, rendered in one place.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+      <h3 id="the-grammar">The grammar<a class="anchor" aria-label="anchor" href="#the-grammar"></a></h3>
+      <div class="section-desc"><p>The declarative specification and the verbs that narrow, relabel, lay out, and style it.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -223,6 +234,29 @@
 
         <dt>
 
+          <code><a href="modify_layout.html">modify_layout()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Choose a layout preset for a <code>&lt;mesa&gt;</code></dd>
+
+        <dt>
+
+          <code><a href="modify_style.html">modify_style()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Style a <code>&lt;mesa&gt;</code> at render</dd>
+      </dl></div><div class="section level2">
+
+      <h3 id="column-verbs">Column verbs<a class="anchor" aria-label="anchor" href="#column-verbs"></a></h3>
+      <div class="section-desc"><p>Each verb appends a column block; computation waits for realization.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
           <code><a href="add_estimates.html">add_estimates()</a></code> <code><a href="add_estimates.html">add_n()</a></code>
           <span class="badge lifecycle lifecycle-experimental">experimental</span>
         </dt>
@@ -237,38 +271,33 @@
 
         <dt>
 
+          <code><a href="add_forest.html">add_forest()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Add a forest column to a <code>&lt;mesa&gt;</code></dd>
+
+        <dt>
+
+          <code><a href="add_interaction.html">add_interaction()</a></code>
+          <span class="badge lifecycle lifecycle-experimental">experimental</span>
+        </dt>
+        <dd>Add interaction rows to a <code>&lt;mesa&gt;</code></dd>
+      </dl></div><div class="section level2">
+
+      <h3 id="the-renderer">The renderer<a class="anchor" aria-label="anchor" href="#the-renderer"></a></h3>
+      <div class="section-desc"><p>Realization and the emitted <a href="https://gt.rstudio.com" class="external-link">gt</a> table.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
           <code><a href="as_gt.html">as_gt()</a></code>
           <span class="badge lifecycle lifecycle-experimental">experimental</span>
         </dt>
         <dd>Render a <code>&lt;mesa&gt;</code> specification to a <a href="https://gt.rstudio.com" class="external-link">gt</a> table</dd>
-
-        <dt>
-
-          <code><a href="tbls.html">tbls</a></code>
-
-        </dt>
-        <dd>Extensions of <a href="https://gt.rstudio.com" class="external-link">gt</a> package for multiple models</dd>
-
-        <dt>
-
-          <code><a href="tbl_beta.html">tbl_beta()</a></code>
-
-        </dt>
-        <dd>Table of linear and generalized models</dd>
-
-        <dt>
-
-          <code><a href="tbl_hazard.html">tbl_dichotomous_hazard()</a></code> <code><a href="tbl_hazard.html">tbl_categorical_hazard()</a></code>
-
-        </dt>
-        <dd>Table of hazard ratios</dd>
-
-        <dt>
-
-          <code><a href="tbl_forest.html">tbl_interaction_forest()</a></code>
-
-        </dt>
-        <dd>Forest plot and table</dd>
 
         <dt>
 

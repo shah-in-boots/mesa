@@ -38,8 +38,14 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="articles/development.html">Development Log</a></li>
-    <li><a class="dropdown-item" href="articles/getting_started.html">Getting Started</a></li>
+<li><a class="dropdown-item" href="articles/terms.html">1. Terms and Causal Roles</a></li>
+    <li><a class="dropdown-item" href="articles/formulas.html">2. Formulas and Patterns</a></li>
+    <li><a class="dropdown-item" href="articles/playing.html">3. Playing with Data</a></li>
+    <li><a class="dropdown-item" href="articles/fitting.html">4. Fitting and Model Tables</a></li>
+    <li><a class="dropdown-item" href="articles/causal-reasoning.html">6. The Causal Reasoning</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>More</h6></li>
+    <li><a class="dropdown-item" href="articles/development.html">Development Log</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
@@ -58,10 +64,51 @@
 </h1></div>
 <!-- badges: start -->
 
+<p><a href="https://shah-in-boots.github.io/mesa/">mesa</a> is a grammar for causal modeling in R: pick terms up off a dataset, give them causal roles, watch a family of formulas unfold, fit them, and lay the results out on the <em>mesa</em> — the table upon which the models are displayed. It is built from an epistemological perspective: small building blocks that build up to more complex concepts.</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr>
+<th>Layer</th>
+<th>Class</th>
+<th>Question it answers</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>1. Terms</td>
+<td><code>tm</code></td>
+<td>What is this variable, and what role does it play?</td>
+</tr>
+<tr>
+<td>2. Formulas</td>
+<td><code>fmls</code></td>
+<td>How do terms combine, and by what pattern do they expand?</td>
+</tr>
+<tr>
+<td>3. Models</td>
+<td><code>mdl</code></td>
+<td>What happens when a formula meets data and a fitting approach?</td>
+</tr>
+<tr>
+<td>4. Collections</td>
+<td><code>mdl_tbl</code></td>
+<td>How do I store, recall, and compare many models?</td>
+</tr>
+<tr>
+<td>5. Tables</td>
+<td><code>mesa</code></td>
+<td>How do I lay the models out for a paper?</td>
+</tr>
+</tbody>
+</table>
+<p>Where the ecosystem already solves a problem, <a href="https://shah-in-boots.github.io/mesa/">mesa</a> leans on it rather than reinvent it: <a href="https://github.com/tidymodels/parsnip" class="external-link">parsnip</a> defines models, <a href="https://broom.tidymodels.org/" class="external-link">broom</a> tidies them, <a href="https://gt.rstudio.com" class="external-link">gt</a> renders tables. <a href="https://shah-in-boots.github.io/mesa/">mesa</a>’s own contribution is the causal grammar that connects them — variables have <em>roles</em> (exposure, outcome, confounder, mediator, interaction, strata), and those roles carry meaning that shapes how formulas expand, how models are fit, and how results are displayed.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>The development version can be installed from <a href="https://github.com/shah-in-boots/mesa" class="external-link">Github</a>. Once <a href="https://shah-in-boots.github.io/mesa/">mesa</a> is accepted on CRAN, it can be installed from CRAN as well.</p>
+<p>The development version can be installed from <a href="https://github.com/shah-in-boots/mesa" class="external-link">GitHub</a>. Once <a href="https://shah-in-boots.github.io/mesa/">mesa</a> is accepted on CRAN, it can be installed from CRAN as well.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Development version</span></span>
 <span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"shah-in-boots/mesa"</span><span class="op">)</span></span>
@@ -69,19 +116,10 @@
 <span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"mesa"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
+<h2 id="one-dataset-one-causal-question">One dataset, one causal question<a class="anchor" aria-label="anchor" href="#one-dataset-one-causal-question"></a>
 </h2>
-<p>The package <a href="https://shah-in-boots.github.io/mesa/">mesa</a> (Models for Epidemiology and Statistical Analysis) was intended as a way to handle causal- and epidemiology-based modeling by the following principles:</p>
-<ol style="list-style-type: decimal">
-<li>Role determination of variables</li>
-<li>Generativity in formula creation</li>
-<li>Multiple model management</li>
-</ol>
-</div>
-<div class="section level2">
-<h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
-</h2>
-<p>The package is simple to use. The <code>mtcars</code> dataset will serve as the example, and we will use linear regressions as the primary test. This toy example shows that we will be building six models in parallel, with the key exposure being the <strong>wt</strong> term, and the two outcomes being <strong>mpg</strong> and <strong>hp</strong>.</p>
+<p>Does a car’s weight (<code>wt</code>) predict its fuel economy (<code>mpg</code>), and does that relationship hold once engine power (<code>hp</code>) and cylinder count (<code>cyl</code>) are taken into account? That is a causal question — <code>wt</code> is the <em>exposure</em>, <code>hp</code>/<code>cyl</code> are <em>confounders</em> — and <a href="https://shah-in-boots.github.io/mesa/">mesa</a> is built to carry that framing all the way from the formula to the published table.</p>
+<p><strong>Terms</strong> carry roles right inside the formula, with a rune for each one (<code>.x()</code> for exposure, <code>.c()</code> for confounder, and more — see <code><a href="articles/terms.html">vignette("terms")</a></code>):</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://shah-in-boots.github.io/mesa/">mesa</a></span><span class="op">)</span></span>
 <span><span class="co">#&gt; Loading required package: vctrs</span></span>
@@ -92,40 +130,73 @@
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;     data_frame</span></span>
 <span></span>
-<span><span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fmls.html">fmls</a></span><span class="op">(</span><span class="va">mpg</span> <span class="op">+</span> <span class="va">hp</span> <span class="op">~</span> <span class="fu">.x</span><span class="op">(</span><span class="va">wt</span><span class="op">)</span> <span class="op">+</span> <span class="va">disp</span> <span class="op">+</span> <span class="va">cyl</span> <span class="op">+</span> <span class="va">am</span>, pattern <span class="op">=</span> <span class="st">"parallel"</span><span class="op">)</span></span>
-<span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/fit.html" class="external-link">fit</a></span><span class="op">(</span><span class="va">f</span>, .fn <span class="op">=</span> <span class="va">lm</span>, data <span class="op">=</span> <span class="va">mtcars</span>, raw <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="va">mt</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/model_table.html">model_table</a></span><span class="op">(</span>mileage <span class="op">=</span> <span class="va">m</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">mt</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;mdl_tbl&gt;</span></span>
-<span><span class="co">#&gt;   id        formula_index data_id name  model_call formula_call outcome exposure</span></span>
-<span><span class="co">#&gt;   &lt;chr&gt;     &lt;list&gt;        &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt;      &lt;chr&gt;        &lt;chr&gt;   &lt;chr&gt;   </span></span>
-<span><span class="co">#&gt; 1 453532fa… &lt;dbl [6]&gt;     mtcars  mile… lm         mpg ~ wt + … mpg     wt      </span></span>
-<span><span class="co">#&gt; 2 d90b656e… &lt;dbl [6]&gt;     mtcars  mile… lm         mpg ~ wt + … mpg     wt      </span></span>
-<span><span class="co">#&gt; 3 5d2f00cc… &lt;dbl [6]&gt;     mtcars  mile… lm         mpg ~ wt + … mpg     wt      </span></span>
-<span><span class="co">#&gt; 4 49495c60… &lt;dbl [6]&gt;     mtcars  mile… lm         hp ~ wt + d… hp      wt      </span></span>
-<span><span class="co">#&gt; 5 dd309c8d… &lt;dbl [6]&gt;     mtcars  mile… lm         hp ~ wt + c… hp      wt      </span></span>
-<span><span class="co">#&gt; 6 b10fc492… &lt;dbl [6]&gt;     mtcars  mile… lm         hp ~ wt + am hp      wt      </span></span>
-<span><span class="co">#&gt; # ℹ 7 more variables: mediator &lt;chr&gt;, interaction &lt;chr&gt;, strata &lt;lgl&gt;,</span></span>
-<span><span class="co">#&gt; #   level &lt;lgl&gt;, model_parameters &lt;list&gt;, model_summary &lt;list&gt;,</span></span>
-<span><span class="co">#&gt; #   fit_status &lt;lgl&gt;</span></span></code></pre></div>
+<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="va">mtcars</span></span>
+<span><span class="va">d</span><span class="op">$</span><span class="va">cyl</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">cyl</span><span class="op">)</span></span></code></pre></div>
+<p><strong>Formulas</strong> expand a single causal idea into the family it implies — here, <code>pattern = "sequential"</code> builds the unadjusted-then-progressively-adjusted formulas a table like this one usually wants (<code><a href="articles/formulas.html">vignette("formulas")</a></code>):</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fmls.html">fmls</a></span><span class="op">(</span><span class="va">mpg</span> <span class="op">~</span> <span class="fu">.x</span><span class="op">(</span><span class="va">wt</span><span class="op">)</span> <span class="op">+</span> <span class="va">hp</span> <span class="op">+</span> <span class="va">cyl</span>, pattern <span class="op">=</span> <span class="st">"sequential"</span><span class="op">)</span></span>
+<span><span class="va">f</span></span>
+<span><span class="co">#&gt; &lt;fmls: 3 formulas&gt;</span></span>
+<span><span class="co">#&gt;   outcome: mpg</span></span>
+<span><span class="co">#&gt;   exposure: wt</span></span>
+<span><span class="co">#&gt; mpg ~ wt</span></span>
+<span><span class="co">#&gt; mpg ~ wt + hp</span></span>
+<span><span class="co">#&gt; mpg ~ wt + hp + cyl</span></span></code></pre></div>
+<p><strong>Models</strong> are fit through one interface, whatever the fitting function (<code><a href="articles/fitting.html">vignette("fitting")</a></code>), and <strong>collections</strong> hold the resulting fleet with its causal context intact:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mt</span> <span class="op">&lt;-</span></span>
+<span>  <span class="va">f</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://generics.r-lib.org/reference/fit.html" class="external-link">fit</a></span><span class="op">(</span>.fn <span class="op">=</span> <span class="va">lm</span>, data <span class="op">=</span> <span class="va">d</span>, raw <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="reference/model_table.html">model_table</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">d</span><span class="op">)</span></span>
+<span><span class="va">mt</span></span>
+<span><span class="co">#&gt; &lt;model_table&gt; 3 models × 3 formulas</span></span>
+<span><span class="co">#&gt;   ✔ 3 fitted</span></span>
+<span><span class="co">#&gt;   data: d [attached]</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;        model  formula              outcome  exposure  n </span></span>
+<span><span class="co">#&gt;   ✔ 1  lm     mpg ~ wt             mpg      wt        32</span></span>
+<span><span class="co">#&gt;   ✔ 2  lm     mpg ~ wt + hp        mpg      wt        32</span></span>
+<span><span class="co">#&gt;   ✔ 3  lm     mpg ~ wt + hp + cyl  mpg      wt        32</span></span>
+<span><span class="co">#&gt; # `summary()` maps the fleet; `flatten_models()` extracts estimates</span></span></code></pre></div>
+<p><strong>Tables</strong> grow one decision at a time — narrow the selection, add a column of statistics, relabel a term — and <code><a href="reference/as_gt.html">as_gt()</a></code> renders the specification through <a href="https://gt.rstudio.com" class="external-link">gt</a> (<code><a href="articles/mesa.html">vignette("mesa")</a></code>):</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">spec</span> <span class="op">&lt;-</span></span>
+<span>  <span class="va">mt</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="reference/mesa.html">mesa</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="reference/mesa.html">select_adjustment</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">~</span> <span class="st">"Unadjusted"</span>, <span class="fl">3</span> <span class="op">~</span> <span class="st">"Adjusted"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="reference/add_estimates.html">add_estimates</a></span><span class="op">(</span>columns <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">beta</span> <span class="op">~</span> <span class="st">"Estimate"</span>, <span class="va">conf</span> <span class="op">~</span> <span class="st">"95% CI"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="reference/modify_labels.html">modify_labels</a></span><span class="op">(</span><span class="va">wt</span> <span class="op">~</span> <span class="st">"Weight (1000 lbs)"</span><span class="op">)</span></span>
+<span><span class="va">spec</span></span>
+<span><span class="co">#&gt; &lt;mesa&gt; specification: 3 fitted models × lm</span></span>
+<span><span class="co">#&gt;   data: d</span></span>
+<span><span class="co">#&gt;   layout: adjustment (rows: adjustment sets, groups: outcomes)</span></span>
+<span><span class="co">#&gt;   selection:</span></span>
+<span><span class="co">#&gt;     adjustment: 1, 3</span></span>
+<span><span class="co">#&gt;   columns: estimates (beta + conf)</span></span>
+<span><span class="co">#&gt;   labels: wt</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; # `as_gt()` renders; `select_*()` / `modify_labels()` refine the mesa</span></span></code></pre></div>
+<p>Printing the specification shows what’s on the mesa without rendering anything — <code>spec |&gt; as_gt()</code> is the one call that turns it into the <a href="https://gt.rstudio.com" class="external-link">gt</a> table itself (see it rendered in <code><a href="articles/mesa.html">vignette("mesa")</a></code>).</p>
+<p>That is the whole arc: terms to table, one causal question all the way through. The same grammar handles stratified fits, random effects, mediation triads, and effect-modification tables with a forest-plot column — each covered in its own vignette, and the reasoning behind the role vocabulary itself (Hill, Pearl, VanderWeele) has one too.</p>
 </div>
 <div class="section level2">
-<h2 id="classes">Classes<a class="anchor" aria-label="anchor" href="#classes"></a>
+<h2 id="learn-more">Learn more<a class="anchor" aria-label="anchor" href="#learn-more"></a>
 </h2>
-<p>There are several important extended classes that this package introduces, however they are primarily used for internal validation and for shortcuts to allow more effective communication.</p>
 <ul>
 <li>
-<code>fmls</code> are a <em>version</em> of the base <code>R</code> formula object, but contain additional information and have extra features</li>
+<code><a href="articles/terms.html">vignette("terms")</a></code> — terms and causal roles</li>
 <li>
-<code>tm</code> are atomic elements used to describe individual variables, and departs from how terms are generally treated in the <code>{stats}</code> package</li>
+<code><a href="articles/formulas.html">vignette("formulas")</a></code> — formulas and patterns</li>
 <li>
-<code>mdl</code> and <code>mdl_tbl</code> exist primarily as <em>tidy</em> versions of class regression modeling</li>
+<code><a href="articles/playing.html">vignette("playing")</a></code> — strata, subsets, and random effects</li>
+<li>
+<code><a href="articles/fitting.html">vignette("fitting")</a></code> — fitting and model tables</li>
+<li>
+<code><a href="articles/mesa.html">vignette("mesa")</a></code> — making the mesa (the <a href="https://gt.rstudio.com" class="external-link">gt</a> layer)</li>
+<li>
+<code><a href="articles/causal-reasoning.html">vignette("causal-reasoning")</a></code> — the causal reasoning behind the grammar</li>
 </ul>
-</div>
-<div class="section level2">
-<h2 id="advanced-usage">Advanced Usage<a class="anchor" aria-label="anchor" href="#advanced-usage"></a>
-</h2>
-<p>The <a href="https://cran.r-project.org/package=mesa" class="external-link"><code>{mesa}</code></a> package is intended to be flexible, extensible, and easy-to-use (albeit opinionated). Please see the vignettes for additional information.</p>
+<p>The full design history lives in <a href="https://github.com/shah-in-boots/mesa/blob/main/blueprint.md" class="external-link"><code>blueprint.md</code></a> (the milestone map) and <a href="https://github.com/shah-in-boots/mesa/blob/main/DESIGN.md" class="external-link"><code>DESIGN.md</code></a> (the decisions made along the way), with a narrative version in the <a href="https://shah-in-boots.github.io/mesa/articles/development.html">development log</a> article.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

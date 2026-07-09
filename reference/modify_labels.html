@@ -12,8 +12,11 @@ a bare level value relabels that level wherever it appears
 
 
 Column (statistic) relabelings are supplied through columns and consumed
-by the column verbs. Like every verb, a repeated modify_labels() replaces
-its earlier instruction with a message."><meta property="og:description" content="
+by the column verbs. Like every verb, modify_labels() merges: naming a
+term, level, or column again replaces just that one label, with a message
+naming it, while every other label already recorded — from this call or an
+earlier one — stands (the {ggplot2} labs() merge behavior). So
+rethinking one label late never forces restating the rest."><meta property="og:description" content="
 modify_labels() rethinks a label without reselecting anything. It absorbs
 the old level_labels argument of the retired tbl_* functions, so its
 labeled formulas may name either a term (the variable) or a specific level:
@@ -26,8 +29,11 @@ a bare level value relabels that level wherever it appears
 
 
 Column (statistic) relabelings are supplied through columns and consumed
-by the column verbs. Like every verb, a repeated modify_labels() replaces
-its earlier instruction with a message."></head><body>
+by the column verbs. Like every verb, modify_labels() merges: naming a
+term, level, or column again replaces just that one label, with a message
+naming it, while every other label already recorded — from this call or an
+earlier one — stands (the {ggplot2} labs() merge behavior). So
+rethinking one label late never forces restating the rest."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -47,8 +53,14 @@ its earlier instruction with a message."></head><body>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/development.html">Development Log</a></li>
-    <li><a class="dropdown-item" href="../articles/getting_started.html">Getting Started</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/terms.html">1. Terms and Causal Roles</a></li>
+    <li><a class="dropdown-item" href="../articles/formulas.html">2. Formulas and Patterns</a></li>
+    <li><a class="dropdown-item" href="../articles/playing.html">3. Playing with Data</a></li>
+    <li><a class="dropdown-item" href="../articles/fitting.html">4. Fitting and Model Tables</a></li>
+    <li><a class="dropdown-item" href="../articles/causal-reasoning.html">6. The Causal Reasoning</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>More</h6></li>
+    <li><a class="dropdown-item" href="../articles/development.html">Development Log</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><a class="external-link nav-link" href="https://github.com/shah-in-boots/mesa/"><span class="fa fab fa-github fa-lg"></span></a></li>
@@ -76,8 +88,11 @@ ascending order (<code>am ~ c("Manual", "Automatic")</code>);</p></li>
 <li><p>a bare level value relabels that <strong>level</strong> wherever it appears
 (<code>0 ~ "Absent"</code>).</p></li>
 </ul><p>Column (statistic) relabelings are supplied through <code>columns</code> and consumed
-by the column verbs. Like every verb, a repeated <code>modify_labels()</code> replaces
-its earlier instruction with a message.</p>
+by the column verbs. Like every verb, <code>modify_labels()</code> merges: naming a
+term, level, or column again replaces just that one label, with a message
+naming it, while every other label already recorded — from this call or an
+earlier one — stands (the <code>{ggplot2}</code> <code>labs()</code> merge behavior). So
+rethinking one label late never forces restating the rest.</p>
     </div>
 
     <div class="section level2">

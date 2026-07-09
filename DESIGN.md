@@ -289,11 +289,14 @@ is subtask 6.1 and extends this entry):
 - **Verb naming follows the
   [gtsummary](https://github.com/ddsjoberg/gtsummary) precedent.**
   Column verbs use `add_*`; the remaining spec fields are adjusted by
-  `modify_layout()` / `modify_style()`. *Revised (July 2026):* the
-  earlier decision that “the recipe family keeps the `tbl_*` prefix” is
-  moot now that the recipes are not a committed surface. If a one-call
-  convenience ever proves worth shipping, it ships as a documented
-  grammar chain (a preset plus column verbs), not as new `tbl_*` API.
+  [`modify_layout()`](https://shah-in-boots.github.io/mesa/reference/modify_layout.md)
+  /
+  [`modify_style()`](https://shah-in-boots.github.io/mesa/reference/modify_style.md).
+  *Revised (July 2026):* the earlier decision that “the recipe family
+  keeps the `tbl_*` prefix” is moot now that the recipes are not a
+  committed surface. If a one-call convenience ever proves worth
+  shipping, it ships as a documented grammar chain (a preset plus column
+  verbs), not as new `tbl_*` API.
 
 ## The table grammar specification (M6.1)
 
@@ -378,12 +381,11 @@ Some statistics belong to a term, not to any one of its levels. The
 interaction p-value is the canonical case:
 [`estimate_interaction()`](https://shah-in-boots.github.io/mesa/reference/estimate_interaction.md)
 returns one `p_value` *across* the levels, and the old
-[`tbl_interaction_forest()`](https://shah-in-boots.github.io/mesa/reference/tbl_forest.md)
-displayed it floating between the two level rows — implemented as a
-duplicate-and-white-out hack (the value written into every level row,
-all but one masked with white zero-size text, the survivor vertically
-aligned onto the band’s seam). The spec makes this a first-class concept
-instead. The rule, stated once:
+`tbl_interaction_forest()` displayed it floating between the two level
+rows — implemented as a duplicate-and-white-out hack (the value written
+into every level row, all but one masked with white zero-size text, the
+survivor vertically aligned onto the band’s seam). The spec makes this a
+first-class concept instead. The rule, stated once:
 
 **A statistic computed across a term’s levels attaches to the term, and
 its placement follows from where the levels sit.**
@@ -416,7 +418,8 @@ statistic inherits this rule rather than inventing a placement.
 
 A forest column is deliberately *not* “a column of ggplots”. Three
 properties, all consequences of “cells are data”, settle how
-`add_forest()` interacts with the rest of a table:
+[`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md)
+interacts with the rest of a table:
 
 1.  **Cell values are numbers.** A forest cell’s `value` is the same
     `list(estimate =, conf_low =, conf_high =)` as an estimate cell,
@@ -424,28 +427,35 @@ properties, all consequences of “cells are data”, settle how
     [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
     (via
     [`gt::text_transform()`](https://gt.rstudio.com/reference/text_transform.html) +
-    `ggplot_image()`), never stored in the frame — necessarily so,
-    because the x-scale (limits, intercept, breaks, log vs linear) is a
-    property of the *column*, computed across all of its cells and
-    overridable through the block’s `axis` options. A cell frame with a
-    forest column snapshots exactly like one without.
+    `plot_image()`, which renders each cell at its displayed pixel size
+    —
+    [`gt::ggplot_image()`](https://gt.rstudio.com/reference/ggplot_image.html)’s
+    fixed 5-inch canvas, squashed ~17-fold to the cell height, left
+    every mark sub-pixel and invisible), never stored in the frame —
+    necessarily so, because the x-scale (limits, intercept, breaks, log
+    vs linear) is a property of the *column*, computed across all of its
+    cells and overridable through the block’s `axis` options. A cell
+    frame with a forest column snapshots exactly like one without.
 2.  **One reserved row.** The block contributes the bottom axis strip
     (the drawn x-axis with ticks, labels, and arrows) as a reserved row:
     `row_key = ".axis"`, `row_group = NA`, ordered after every row
     group, every other column blank, stub label suppressed. This is the
     **only** sanctioned way a column block may alter the row axis, and
     the reserved row always sorts last — so adding or removing
-    `add_forest()` never reorders, regroups, or relabels the substantive
-    rows, and never changes any existing cell. That invariant is
-    testable and 6.8 tests it.
+    [`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md)
+    never reorders, regroups, or relabels the substantive rows, and
+    never changes any existing cell. That invariant is testable and 6.8
+    tests it.
 3.  **Style defaults, not style edicts.** The dense look the plots need
     to read as one continuous canvas (zero row padding, suppressed body
     borders) enters as the block’s *defaults* to the style layer,
-    applied at render and overridable by `modify_style()` — not as
-    scattered `tab_options()` calls the user cannot reach.
+    applied at render and overridable by
+    [`modify_style()`](https://shah-in-boots.github.io/mesa/reference/modify_style.md)
+    — not as scattered `tab_options()` calls the user cannot reach.
 
-`add_forest()` errors unless `estimate` and `conf` are already in the
-spec (its cells read them); it computes nothing new.
+[`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md)
+errors unless `estimate` and `conf` are already in the spec (its cells
+read them); it computes nothing new.
 
 ### The statistics vocabulary
 
@@ -462,8 +472,8 @@ table can be built from the model collection alone:
 | `events` | [`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md) | [`survival::pyears()`](https://rdrr.io/pkg/survival/man/pyears.html) event counts per level | **yes** |
 | `rate` | [`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md) | events ÷ person-years | **yes** |
 | `rate_difference` | [`add_rate_difference()`](https://shah-in-boots.github.io/mesa/reference/add_events.md) | `pyears()` across two levels | **yes** |
-| `interaction` | `add_interaction()` | estimate/CI from the stored `var_cov` + `degrees_freedom`; **but** level enumeration and per-level `n` need the data | partial (coefficients are dataless; levels and per-level n are not) |
-| `forest` | `add_forest()` | derived from `estimate` + `conf` already present | no (requires estimate and conf in the spec) |
+| `interaction` | [`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md) | estimate/CI from the stored `var_cov` + `degrees_freedom`; **but** level enumeration and per-level `n` need the data | partial (coefficients are dataless; levels and per-level n are not) |
+| `forest` | [`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md) | derived from `estimate` + `conf` already present | no (requires estimate and conf in the spec) |
 
 Two consequences worth stating: model-level `n` comes free because
 glance records it at fit time, so a plain estimates-and-n table never
@@ -480,11 +490,12 @@ levels are columns, a floating group cell where levels are rows.
 ### Default layouts and what is supported at launch
 
 A layout **preset** is a complete assignment of the four axes, selected
-by `modify_layout()`. *Revised (July 2026):* presets are named for their
-*shape*, not for the retired `tbl_*` functions — the shapes are the
-commitment, the functions are not. Any table a monolith produced is
-recoverable as *preset + column verbs*, and that chain is the documented
-form:
+by
+[`modify_layout()`](https://shah-in-boots.github.io/mesa/reference/modify_layout.md).
+*Revised (July 2026):* presets are named for their *shape*, not for the
+retired `tbl_*` functions — the shapes are the commitment, the functions
+are not. Any table a monolith produced is recoverable as *preset +
+column verbs*, and that chain is the documented form:
 
 | Preset | rows | row groups | columns | spanners |
 |----|----|----|----|----|
@@ -494,9 +505,10 @@ form:
 
 Launch ships exactly these three presets plus the bare default (a single
 estimate + CI column block, adjustment-set rows, outcome groups).
-`modify_layout()` selects a preset and may swap the row-group dimension
-between `outcome` and `strata` (and `interaction` for the interaction
-preset). Everything else **errors clearly rather than half-working**:
+[`modify_layout()`](https://shah-in-boots.github.io/mesa/reference/modify_layout.md)
+selects a preset and may swap the row-group dimension between `outcome`
+and `strata` (and `interaction` for the interaction preset). Everything
+else **errors clearly rather than half-working**:
 
 - An unrecognized preset errors naming the three supported ones.
 - More than one model family per table errors (already enforced); more
@@ -507,9 +519,10 @@ preset). Everything else **errors clearly rather than half-working**:
   [`attach_data()`](https://shah-in-boots.github.io/mesa/reference/model_table_helpers.md).
 - `rate_difference` on a non-dichotomous term errors on an actual level
   count.
-- `add_interaction()` under any preset other than `"interaction"` errors
-  — it *defines* the rows (exposure-within-level estimates), so it
-  cannot be an add-on to adjustment-set or statistic rows.
+- [`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md)
+  under any preset other than `"interaction"` errors — it *defines* the
+  rows (exposure-within-level estimates), so it cannot be an add-on to
+  adjustment-set or statistic rows.
 
 Deliberately deferred past launch (documented as such, not silently
 unsupported): outcomes on **columns** (multiple outcomes side by side),
@@ -739,11 +752,396 @@ Decisions fixed here:
   and scale
   [`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
   recorded (one source of truth for the person-time computation, the
-  same precedent as `add_forest()` reading `estimate` + `conf`); the
-  check runs at realization, not verb time, so the verbs stay
-  order-independent. [survival](https://github.com/therneau/survival)
-  stays in Suggests — the guard errors at realization only when an
-  events block is actually present.
+  same precedent as
+  [`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md)
+  reading `estimate` + `conf`); the check runs at realization, not verb
+  time, so the verbs stay order-independent.
+  [survival](https://github.com/therneau/survival) stays in Suggests —
+  the guard errors at realization only when an events block is actually
+  present.
+
+## The renderer and the layout/style verbs (M6.6)
+
+[`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md) (in
+[table-render.R](https://shah-in-boots.github.io/mesa/R/table-render.R))
+now realizes a `<mesa>` in the full five stages: `realize_mesa()`
+(select → decorate → compute) feeds `mesa_cell_frame()` (*layout*: the
+column blocks and the preset reduce to the M6.1 cell frame), which feeds
+`render_cell_frame()` (*render*: the only place in the package emitting
+[gt](https://gt.rstudio.com) layout calls). `render_minimal()` retired
+on schedule. Decisions fixed here:
+
+- **One formatting authority, ahead of `gt()`.** The renderer applies
+  each cell’s format recipe itself (`format_cell()`: `fmt` of
+  `"number"`/`"count"`/`"p"`, `digits`, and the merge `pattern` —
+  `"{estimate} ({conf_low}, {conf_high})"`) and hands `gt()` finished
+  text, rather than round-tripping through `fmt_number()` +
+  `cols_merge()`. This is a deliberate revision of the M6.1 sketch: the
+  output is byte-identical to the interim renderer (existing tests
+  held), missing-statistic behavior is one rule (a parenthetical missing
+  any statistic drops whole; a missing statistic elsewhere yields the
+  `missing_text`), and the wide `_data` a `gt_tbl` carries is directly
+  assertable in tests. The `pattern` field of the frame is honored
+  exactly as specified.
+- **The `spanner` field is a path.** Nested spanners (a categorical
+  level under its term when statistic headers are shown) did not fit a
+  single label, so the frame’s `spanner` holds the path outermost-first,
+  `"///"`-separated (`"Cylinders///8"`); the renderer creates spanners
+  innermost-first so [gt](https://gt.rstudio.com) stacks them. A small
+  revision to the M6.1 field table, recorded here.
+- **Digits resolve block → style → 2.** `modify_style(digits =)` is the
+  table-wide default and a column block’s own `digits` still wins for
+  its columns; to make that precedence real, `add_estimates(digits =)`
+  now defaults to `NULL` (unset) instead of `2`.
+- **Accents are validated at verb time and scoped to the term-level
+  context.**
+  `modify_style(accents = list(p < 0.05 ~ "bold", estimate > 1 ~ c("italic", "red")))`
+  generalizes the old `tbl_beta()` machinery (which parsed only a `p <`
+  criterion and hard-coded bold — the July 2026 defect list): the
+  criterion may compare any displayed statistic (`estimate`/`beta`,
+  `conf_low`, `conf_high`, `p`/`p_value`, `n`, `events`, `rate`,
+  `rate_difference`), and it evaluates once per term-level context
+  within each row — the cells sharing a column-key base — accenting all
+  of that context’s cells, so an estimate and its p-value bold together.
+- **Group-scoped cells are emulated in one documented place.**
+  `apply_group_scoped()` owns the duplicate-and-mask device (the value
+  written into every row of the band, one copy visible and vertically
+  centered — with an even row count, the row above the seam,
+  bottom-aligned — the rest masked white and zero-size). The mask never
+  appears in the cell frame; if [gt](https://gt.rstudio.com) grows body
+  rowspans, only this function changes.
+- **Plot cells draw at render on a column-shared x-scale.**
+  `render_plot_columns()` resolves limits/intercept/breaks/log across
+  all of a column’s cells (`resolve_plot_scale()`, with the block’s
+  `axis` options overriding the guesses), draws each cell via
+  [`gt::text_transform()`](https://gt.rstudio.com/reference/text_transform.html) +
+  `plot_image()`, suppresses the reserved row’s stub label, and gives
+  the reserved `.axis` row — which always sorts last, after every row
+  group — the bottom axis strip. Nothing populates plot cells until
+  [`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md)
+  (M6.8); the mechanism is tested against hand-built frames. (Revised
+  July 2026, when the drawn plots proved invisible in practice:
+  `plot_image()` — a size-true `ggsave()` +
+  [`gt::local_image()`](https://gt.rstudio.com/reference/local_image.html),
+  rendered at 2× for sharpness — replaced
+  [`gt::ggplot_image()`](https://gt.rstudio.com/reference/ggplot_image.html),
+  whose fixed 5-inch canvas, squashed to the 30px cell, shrank every
+  mark ~17-fold to sub-pixel weight. The cell’s y-scale is pinned to
+  `c(-1, 1)` so the interval caps hold a fixed share of the cell height
+  rather than clipping to full-height bars on the degenerate one-value y
+  range, and out-of-limits values squish onto the axis edge instead of
+  dropping the whole interval.)
+- **[`modify_layout()`](https://shah-in-boots.github.io/mesa/reference/modify_layout.md)
+  ships the `"adjustment"` and `"levels"` presets; `"interaction"`
+  records but errors at realization** with a pointer to
+  [`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md)
+  (M6.9), which defines its rows. The `"levels"` builder produces the
+  retired hazard-table shape — statistic rows (events, rate) then
+  adjustment rows, term levels on columns, terms as spanners, the
+  term-scoped rate difference in its own column with its value on the
+  rate row — and errors on a requested `p` column, which has no place in
+  the merged level boxes at launch. Stub indentation (the old `tbl_beta`
+  look: crude flush, adjusted rows stepped in) applies under the
+  adjustment preset only. `row_groups = "strata"` swaps the band to the
+  stratum and moves the outcome into the stub qualifier.
+
+[`theme_gt_compact()`](https://shah-in-boots.github.io/mesa/reference/theme_gt_compact.md)
+remains compatible: it takes the finished `gt_tbl`.
+
+## The presets prove the grammar; the monoliths are deleted (M6.7)
+
+The `"adjustment"` and `"levels"` chains reproduce the `tbl_beta()` and
+hazard-table shapes on public data
+([test-table-presets.R](https://shah-in-boots.github.io/mesa/tests/testthat/test-table-presets.R)),
+asserted against hand-fitted references rather than the old outputs —
+deliberately, because the equivalence target is *content where the
+monoliths were right and corrections where they were wrong* (the
+exponentiated hazard scale, the `qnorm(0.975)` rate difference). With
+the chains proven, `tbl_beta()`, `tbl_dichotomous_hazard()`, and
+`tbl_categorical_hazard()` were **deleted outright**, not
+[lifecycle](https://lifecycle.r-lib.org/)-deprecated: the package is
+pre-release, the blueprint’s bias is deletion, and the chain examples
+under [`?mesa`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+are the migration doc. `tbl_interaction_forest()` follows in M6.9 once
+[`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md) +
+[`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md)
+recover its shape.
+[`theme_gt_compact()`](https://shah-in-boots.github.io/mesa/reference/theme_gt_compact.md)
+and the shared `tbls` argument docs stay in gt.R until the last monolith
+goes.
+
+## The forest column block (M6.8)
+
+`add_forest(axis, width, invert)` (in
+[table-columns.R](https://shah-in-boots.github.io/mesa/R/table-columns.R))
+records a block; the estimate + `conf` requirement — its cells read them
+and compute nothing — surfaces at realization like
+[`add_rate_difference()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)’s
+dependency, keeping the verbs order-independent. Decisions: **(1)** in
+the adjustment preset the forest is a statistic column per term level,
+trailing that level’s estimate columns, so the vocabulary’s “forest is
+derived from estimate + conf” is literal — the plot cell’s `value` is
+copied from the estimate cell’s; **(2)** `invert` is data-level and
+real: reciprocal estimates with the interval bounds swapped (1/x
+reverses order), and the axis mirrors for free because the shared scale
+resolves from the drawn values; **(3)** the dense look is two style
+*defaults* applied at render — table-wide zero vertical padding when any
+plot column is present (overridable by the new
+`modify_style(padding =)`) and hidden top/bottom borders on the plot
+columns only; **(4)** the `levels` preset defers the forest column with
+a clear error (its level columns are single merged boxes). The invariant
+the blueprint asks for — add/drop
+[`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md)
+and no other cell changes, only the forest columns and `.axis` row
+appear — is tested cell-for-cell.
+
+## Interaction rows (M6.9)
+
+[`estimate_interaction()`](https://shah-in-boots.github.io/mesa/reference/estimate_interaction.md)
+was rewritten around three rules. **Identity, never position:** the
+exposure must match a tidy term exactly; each level’s interaction
+coefficient resolves through its exact keys
+(`exposure:interactionLevel`, either variable order, or the bare
+`exposure:interaction` for a numerically-coded modifier); and the
+variance-covariance matrix is indexed by coefficient *name* — retiring
+the `grep()[1]` positions. **Levels generalize:** one row per level of
+the attached-data factor (binary or categorical), the reference level
+carrying the exposure coefficient alone and level *j* adding its
+interaction coefficient with `var(b_e) + var(b_j) + 2cov` (Figueiras et
+al. 1998), critical values from the recorded residual df (falling to the
+normal when a family records none). **One across-levels p-value:** the
+coefficient’s own test when there is a single interaction coefficient
+(preserving the binary behavior), the joint Wald chi-square of all of
+them when there are several.
+
+[`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md)
+and the `"interaction"` layout come as a pair — the block *defines* the
+preset’s rows, so each errors without the other, and the frame is built
+by a dedicated realization (`realize_interaction()`, single outcome ×
+exposure at launch, exponentiation deferred to the estimates block / M5
+inference as everywhere). In the frame, per-level statistics are
+ordinary rows while the interaction p-value is the first shipped
+**group-scoped cell** (`row_scope = "group"`), exercising the M6.6
+rowspan emulation for real. The old forest table is exactly the chain
+*`"interaction"` layout +
+[`add_n()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md) +
+[`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md) +
+[`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md)*;
+with that verified, `tbl_interaction_forest()` was deleted on the M6.7
+terms (outright, pre-release), taking gt-forest.R, its skipped
+private-data test, and the now-unused `tbls` shared-argument docs with
+it — gt.R keeps only
+[`theme_gt_compact()`](https://shah-in-boots.github.io/mesa/reference/theme_gt_compact.md).
+
+## The interface refinement pass (M6.11–M6.14)
+
+A post-launch review of the table layer (July 2026) settled four
+decisions ahead of the refinement subtasks. The grammar — five stages,
+four axes, the cell frame, the verb families — is unchanged; these
+tighten how the verbs behave and where their shared vocabulary lives.
+
+- **A verb replaces only what you name.** The replacement behavior was
+  inconsistent across verbs:
+  [`modify_layout()`](https://shah-in-boots.github.io/mesa/reference/modify_layout.md)
+  merged per-field while
+  [`modify_style()`](https://shah-in-boots.github.io/mesa/reference/modify_style.md)
+  and
+  [`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md)
+  replaced their whole slot — so `modify_style(digits = 3)` wiped
+  earlier accents, and one late relabel forced restating every label.
+  The rule, stated once and obeyed everywhere: repeating a verb replaces
+  the *specific instructions it names* (a selection dimension, a block
+  type, a style field, a label name) with a message, and leaves the rest
+  standing — the [ggplot2](https://ggplot2.tidyverse.org) `labs()`
+  merge, which is what “rethink one decision late” always meant.
+  Corollaries:
+  [`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+  errors on unused `...`; calling a `select_*` verb with no arguments is
+  the documented way to clear that dimension; an unknown column name in
+  `modify_labels(columns =)` errors at realization instead of silently
+  doing nothing.
+- **A block that defines a layout implies it.**
+  [`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md)
+  and `modify_layout(preset = "interaction")` were a mandatory pair,
+  each erroring without the other — two gestures for one decision. Since
+  the block *defines* the preset’s rows, declaring the block is
+  declaring the layout:
+  [`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md)
+  sets the preset when none was declared (message), errors on an
+  explicit conflicting preset, and
+  `modify_layout(preset = "interaction")` alone keeps its pointer error.
+- **Follow-up defaults from the `Surv()` outcome.**
+  [`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+  required `followup` even when the outcome already names the time
+  column. It now parses the `Surv()` outcome’s time argument exactly
+  (the `outcome_event_column()` precedent — identity, never guessing),
+  keeping `followup` as the override and required for plain outcomes.
+- **The statistics vocabulary is a registry.** The recognized
+  statistics, their aliases, default headers, and format recipes were
+  restated in five places (verb validation, accent validation, accent
+  aliasing, `frame_context()`, the print method). They become one
+  internal registry beside the package’s other controlled vocabularies
+  (the M2 patterns-registry precedent): each statistic is a row — name,
+  aliases, owning verb, default header, format recipe — and every
+  consumer reads it, so a new statistic is one row, not five edits.
+
+The structural work riding with these (extracting the shared cell-frame
+builders, splitting table-render.R along its stage seams into
+realize/presets/render, unifying the interaction dispatch, replacing
+`format_cell()`’s collision-prone `"NA"` sentinel) is specified in the
+blueprint’s 6.13–6.14 and is behavior-preserving: the 6.10 cell-frame
+snapshots are the contract that it stays so.
+
+**M6.11 done.** The first bullet above is implemented:
+[`modify_style()`](https://shah-in-boots.github.io/mesa/reference/modify_style.md)
+([table-spec.R](https://shah-in-boots.github.io/mesa/R/table-spec.R))
+assigns `accents`, `digits`, `missing_text`, and `padding` independently
+— each argument replaces only its own field on `x$style`, and the
+replacement message names the specific field, so
+`modify_style(digits = 3)` after `modify_style(accents = ...)` no longer
+wipes the accents.
+[`modify_labels()`](https://shah-in-boots.github.io/mesa/reference/modify_labels.md)
+merges `x$labels$relabels` and `x$labels$columns` by name (list-index
+assignment, `x$labels$relabels[names(new)] <- new`), so a later call
+naming one term or column replaces only that entry; the message names
+the repeated key(s).
+[`mesa()`](https://shah-in-boots.github.io/mesa/reference/mesa.md)
+errors when `...` carries any argument (named or not), since the
+constructor deliberately takes none. The unknown-column gap closed in
+`frame_context()`: before applying the `modify_labels(columns =)`
+overrides, it assembles the vocabulary actually on the mesa
+(`names(statistics)` plus `events`/`rate` when an events block is
+present, `rate_difference` when a rate-difference block is present, `n`
+and `forest` when their blocks are present) and errors on any labeled
+name outside it, naming the displayed columns — the check lives in the
+one function both the adjustment/levels path and the interaction path
+call. The `select_*()` no-argument clearing behavior already existed in
+`record_selection()`; it is now stated in
+[`?mesa`](https://shah-in-boots.github.io/mesa/reference/mesa.md) and
+has a regression test rather than being an undocumented side effect.
+
+**M6.12 done.**
+[`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md)
+([table-columns.R](https://shah-in-boots.github.io/mesa/R/table-columns.R))
+now implies the `"interaction"` layout instead of forming a mandatory
+pair with `modify_layout(preset = "interaction")`: when no layout has
+been declared, it sets the preset itself (with a message so the decision
+is never silent); when a *different* preset was already explicitly
+declared, it errors naming the conflict rather than overriding it
+quietly. `modify_layout(preset = "interaction")` alone is unchanged — it
+still errors at realization pointing to
+[`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md),
+because the block is what defines the rows, not the layout declaration.
+The test suite’s `interaction_chain()` helper dropped its
+[`modify_layout()`](https://shah-in-boots.github.io/mesa/reference/modify_layout.md)
+call entirely, which is the intended common case now exercised
+throughout `test-table-interaction.R`.
+[`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md)
+no longer requires `followup` when it can be inferred:
+`parse_surv_outcome()`
+([table-columns.R](https://shah-in-boots.github.io/mesa/R/table-columns.R))
+parses a `Surv(time, event)` (or `Surv(time, time2, event)`) outcome’s
+arguments by identity — the same discipline `outcome_event_column()`
+already used for the event column — and `infer_followup_column()`
+applies it across every outcome on the mesa, requiring them to agree on
+the time column. A plain outcome, or disagreeing outcomes, still require
+`followup` explicitly; an explicit `followup` always overrides the
+inference (needed when the attached data’s follow-up column differs from
+the one named in the fitted formula).
+
+**M6.13 done.** The statistics vocabulary — previously restated by hand
+in
+[`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md),
+`validate_accent()`, `apply_accents()`, and `frame_context()` — is now
+one registry, `.table_statistics` in
+[vocabulary.R](https://shah-in-boots.github.io/mesa/R/vocabulary.R),
+read through `table_statistics()` (optionally filtered by owning verb),
+`table_statistic_names()`, and `table_statistic_aliases()` (the M2
+patterns-registry precedent applied to a second vocabulary). Each entry
+carries the statistic’s block-declaration name (`beta`, `conf`, `p`,
+`n`, `events`, `rate`, `rate_difference`, `forest`), its
+accent-criterion aliases (`beta`’s aliases are `estimate` and `beta`,
+since a decorated cell’s raw field is `estimate` but the accent/verb
+vocabulary also calls it `beta`), the verb that records it, its default
+header, and whether an accent criterion may compare it (`forest` cannot
+— it draws a plot, not a comparable value). `apply_accents()`’s two
+hand-written alias-propagation lines became a small loop over the
+registry’s `accentable` entries, so adding a future aliased statistic
+needs no change there. `validate_scalar()` (a ride-along, in
+[validation.R](https://shah-in-boots.github.io/mesa/R/validation.R))
+collapsed the repeated
+`!is.numeric(x) || length(x) != 1 || is.na(x) || x < 0`-shaped blocks
+across
+[`add_estimates()`](https://shah-in-boots.github.io/mesa/reference/add_estimates.md),
+[`add_events()`](https://shah-in-boots.github.io/mesa/reference/add_events.md),
+[`add_interaction()`](https://shah-in-boots.github.io/mesa/reference/add_interaction.md),
+[`add_forest()`](https://shah-in-boots.github.io/mesa/reference/add_forest.md),
+[`add_rate_difference()`](https://shah-in-boots.github.io/mesa/reference/add_events.md),
+and
+[`modify_style()`](https://shah-in-boots.github.io/mesa/reference/modify_style.md)
+into one call with optional bounds, an `allow_null` escape for the
+“unset, falls back to a default” arguments, and an `nzchar` flag for
+non-empty-string checks; validations with a domain-specific error
+message (`followup`’s “single column name”, `axis$limits`’s length-2
+shape) were deliberately left bespoke rather than forced through a
+generic message. The dead `render_minimal()`-era leftovers
+`format_estimate()`, `format_count()`, and `format_p_value()` — unused
+by any code path since M6.6, exercised only by their own direct tests —
+are deleted along with those tests; `format_cell()` is the package’s
+only formatting authority, as its own documentation already claimed.
+
+**M6.14 done.**
+[table-render.R](https://shah-in-boots.github.io/mesa/R/table-render.R)
+split along the stage seams its own file header already named, with no
+behavior change (the full test suite, including the M6.10 cell-frame
+snapshots, passes unchanged; R CMD check is clean):
+[table-realize.R](https://shah-in-boots.github.io/mesa/R/table-realize.R)
+holds `realize_mesa()` and its decorate/compute helpers
+(`mesa_display_terms()`, `inject_reference_rows()`,
+`apply_context_labels()`, `apply_relabels()`, and the row-identity
+helpers);
+[table-presets.R](https://shah-in-boots.github.io/mesa/R/table-presets.R)
+holds the layout stage — `frame_context()`, the three preset builders
+(`cell_frame_adjustment()`, `cell_frame_levels()`,
+`cell_frame_interaction()`), and `assemble_cell_frame()` — plus the
+interaction preset’s `realize_interaction()`/`mesa_interaction_frame()`
+pair, kept together rather than split across realize/presets because the
+interaction preset does not pass through the standard
+flatten-and-decorate frame `realize_mesa()` produces;
+[table-render.R](https://shah-in-boots.github.io/mesa/R/table-render.R)
+keeps only the render stage proper
+([`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)/[`as_gt.mesa()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md),
+`render_cell_frame()`, `format_cell()`, the plot-drawing functions,
+`apply_accents()`, `apply_group_scoped()`). The interaction dispatch —
+previously re-derived in three places
+([`as_gt.mesa()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)‘s
+branch, a redundant guard inside `mesa_cell_frame()`’s preset
+[`switch()`](https://rdrr.io/r/base/switch.html), and
+`mesa_interaction_frame()`’s own checks) — is now one function,
+`mesa_frame(x)` (in table-presets.R):
+[`as_gt.mesa()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+calls only `render_cell_frame(mesa_frame(x), x)`, and the
+now-unreachable `interaction = stop(...)` branch inside
+`mesa_cell_frame()`’s switch was removed. `mesa_interaction_frame()`
+keeps its own two [`stop()`](https://rdrr.io/r/base/stop.html)s, because
+those are substantive validation (layout declared without the block, or
+vice versa), not a copy of the dispatch condition. `format_cell()`’s
+missing-value sentinel was checked directly rather than assumed broken:
+it already read a non-colliding control-character token, not the literal
+string `"NA"` the blueprint’s defect list described, so a character
+statistic whose value is genuinely the text `"NA"` already survived
+formatting untouched (confirmed with a direct call before writing the
+regression test in
+[test-table-render.R](https://shah-in-boots.github.io/mesa/tests/testthat/test-table-render.R),
+which now pins the behavior down either way). Scoped down from the full
+6.14 description: extracting a shared column-descriptor constructor and
+cells-builder atom across the three `cell_frame_*` preset builders was
+attempted only in review, not in code. The three builders’ shapes
+diverge enough — levels-as-columns vs. levels-as-rows, the term-scoped
+rate-difference column, the interaction preset’s group-scoped p-value —
+that a forced shared abstraction read as less clear than the current
+explicit-but-repetitive code, for three call sites. Revisit if a fourth
+preset makes the duplication three-plus-one rather than three.
 
 ## Private-data tests (M0/M6)
 
@@ -751,3 +1149,45 @@ The author-only checks against AFEQT/CARRS/MIMS
 [targets](https://docs.ropensci.org/targets/) stores moved to
 `tests/manual/` (build-ignored, not run by testthat) so R CMD check is
 clean. Milestone 6 replaces them with public-data equivalents.
+
+## Telling the story (M7)
+
+Three decisions, made while writing the documentation set:
+
+- **The causal-reasoning piece is a full vignette, not a pkgdown-only
+  article.** `development.Rmd` (the personal history) stays in
+  `vignettes/articles/`, built by pkgdown but not by `R CMD check`,
+  because it is a narrative aside. `causal-reasoning.Rmd` sits alongside
+  the five layer vignettes in `vignettes/` instead — the blueprint calls
+  it “the intellectual home of the package,” and the intellectual home
+  should be as reachable as the mechanics
+  ([`vignette("causal-reasoning")`](https://shah-in-boots.github.io/mesa/articles/causal-reasoning.md),
+  built and checked like the others), not relegated to a
+  lower-visibility tier.
+- **The README shows the `<mesa>` specification’s print, not a
+  live-rendered [gt](https://gt.rstudio.com) table.** An embedded
+  [`as_gt()`](https://shah-in-boots.github.io/mesa/reference/as_gt.md)
+  HTML table renders correctly but carries
+  [gt](https://gt.rstudio.com)’s full inline CSS block — several hundred
+  lines — which would dominate a generated `README.md` and turn every
+  re-render into a large, noisy diff for a cosmetic reason. Printing the
+  specification is deterministic plain text, shows exactly what is about
+  to be rendered, and points to
+  [`vignette("mesa")`](https://shah-in-boots.github.io/mesa/articles/mesa.md)
+  for the rendered table itself.
+- **`getting_started.Rmd` is retired outright, not updated.** Its
+  content predated Milestone 5 (default `raw = TRUE`, no
+  [`set_data()`](https://shah-in-boots.github.io/mesa/reference/set_data.md),
+  no table grammar) and updating it in place would have duplicated the
+  new layer vignettes’ content under a stale frame. The README’s
+  narrative arc plus the five layer vignettes replace it as the
+  onboarding path; per the pre-release deletion bias already used for
+  the `tbl_*()` monoliths (M6.7), there is no reason to keep a
+  compatibility stub for a vignette, which CRAN does not version.
+
+What M7 does not include: a version bump in `DESCRIPTION` (still
+`0.0.0.9000`) and the CRAN submission itself. Both are real-world,
+account-holding, public-consequence actions that stay with the
+maintainer — `cran-comments.md` is prepared and the local check is
+clean, but “prepared to submit” and “submitted” are deliberately kept
+distinct.

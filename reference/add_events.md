@@ -41,7 +41,12 @@ add_rate_difference(x, conf_level = 0.95)
 - followup:
 
   The column of the attached data holding each subject's follow-up time,
-  as a bare name or a string
+  as a bare name or a string. When the mesa's outcome is a `Surv()`
+  call, `followup` is inferred from its time argument and may be
+  omitted; a plain outcome (or outcomes that disagree on the time
+  column) still requires it explicitly. Supplying `followup` always
+  overrides the inference, e.g. when the attached data's follow-up
+  column is not the one named in the fitted formula
 
 - person_years:
 
