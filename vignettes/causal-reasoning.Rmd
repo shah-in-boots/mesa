@@ -1,0 +1,185 @@
+---
+title: "6. The Causal Reasoning"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{6. The Causal Reasoning}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(mesa)
+```
+
+The other five vignettes teach the mechanics: runes, patterns, verbs, tables.
+This one is the intellectual home the mechanics serve. `{mesa}` exists
+because a plain `R` formula cannot say what an epidemiologist means by
+`outcome ~ exposure + confounder` — it can only say that three variables sit
+in some algebraic relationship. The role a variable plays is where the
+*meaning* lives, and this vignette is about where that meaning comes from and
+what it does and does not buy you.
+
+## A formula is not a causal claim
+
+`stats::formula()` knows left-hand side and right-hand side. It has no
+concept of exposure, confounder, or mediator — those are epidemiological
+ideas, not syntactic ones, and R has always required the analyst to carry
+them in their head instead of in the object. `{mesa}`'s central move is to
+make that carrying explicit: a `tm` is a variable *plus its causal role*
+(`vignette("terms")`), and every layer above it — expansion, fitting,
+display — reads that role rather than re-deriving intent from position.
+
+This is deliberately modest. Attaching a role to a term does not verify that
+the role is correct, any more than naming a variable `confounder` in your own
+analysis script would. `{mesa}` gives the causal reasoning somewhere to live
+and something to act on; the reasoning itself — is this variable really a
+confounder, does this DAG actually represent the world — remains the
+analyst's.
+
+## Association is not causation, but it is not arbitrary either
+
+Austin Bradford Hill's 1965 address to the Royal Society of Medicine
+(Hill 1965) is the origin of the modern instinct that an association needs
+more than a p-value before it is treated as causal. Hill offered nine
+viewpoints — strength, consistency, specificity, temporality, biological
+gradient, plausibility, coherence, experiment, and analogy — not as a
+checklist to be scored, but as considerations that, taken together, make an
+association more or less credible as a causal one.
+
+`{mesa}`'s role vocabulary does not encode Hill's viewpoints directly — they
+are arguments made *about* an association, not properties of a formula. But
+two of them shape the package's structure directly:
+
+- **Temporality** is why `strata` (`.s()`) and `random` (`.r()`) are
+  deliberately *not* covariates: a variable that defines subpopulations, or
+  that groups repeated observations, is not competing with the exposure for
+  a coefficient — it is a fact about the data's structure that has to be
+  respected before an association is even estimated.
+- **Biological gradient and specificity** are why a categorical term keeps
+  its levels rather than collapsing to a single coefficient
+  (`vignette("mesa")`'s `"levels"` layout, and `estimate_interaction()`'s
+  per-level estimates) — a dose-response pattern, or an effect that is
+  specific to one subgroup, is invisible in a table that only shows "yes/no."
+
+## Roles as a lightweight stand-in for a graph
+
+Judea Pearl's *do-calculus* (Pearl 2010) formalizes the difference between
+seeing and doing: `P(Y | X = x)`, an observed association, is not in general
+equal to `P(Y | do(X = x))`, the effect of an intervention. The tool that
+makes the difference legible is the causal directed acyclic graph (DAG) — a
+picture of which variables cause which, from which the confounders, the
+mediators, and the valid adjustment sets can be *read off* rather than
+guessed at.
+
+`{mesa}` does not draw or check a DAG (that integration is on the horizon —
+see the blueprint's "DAG integration" entry). What it borrows from the
+do-calculus framework is the vocabulary a DAG produces: `exposure`,
+`confounder`, `mediator`, `interaction` are exactly the node-types a causal
+DAG distinguishes, and a `tm`'s role is a direct, if unverified, claim about
+where that term would sit in one. Declaring `.c(smoking)` is the formula-level
+equivalent of drawing an arrow from `smoking` into both the exposure and the
+outcome; `{mesa}` takes the claim on faith and acts on it (adjustment
+displays, table layout), the same way a regression takes on faith that the
+formula it is handed is the right one to fit.
+
+## Adjustment, mediation, and the total-effect / direct-effect distinction
+
+The most consequential place the role vocabulary shapes actual output is the
+`mediator` role. Adjusting for a common cause of exposure and outcome
+(a confounder) and adjusting for a variable on the causal *pathway* between
+them (a mediator) are both "adding a covariate" in ordinary regression
+syntax — and they answer completely different questions. Conditioning on a
+mediator blocks part of the very effect under study.
+
+VanderWeele and Robins's work on mediation (see also VanderWeele's 2015 text,
+*Explanation in Causal Inference*) formalizes this as decomposing a total
+effect into a **direct effect** (the exposure's effect not through the
+mediator) and an **indirect effect** (the effect that travels through it). A
+term wrapped `.m()` triggers exactly this decomposition in `fmls()`
+(`vignette("formulas")`): instead of one adjusted formula, the family expands
+into the triad
+
+```{r}
+fmls(mpg ~ .x(wt) + .m(qsec) + hp) |> formula()
+```
+
+— the total effect with the mediation pathway held open, the exposure's
+effect on the mediator, and the mediator's effect on the outcome in the
+exposure's presence. Comparing the exposure's coefficient across the first
+and third formulas is what lets an analyst judge how much of the total
+effect travels through the mediator, rather than accidentally reporting a
+direct effect while believing it is a total one.
+
+## Effect modification is a property of the exposure's effect, not a coefficient
+
+VanderWeele and Robins (2007) distinguish four types of effect modification
+based on where the modifying variable sits on the causal DAG relative to the
+exposure and outcome — a distinction that matters because "the interaction
+term's p-value is significant" is a much weaker claim than "the exposure's
+effect differs meaningfully across levels of this modifier."
+
+`{mesa}`'s `interaction` role (`.i()`) and `estimate_interaction()` are built
+around the second framing. Rather than reporting the interaction
+*coefficient* — which describes a difference in a difference, not an effect
+either subgroup experiences — `estimate_interaction()` derives the exposure's
+*own* effect within each level of the modifier, from the fitted coefficients'
+variance-covariance structure (Figueiras, Domenech-Massons, and Cadarso 1998):
+within the reference level the effect is the exposure's own coefficient;
+within level *j* it is that coefficient plus the level's interaction term,
+with variance `var(b_exposure) + var(b_j) + 2 cov(b_exposure, b_j)`. That is
+the number a clinician or policymaker can act on — "the effect in men" and
+"the effect in women" — where the raw interaction coefficient is not.
+
+```{r}
+d <- mtcars
+d$cyl <- factor(d$cyl)
+mt <-
+  fmls(mpg ~ .x(hp) + .i(cyl)) |>
+  fit(.fn = lm, data = d, raw = FALSE) |>
+  model_table(data = d)
+estimate_interaction(mt, exposure = "hp", interaction = "cyl")
+```
+
+## What the package does not do
+
+It is worth being explicit about the boundary. `{mesa}` organizes causal
+*intent* — it makes roles first-class, keeps mediation and effect
+modification from collapsing into "just another covariate," and lays the
+resulting estimates out so the distinctions survive into a published table.
+It does not:
+
+- verify that a declared confounder actually blocks a backdoor path,
+- check a DAG for consistency, or
+- adjudicate between competing causal assumptions.
+
+Those remain exactly as much the analyst's responsibility as they would be
+without the package. What changes is that the *decisions* — this is the
+exposure, this is on the causal pathway, this is a candidate effect
+modifier — are recorded once, in the formula itself, and every layer above it
+(expansion, fitting, the published table) inherits them consistently instead
+of silently re-deriving or contradicting them.
+
+## References
+
+- Hill, A. B. (1965). The Environment and Disease: Association or Causation?
+  *Proceedings of the Royal Society of Medicine*, 58(5), 295–300.
+  <https://doi.org/10.1177/003591576505800503>
+- Pearl, J. (2010). An Introduction to Causal Inference. *The International
+  Journal of Biostatistics*, 6(2), Article 7.
+  <https://doi.org/10.2202/1557-4679.1203>
+- VanderWeele, T. J., & Robins, J. M. (2007). Four types of effect
+  modification: a classification based on directed acyclic graphs.
+  *Epidemiology*, 18(5), 561–568.
+  <https://doi.org/10.1097/EDE.0b013e318127181b>
+- VanderWeele, T. J. (2015). *Explanation in Causal Inference: Methods for
+  Mediation and Interaction*. Oxford University Press.
+- Figueiras, A., Domenech-Massons, J. M., & Cadarso, C. (1998). Regression
+  models: calculating the confidence interval of effects in the presence of
+  interactions. *Statistics in Medicine*, 17, 2099–2105.

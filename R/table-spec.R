@@ -7,10 +7,11 @@
 # compose in any order and resolution is deferred to realization. This is the
 # same lazy contract a `{ggplot2}` plot is grown under (with the pipe, not `+`).
 #
-# This file owns the constructor, the selection verbs, `modify_labels()`, the
-# validation, and the print method. The `add_*` column verbs (M6.4/6.5), the
-# `modify_layout()`/`modify_style()` verbs (M6.6), and the renderer live
-# elsewhere as they land.
+# This file owns the constructor, the verbs that adjust the spec's slots (the
+# `select_*` selection verbs, `modify_labels()`, `modify_layout()`,
+# `modify_style()`), the validation, and the print method. The `add_*` column
+# verbs live in table-columns.R (M6.4/6.5); the cell-frame renderer lives in
+# table-render.R (M6.6).
 
 #' The `<mesa>` table specification
 #'
@@ -32,10 +33,14 @@
 #'
 #' Because the specification is declarative — the verbs record instructions and
 #' resolution happens only at [as_gt()]/`print()` — the verbs may arrive in any
-#' order, and a repeated verb replaces its earlier instruction with a message
-#' (the `{ggplot2}` scale-replacement behavior). A bare
-#' `mesa(mt) |> as_gt()` already renders a minimal estimate-and-interval table,
-#' so the grammar is usable from the first verb.
+#' order. **A verb replaces only what you name.** Repeating a verb with the
+#' same instruction — the same selection dimension, block type, style field,
+#' or label name — replaces just that instruction with a message, and leaves
+#' everything else recorded on the specification standing (the `{ggplot2}`
+#' `labs()` merge behavior); calling a `select_*()` verb with no arguments
+#' clears that dimension, which is the way to undo an earlier selection. A
+#' bare `mesa(mt) |> as_gt()` already renders a minimal estimate-and-interval
+#' table, so the grammar is usable from the first verb.
 #'
 #' @details
 #'
@@ -51,11 +56,47 @@
 #'
 #' @param x A `<mesa>` specification (for the verbs and `print()`)
 #'
-#' @param ... For the selection verbs, labeled-formula selection input (a
-#'   `formula`, a `list` of formulas, or a `character` vector — see
-#'   [labeled_formulas_to_named_list()]); for `print()`, unused
+#' @param ... For `mesa()`, unused — it deliberately takes no selection
+#'   arguments, and an unused argument errors; for the selection verbs,
+#'   labeled-formula selection input (a `formula`, a `list` of formulas, or a
+#'   `character` vector — see [labeled_formulas_to_named_list()]), or nothing
+#'   at all to clear that dimension's selection; for `print()`, unused
 #'
 #' @return `mesa()` and the verbs return a `<mesa>` specification object.
+#'
+#' @examples
+#' # The "adjustment" chain — adjustment sets on rows, outcomes as row
+#' # groups, a statistic block per term (the retired `tbl_beta()` shape)
+#' d <- mtcars
+#' d$cyl <- factor(d$cyl)
+#' mt <-
+#'   fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential") |>
+#'   fit(.fn = lm, data = d, raw = FALSE) |>
+#'   model_table(data = d)
+#' mt |>
+#'   mesa() |>
+#'   select_adjustment(1 ~ "Unadjusted", 3 ~ "Fully adjusted") |>
+#'   add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI")) |>
+#'   modify_labels(wt ~ "Weight (1000 lbs)") |>
+#'   as_gt()
+#'
+#' @examplesIf requireNamespace("survival", quietly = TRUE)
+#' # The "levels" chain — event and rate rows over adjusted estimates, term
+#' # levels on columns (the retired hazard-table shape)
+#' lung <- survival::lung
+#' lung$sex <- factor(lung$sex, levels = 1:2, labels = c("Male", "Female"))
+#' mt <-
+#'   fmls(Surv(time, status) ~ .x(sex) + age, pattern = "sequential") |>
+#'   fit(.fn = survival::coxph, data = lung, raw = FALSE) |>
+#'   model_table(data = lung)
+#' mt |>
+#'   mesa() |>
+#'   modify_layout(preset = "levels") |>
+#'   select_adjustment(1 ~ "Unadjusted", 2 ~ "Age-adjusted") |>
+#'   add_events(followup = time) |>
+#'   add_rate_difference() |>
+#'   add_estimates(columns = list(beta ~ "HR", conf ~ "95% CI")) |>
+#'   as_gt()
 #'
 #' @seealso [as_gt()] to render, [model_table()] for the model collection
 #'
@@ -64,6 +105,24 @@
 mesa <- function(object, ...) {
 
 	validate_class(object, "mdl_tbl")
+
+	dots <- list(...)
+	if (length(dots) > 0) {
+		nms <- names(dots)
+		unnamed <- is.null(nms) || !any(nzchar(nms))
+		stop(
+			"`mesa()` takes no selection arguments; it lays out everything ",
+			"fitted with default labels, and the `select_*()` verbs narrow it ",
+			"afterward.",
+			if (!unnamed) {
+				paste0(
+					" Unused argument", if (sum(nzchar(nms)) > 1) "s" else "", ": ",
+					paste0("`", nms[nzchar(nms)], "`", collapse = ", "), "."
+				)
+			},
+			call. = FALSE
+		)
+	}
 
 	# Only fitted rows go on the mesa; failed and unfit rows are set aside
 	status <- model_table_status(object)
@@ -154,9 +213,10 @@ default_layout <- function() {
 #' @keywords internal
 #' @noRd
 default_style <- function() {
-	# `modify_style()` (M6.6) generalizes these; here they are the render
-	# defaults the minimal `as_gt()` reads.
-	list(digits = 2, missing_text = "")
+	# Unset until `modify_style()` records instructions; the renderer resolves
+	# the fallbacks (digits 2, missing text "", padding from the blocks) at
+	# render, after any column block's own `digits`.
+	list(accents = list(), digits = NULL, missing_text = NULL, padding = NULL)
 }
 
 # Selection verbs -------------------------------------------------------------
@@ -182,7 +242,9 @@ collect_labeled <- function(...) {
 	dots
 }
 
-#' Record a selection instruction, replacing any earlier one with a message
+#' Record a selection instruction, replacing any earlier one with a message.
+#' Calling the verb with no arguments records `NULL`, which clears the
+#' dimension — the documented way to undo an earlier `select_*()` call.
 #' @keywords internal
 #' @noRd
 record_selection <- function(x, dimension, input, verb) {
@@ -246,8 +308,11 @@ select_strata <- function(x, ...) {
 #'   (`0 ~ "Absent"`).
 #'
 #' Column (statistic) relabelings are supplied through `columns` and consumed
-#' by the column verbs. Like every verb, a repeated `modify_labels()` replaces
-#' its earlier instruction with a message.
+#' by the column verbs. Like every verb, `modify_labels()` merges: naming a
+#' term, level, or column again replaces just that one label, with a message
+#' naming it, while every other label already recorded — from this call or an
+#' earlier one — stands (the `{ggplot2}` `labs()` merge behavior). So
+#' rethinking one label late never forces restating the rest.
 #'
 #' @param x A `<mesa>` specification
 #' @param ... Labeled formulas relabeling terms or levels (see Description)
@@ -266,17 +331,260 @@ modify_labels <- function(x, ..., columns = NULL) {
 		return(x)
 	}
 
-	had <- length(x$labels$relabels) > 0 || length(x$labels$columns) > 0
-	if (had) {
-		message("`modify_labels()` replaces the earlier label instruction.")
+	if (!is.null(relabels)) {
+		new <- labeled_formulas_to_named_list(relabels)
+		repeated <- intersect(names(new), names(x$labels$relabels))
+		if (length(repeated) > 0) {
+			message(
+				"`modify_labels()` replaces the earlier label for ",
+				paste0("`", repeated, "`", collapse = ", "), "."
+			)
+		}
+		x$labels$relabels[names(new)] <- new
 	}
 
-	x$labels$relabels <-
-		if (is.null(relabels)) list() else labeled_formulas_to_named_list(relabels)
-	x$labels$columns <-
-		if (is.null(columns)) list() else labeled_formulas_to_named_list(columns)
+	if (!is.null(columns)) {
+		new <- labeled_formulas_to_named_list(columns)
+		repeated <- intersect(names(new), names(x$labels$columns))
+		if (length(repeated) > 0) {
+			message(
+				"`modify_labels()` replaces the earlier column label for ",
+				paste0("`", repeated, "`", collapse = ", "), "."
+			)
+		}
+		x$labels$columns[names(new)] <- new
+	}
 
 	x
+}
+
+#' Choose a layout preset for a `<mesa>`
+#'
+#' @description
+#'
+#' `r lifecycle::badge('experimental')`
+#'
+#' `modify_layout()` selects the layout preset — the complete assignment of the
+#' grammar's four axes (rows, row groups, columns, spanners) — and, optionally,
+#' the row-group dimension. The launch presets are:
+#'
+#' - `"adjustment"` (the default): adjustment sets on rows, outcomes as row
+#'   groups, a statistic block per term or term level on columns, terms
+#'   spanning their levels.
+#' - `"levels"`: statistic rows (the event count and incidence rate when
+#'   [add_events()] is on the mesa, then one row per adjustment set), term
+#'   levels on columns, terms as spanners — the shape of the retired hazard
+#'   tables.
+#' - `"interaction"`: interaction levels on rows, grouped by interaction
+#'   term, the across-levels p-value floating over each band. Its rows are
+#'   *defined* by [add_interaction()], which the specification must carry.
+#'
+#' `row_groups` swaps the row-group dimension between `"outcome"` (the
+#' default) and `"strata"`. Like every verb, a repeated `modify_layout()`
+#' replaces the earlier instruction with a message.
+#'
+#' @param x A `<mesa>` specification
+#' @param preset One of `"adjustment"`, `"levels"`, or `"interaction"`
+#' @param row_groups The row-group dimension: `"outcome"` or `"strata"`
+#'
+#' @return The modified `<mesa>` specification.
+#'
+#' @seealso [mesa()], [as_gt()]
+#' @export
+modify_layout <- function(x, preset = NULL, row_groups = NULL) {
+
+	validate_class(x, "mesa")
+
+	if (is.null(preset) && is.null(row_groups)) {
+		return(x)
+	}
+
+	presets <- c("adjustment", "levels", "interaction")
+	if (!is.null(preset)) {
+		if (!is.character(preset) || length(preset) != 1 ||
+				!preset %in% presets) {
+			stop(
+				"`preset` must be one of the launch layout presets: ",
+				paste0("`\"", presets, "\"`", collapse = ", "), ".",
+				call. = FALSE
+			)
+		}
+	}
+	groups <- c("outcome", "strata")
+	if (!is.null(row_groups)) {
+		if (!is.character(row_groups) || length(row_groups) != 1 ||
+				!row_groups %in% groups) {
+			stop(
+				"`row_groups` must be one of: ",
+				paste0("`\"", groups, "\"`", collapse = ", "), ".",
+				call. = FALSE
+			)
+		}
+	}
+
+	if (isTRUE(x$layout$declared)) {
+		message("`modify_layout()` replaces the earlier layout instruction.")
+	}
+
+	if (!is.null(preset)) {
+		x$layout$preset <- preset
+	}
+	if (!is.null(row_groups)) {
+		x$layout$row_groups <- row_groups
+	}
+	x$layout$declared <- TRUE
+	x
+}
+
+#' Style a `<mesa>` at render
+#'
+#' @description
+#'
+#' `r lifecycle::badge('experimental')`
+#'
+#' `modify_style()` records style instructions, applied when the table is
+#' rendered by [as_gt()]:
+#'
+#' - `accents` emphasize the cells that meet a criterion. Each accent is a
+#'   two-sided formula whose **left side** is a criterion on any displayed
+#'   statistic (`p < 0.05`, `estimate > 1`, `rate >= 10`) and whose **right
+#'   side** is the instruction: `"bold"`, `"italic"`, or a text color (any
+#'   color name or hex value); several may be combined
+#'   (`p < 0.05 ~ c("bold", "italic")`). A criterion is evaluated once per
+#'   term-level within each row, against all of that context's statistics, and
+#'   accents every cell of the context — so `p < 0.05 ~ "bold"` bolds both the
+#'   estimate and the p-value it belongs to. The recognized statistic names
+#'   are `estimate` (alias `beta`), `conf_low`, `conf_high`, `p` (alias
+#'   `p_value`), `n`, `events`, `rate`, and `rate_difference`.
+#' - `digits` sets the table-wide formatting default. A column block's own
+#'   `digits` still wins for its columns; p-values keep their three-decimal
+#'   rule.
+#' - `missing_text` fills every cell with nothing to show (reference levels,
+#'   estimates a model did not produce). The default is an empty cell.
+#' - `padding` scales the table's vertical row padding (as
+#'   [gt::opt_vertical_padding()] does). A table carrying a forest column
+#'   defaults to `0` — the dense canvas its plot cells need to read as one —
+#'   and this overrides that default.
+#'
+#' Like every verb, `modify_style()` merges: naming `digits` again after an
+#' earlier `accents` call replaces only `digits`, with a message naming it —
+#' the accents already recorded stand. Each of `accents`, `digits`,
+#' `missing_text`, and `padding` replaces only itself.
+#'
+#' @param x A `<mesa>` specification
+#' @param accents A formula or list of formulas: `criterion ~ instruction`
+#'   (see Description)
+#' @param digits Number of digits estimates are formatted to
+#' @param missing_text Text shown in cells with nothing to display
+#' @param padding Vertical padding scale, `0` (dense) upward
+#'
+#' @return The modified `<mesa>` specification.
+#'
+#' @seealso [mesa()], [as_gt()]
+#' @export
+modify_style <- function(x, accents = NULL, digits = NULL,
+												 missing_text = NULL, padding = NULL) {
+
+	validate_class(x, "mesa")
+
+	if (is.null(accents) && is.null(digits) && is.null(missing_text) &&
+			is.null(padding)) {
+		return(x)
+	}
+
+	if (!is.null(accents)) {
+		if (inherits(accents, "formula")) {
+			accents <- list(accents)
+		}
+		accents <- lapply(accents, validate_accent)
+	}
+	validate_scalar(digits, "digits", min = 0, allow_null = TRUE)
+	validate_scalar(missing_text, "missing_text", type = "string",
+									 allow_null = TRUE)
+	validate_scalar(padding, "padding", min = 0, allow_null = TRUE)
+
+	# Each argument replaces only its own field, with a message only when that
+	# field was already recorded — the other style instructions stand (M6.11)
+	if (!is.null(accents)) {
+		if (length(x$style$accents) > 0) {
+			message("`modify_style()` replaces the earlier `accents` instruction.")
+		}
+		x$style$accents <- accents
+	}
+	if (!is.null(digits)) {
+		if (!is.null(x$style$digits)) {
+			message("`modify_style()` replaces the earlier `digits` instruction.")
+		}
+		x$style$digits <- as.integer(digits)
+	}
+	if (!is.null(missing_text)) {
+		if (!is.null(x$style$missing_text)) {
+			message(
+				"`modify_style()` replaces the earlier `missing_text` instruction."
+			)
+		}
+		x$style$missing_text <- missing_text
+	}
+	if (!is.null(padding)) {
+		if (!is.null(x$style$padding)) {
+			message("`modify_style()` replaces the earlier `padding` instruction.")
+		}
+		x$style$padding <- as.numeric(padding)
+	}
+
+	x
+}
+
+#' Validate one accent formula into a criterion + instruction pair
+#'
+#' The criterion (LHS) must be a comparison over the recognized statistic
+#' names; the instruction (RHS) must evaluate to a character vector of
+#' `"bold"`, `"italic"`, and/or a text color. Validated at verb time —
+#' recording a bad accent and failing at render would waste the laziness.
+#' @keywords internal
+#' @noRd
+validate_accent <- function(f) {
+
+	if (!inherits(f, "formula") || length(f) != 3) {
+		stop(
+			"Each accent must be a two-sided formula: `criterion ~ instruction`, ",
+			"e.g. `p < 0.05 ~ \"bold\"`.",
+			call. = FALSE
+		)
+	}
+
+	criterion <- f[[2]]
+	known <- table_statistic_aliases()
+	used <- all.vars(criterion)
+	unknown <- setdiff(used, known)
+	if (length(used) == 0 || length(unknown) > 0) {
+		stop(
+			"An accent criterion compares a displayed statistic",
+			if (length(unknown) > 0) {
+				paste0(", but `", paste(unknown, collapse = "`, `"),
+							 "` is not one. The recognized statistics are: ")
+			} else {
+				". The recognized statistics are: "
+			},
+			paste0("`", known, "`", collapse = ", "), ".",
+			call. = FALSE
+		)
+	}
+
+	instruction <- tryCatch(
+		eval(f[[3]], envir = environment(f)),
+		error = function(e) NULL
+	)
+	if (!is.character(instruction) || length(instruction) == 0 ||
+			anyNA(instruction)) {
+		stop(
+			"An accent instruction is a character vector: `\"bold\"`, ",
+			"`\"italic\"`, and/or a text color (`\"red\"`, `\"#B22222\"`).",
+			call. = FALSE
+		)
+	}
+
+	list(criterion = criterion, instruction = instruction)
 }
 
 # Printing --------------------------------------------------------------------

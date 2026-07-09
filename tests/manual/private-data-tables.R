@@ -1,10 +1,12 @@
 # Manual, author-only checks against private datasets (AFEQT, CARRS, MIMS).
 # These are not part of the automated suite: they read from local {targets}
-# stores that exist only on the author's machine. Milestone 6 of blueprint.md
-# replaces them with public-data equivalents in tests/testthat/.
-# Run interactively with devtools::load_all() and library(testthat).
+# stores that exist only on the author's machine. The automated equivalents
+# live in tests/testthat/ on public data (test-table-presets.R,
+# test-table-interaction.R, test-table-render.R). Rewritten for M6.10 against
+# the table grammar — the retired `tbl_*` monoliths these once exercised are
+# gone. Run interactively with devtools::load_all() and library(testthat).
 
-test_that("complex test from AFEQT dataset works", {
+test_that("complex test from AFEQT dataset works (the adjustment chain)", {
 	skip()
 
 	mdls <-
@@ -14,7 +16,7 @@ test_that("complex test from AFEQT dataset works", {
 		targets::tar_read(afeqt_labeled, store = '~/OneDrive - University of Illinois Chicago/targets/aflubber/') |>
 		dplyr::filter(cohort == "longitudinal")
 
-	object = dplyr::filter(
+	object <- dplyr::filter(
 		mdls,
 		name %in% c(
 			"total_by_traditional",
@@ -24,95 +26,76 @@ test_that("complex test from AFEQT dataset works", {
 		)
 	)
 
-	data = afeqt_dataset
+	gtbl <-
+		object |>
+		attach_data(afeqt_dataset) |>
+		mesa() |>
+		select_outcomes(list(
+			afeqt_total_delta ~ "Change in Total AFEQT Score",
+			afeqt_activities_delta ~ "Change in Activities AFEQT Score",
+			afeqt_symptoms_delta ~ "Change in Symptoms AFEQT Score",
+			afeqt_treatment_delta ~ "Change in Treatment AFEQT Score"
+		)) |>
+		select_terms(list(
+			ndi_quartile ~ "NDI Quartile",
+			ancestry ~ "Race-Ethnicity",
+			gender ~ "Sex",
+			insurance_grps ~ "Insurance",
+			language_grps ~ "Language"
+		)) |>
+		select_adjustment(list(
+			2 ~ "Model 1 = Model 1 (adjusted for baseline AFEQT",
+			3 ~ "Model 2 = Model 1 + age",
+			7 ~ "Model 3 = Model 2 + cardiovascular risk factors",
+			11 ~ "Model 4 = Model 3 + major cardiovascular adverse events"
+		)) |>
+		add_estimates(
+			columns = list(beta ~ "beta", conf ~ "95% CI", p ~ "p-value"),
+			exponentiate = TRUE
+		) |>
+		modify_style(accents = list(p < 0.05 ~ "bold")) |>
+		as_gt()
 
-	outcomes = list(
-		afeqt_total_delta ~ "Change in Total AFEQT Score",
-		afeqt_activities_delta ~ "Change in Activities AFEQT Score",
-		afeqt_symptoms_delta ~ "Change in Symptoms AFEQT Score",
-		afeqt_treatment_delta ~ "Change in Treatment AFEQT Score"
-	)
+	expect_s3_class(gtbl, 'gt_tbl')
 
-	terms = list(
-		ndi_quartile ~ "NDI Quartile",
-		ancestry ~ "Race-Ethnicity",
-		gender ~ "Sex",
-		insurance_grps ~ "Insurance",
-		language_grps ~ "Language"
-	)
+	# Again, dropping the p column and its accent target
+	gtbl <-
+		object |>
+		attach_data(afeqt_dataset) |>
+		mesa() |>
+		add_estimates(columns = list(beta ~ "beta", conf ~ "95% CI")) |>
+		as_gt()
 
-	adjustment = list(
-		2 ~ "Model 1 = Model 1 (adjusted for baseline AFEQT",
-		3 ~ "Model 2 = Model 1 + age",
-		7 ~ "Model 3 = Model 2 + cardiovascular risk factors",
-		11 ~ "Model 4 = Model 3 + major cardiovascular adverse events"
-	)
-
-	columns = list(beta ~ "beta", conf ~ "95% CI", p ~ "p-value")
-
-	accents = list(
-		p < 0.05 ~ "bold"
-	)
-
-	suppress_column_labels = FALSE
-
-	# Create the gt table
-	gtbl <- tbl_beta(
-		object = object,
-		data = data,
-		outcomes = outcomes,
-		terms = terms,
-		adjustment = adjustment,
-		columns = columns,
-		accents = accents,
-		suppress_column_labels = suppress_column_labels,
-		exponentiate = TRUE
-	)
-
-	# Now again with swapping of column labels
-	suppress_column_labels = TRUE
-	columns = list(beta ~ "beta", conf ~ "95% CI")
-	gtbl <- tbl_beta(
-		object = object,
-		data = data,
-		outcomes = outcomes,
-		terms = terms,
-		adjustment = adjustment,
-		columns = columns,
-		accents = accents,
-		suppress_column_labels = suppress_column_labels
-	)
-
-
+	expect_s3_class(gtbl, 'gt_tbl')
 })
 
-test_that("carrs data works", {
+test_that("carrs data works (the interaction chain)", {
 	skip()
 
 	obj <-
 		targets::tar_read(carrs1_mdls, store = "~/OneDrive - University of Illinois Chicago/targets/carrs")
 
-	mesa::tbl_interaction_forest(
-		object = obj,
-		outcomes = qrs_tang ~ "QRS-T Angle",
-		exposures = lab_hba1c ~ "Hemoglobin A1c",
-		interactions = list(
-			drugs_dm ~ "Glucose-lowering medications"
-		),
-		level_labels = list(
-			drugs_dm ~ c("No", "Yes")
-		),
-		columns = list(beta ~ "Estimate", conf ~ "95% CI", n ~ "No.", p ~ "Interaction p-value"),
-		axis = list(
-			title ~ "Forest Plot",
-			scale ~ "continuous"
-		),
-		width = forest ~ 0.7,
-		exponentiate = FALSE
-	)
+	gtbl <-
+		obj |>
+		mesa() |>
+		modify_layout(preset = "interaction") |>
+		add_interaction() |>
+		select_outcomes(qrs_tang ~ "QRS-T Angle") |>
+		select_exposures(lab_hba1c ~ "Hemoglobin A1c") |>
+		add_n(label = "No.") |>
+		add_estimates(
+			columns = list(beta ~ "Estimate", conf ~ "95% CI",
+										 p ~ "Interaction p-value"),
+			exponentiate = FALSE
+		) |>
+		add_forest() |>
+		modify_labels(drugs_dm ~ c("No", "Yes")) |>
+		as_gt()
+
+	expect_s3_class(gtbl, 'gt_tbl')
 })
 
-test_that("for dichotomous variables", {
+test_that("for dichotomous variables (the levels chain)", {
 	skip()
 
 	object <-
@@ -132,40 +115,30 @@ test_that("for dichotomous variables", {
 			labels = c('Yes', 'No')
 		))
 
-	outcomes <-
-		list('death_cv_yn' ~ 'Cardiovascular mortality',
-				 'death_any_yn' ~ 'All-cause mortality')
-
-	followup <- 'death_timeto'
-
-	terms <- list(lf_delta_bin ~ 'Mental stress-induced HRV decrease',
-								lf_rest_quartile ~ 'Low rest HRV')
-
-	adjustment <-
-		list(
+	gtbl <-
+		object |>
+		attach_data(data) |>
+		mesa() |>
+		modify_layout(preset = "levels") |>
+		select_outcomes(list('death_cv_yn' ~ 'Cardiovascular mortality',
+												 'death_any_yn' ~ 'All-cause mortality')) |>
+		select_terms(list(lf_delta_bin ~ 'Mental stress-induced HRV decrease',
+											lf_rest_quartile ~ 'Low rest HRV')) |>
+		select_adjustment(list(
 			3 ~ 'Unadjusted',
 			5 ~ 'Adjusted for demo',
 			7 ~ 'Adjust for above + clinical',
 			8 ~ 'Adjust for above + stress testing'
-		)
-
-	rate_difference <- TRUE
-
-	gtbl <- tbl_dichotomous_hazard(
-		object = object,
-		data = data,
-		outcomes = outcomes,
-		follow = followup,
-		terms = terms,
-		adjustment = adjustment,
-		rate_difference = rate_difference
-	)
+		)) |>
+		add_events(followup = death_timeto) |>
+		add_rate_difference() |>
+		add_estimates(columns = list(beta ~ 'HR', conf ~ '95% CI')) |>
+		as_gt()
 
 	expect_s3_class(gtbl, 'gt_tbl')
-
 })
 
-test_that("for categorical variables", {
+test_that("for categorical variables (the levels chain)", {
 	skip()
 
 	object <-
@@ -183,42 +156,23 @@ test_that("for categorical variables", {
 				'Normal rest & stress-induced decrease',
 				'Low rest & stress-induced decrease'
 			)
-		)) |>
-		dplyr::mutate(hf_grps = factor(
-			hf_grps,
-			levels = c(0, 1, 2, 3),
-			labels = c(
-				'Normal rest & stress-induced increase',
-				'Low rest & stress-induced increase',
-				'Normal rest & stress-induced decrease',
-				'Low rest & stress-induced decrease'
-			)
 		))
 
-	outcomes <-
-		list(death_cv_yn ~ 'Cardiovascular mortality',
-				 death_any_yn ~ 'All-cause mortality')
-
-	followup <- 'death_timeto'
-
-	terms <- lf_grps ~ 'HRV response category v. reference'
-
-	adjustment <- list(2 ~ 'Unadjusted',
-										 5 ~ 'Adjusted for demo',
-										 7 ~ 'Adjust for above + clinical',
-										 8 ~ 'Adjust for above + stress testing')
-
-	rate_difference <- FALSE
-
-	gtbl <- tbl_categorical_hazard(
-		object = object,
-		data = data,
-		outcomes = outcomes,
-		follow = followup,
-		terms = terms,
-		adjustment = adjustment,
-		rate_difference = rate_difference
-	)
+	gtbl <-
+		object |>
+		attach_data(data) |>
+		mesa() |>
+		modify_layout(preset = "levels") |>
+		select_outcomes(list(death_cv_yn ~ 'Cardiovascular mortality',
+												 death_any_yn ~ 'All-cause mortality')) |>
+		select_terms(lf_grps ~ 'HRV response category v. reference') |>
+		select_adjustment(list(2 ~ 'Unadjusted',
+													 5 ~ 'Adjusted for demo',
+													 7 ~ 'Adjust for above + clinical',
+													 8 ~ 'Adjust for above + stress testing')) |>
+		add_events(followup = death_timeto) |>
+		add_estimates(columns = list(beta ~ 'HR', conf ~ '95% CI')) |>
+		as_gt()
 
 	expect_s3_class(gtbl, 'gt_tbl')
 })

@@ -52,6 +52,21 @@ navbar:
       icon: fab fa-github fa-lg
       href: https://github.com/shah-in-boots/mesa/
 
+articles:
+- title: The grammar
+  navbar: ~
+  contents:
+  - terms
+  - formulas
+  - playing
+  - fitting
+  - mesa
+  - causal-reasoning
+- title: More
+  navbar: More
+  contents:
+  - articles/development
+
 footer:
   structure:
     left: developed_by
@@ -99,17 +114,30 @@ reference:
   - estimate_interaction
 - title: "Tables: the mesa"
   desc: >
-    Laying families of models out for papers, built on the `{gt}` package.
+    Laying families of models out for papers, built on the `{gt}` package:
+    a specification grown by verbs, rendered in one place.
+- subtitle: "The grammar"
+  desc: >
+    The declarative specification and the verbs that narrow, relabel, lay
+    out, and style it.
   contents:
   - mesa
   - modify_labels
+  - modify_layout
+  - modify_style
+- subtitle: "Column verbs"
+  desc: >
+    Each verb appends a column block; computation waits for realization.
+  contents:
   - add_estimates
   - add_events
+  - add_forest
+  - add_interaction
+- subtitle: "The renderer"
+  desc: >
+    Realization and the emitted `{gt}` table.
+  contents:
   - as_gt
-  - tbls
-  - tbl_beta
-  - tbl_hazard
-  - tbl_forest
   - theme_gt_compact
 - title: "Helpers"
   contents:

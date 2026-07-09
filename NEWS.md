@@ -1,6 +1,42 @@
 # mesa (developmental version)
 
-This development cycle works through Milestones 0–5 of [blueprint.md](https://github.com/shah-in-boots/mesa/blob/main/blueprint.md), rebuilding the term, formula, fitting, and collection layers so the package feels fluid to play with. Design decisions are recorded in `DESIGN.md`.
+This development cycle works through Milestones 0–7 of [blueprint.md](https://github.com/shah-in-boots/mesa/blob/main/blueprint.md), rebuilding the term, formula, fitting, collection, and table layers so the package feels fluid to play with, and documenting the result. Design decisions are recorded in `DESIGN.md`.
+
+## Telling the story (Milestone 7)
+
+* One vignette per grammar layer, in order: `vignette("terms")`, `vignette("formulas")`, `vignette("playing")`, `vignette("fitting")`, `vignette("mesa")` — each teaches its layer with runnable examples, building on the last
+
+* `vignette("causal-reasoning")` is the intellectual home of the package: how the role vocabulary maps onto the estimands it exists to make fluent (total and direct effects, effect modification), with Hill (1965), Pearl (2010), VanderWeele and Robins (2007), and Figueiras et al. (1998)
+
+* The README is rewritten around one dataset and one causal question — terms to table in a single narrative arc — replacing the old class-by-class tour; the development-log article now summarizes the blueprint's milestone arc alongside its original background and inspirations
+
+* The stale `getting_started` vignette (describing a pre-Milestone-5 API) is retired in favor of the layer vignettes and the README
+
+## The interface refinement pass, continued (Milestones 12 through 14)
+
+* One gesture per decision: `add_interaction()` now implies the `"interaction"` layout instead of requiring a separate `modify_layout(preset = "interaction")` call, and `add_events()` infers `followup` from a `Surv()` outcome's time argument, needed explicitly only for a plain outcome or an outcome an explicit `followup` still overrides
+
+* Internal cleanup ahead of release, with no behavior change: the statistics vocabulary (known names, aliases, default headers) now lives in one registry instead of five hand-kept lists; `table-render.R` split along its own stage seams into `table-realize.R` / `table-presets.R` / `table-render.R`, with the interaction-vs-standard layout fork unified into one dispatch function — the cell-frame snapshot tests are the proof
+
+## The table grammar (Milestone 6)
+
+* Tables are now grown, not configured: `mesa()` lays a fitted `mdl_tbl` out as a declarative specification, pipeable verbs refine it one decision at a time (`select_outcomes()`, `select_exposures()`, `select_terms()`, `select_adjustment()`, `select_strata()`, `modify_labels()`, `modify_layout()`, `modify_style()`, and the `add_*` column verbs), and `as_gt()` realizes it — verbs compose in any order, a repeated verb replaces its instruction with a message, and a bare `mesa(mt) |> as_gt()` already renders estimate + CI
+
+* Every table reduces to one **cell frame** — a long tibble, one row per rendered cell — and the renderer consumes nothing else: spanners, merges by pattern, labels, stub indentation, alignment, and missing text are emitted from one place, and table regressions diff as plain tibbles in snapshot tests
+
+* Column verbs: `add_estimates()` (estimate/CI/p, exponentiation deferred to the model-family inference by default), `add_n()` (the recorded `nobs` — no attached data needed), `add_events()` and `add_rate_difference()` (events, incidence rates, and the two-level rate difference from the attached data via `survival::pyears()`), `add_forest()` (a forest column any table can carry, drawn at render on one shared x-scale, with a working `invert`), and `add_interaction()` (effect-modification rows under the `"interaction"` layout, the across-levels p-value floating over each band)
+
+* `modify_layout()` selects the launch presets — `"adjustment"`, `"levels"`, `"interaction"`, the shapes of the retired monolith tables; `modify_style()` generalizes the old accents (criteria on any statistic, e.g. `estimate > 1`; instructions beyond bold: italic, colors) and controls digits, missing text, and padding
+
+* `estimate_interaction()` is generalized: categorical (not just binary) interaction variables, exact term matching by identity, the variance–covariance matrix indexed by coefficient name, and a joint Wald across-levels p-value for multi-level modifiers (#30 adjacent; Figueiras et al. 1998)
+
+* Selection matches by identity, never substring: term `am` no longer selects `gam`, adjustment sets are the sequential model index within an outcome × exposure family (colliding term counts stay distinct), and categorical levels resolve through the attached data
+
+* Defects fixed on the way, each with a regression test: the hazard tables displayed log-hazards labeled `HR (95% CI)` (the family inference now exponentiates); the rate-difference interval used `qnorm(0.9725)` where `qnorm(0.975)` belongs and ignored `person_years` (#30); the dichotomous gate `length(levels(x) == 2)` was truthy for any level count; `tbl_beta()` accents recognized only a `p <` criterion and hard-coded bold; `tbl_interaction_forest()`'s `invert` was dead code; the forest cells drew on `gt::ggplot_image()`'s fixed 5-inch canvas and squashed to sub-pixel invisibility — they now render at their true displayed size (`plot_image()`), with the interval caps pinned to the cell height and the reserved `.axis` row's stub label suppressed
+
+* **Breaking**: the `tbl_*` monoliths — `tbl_beta()`, `tbl_dichotomous_hazard()`, `tbl_categorical_hazard()`, `tbl_interaction_forest()` — are deleted; their tables are documented grammar chains under `?mesa` (the package is pre-release, so they retire without a deprecation cycle)
+
+* One replacement rule for every verb: `modify_style()` and `modify_labels()` now merge per-field/per-name like `modify_layout()` and the `add_*` blocks already did, so `modify_style(digits = 3)` no longer wipes accents recorded by an earlier call, and relabeling one term or column late no longer requires restating the rest; `mesa()` errors on unused arguments, and `modify_labels(columns = )` errors at realization when a name does not match a column on the mesa (previously a silent no-op)
 
 ## The model table (Milestone 5)
 

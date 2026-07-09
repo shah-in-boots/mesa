@@ -30,9 +30,11 @@ select_strata(x, ...)
 \arguments{
 \item{object}{A \code{mdl_tbl} object holding at least one fitted model}
 
-\item{...}{For the selection verbs, labeled-formula selection input (a
-\code{formula}, a \code{list} of formulas, or a \code{character} vector — see
-\code{\link[=labeled_formulas_to_named_list]{labeled_formulas_to_named_list()}}); for \code{print()}, unused}
+\item{...}{For \code{mesa()}, unused — it deliberately takes no selection
+arguments, and an unused argument errors; for the selection verbs,
+labeled-formula selection input (a \code{formula}, a \code{list} of formulas, or a
+\code{character} vector — see \code{\link[=labeled_formulas_to_named_list]{labeled_formulas_to_named_list()}}), or nothing
+at all to clear that dimension's selection; for \code{print()}, unused}
 
 \item{x}{A \verb{<mesa>} specification (for the verbs and \code{print()})}
 }
@@ -57,10 +59,14 @@ verbs, exactly the way a \code{{ggplot2}} plot is grown:
 
 Because the specification is declarative — the verbs record instructions and
 resolution happens only at \code{\link[=as_gt]{as_gt()}}/\code{print()} — the verbs may arrive in any
-order, and a repeated verb replaces its earlier instruction with a message
-(the \code{{ggplot2}} scale-replacement behavior). A bare
-\code{mesa(mt) |> as_gt()} already renders a minimal estimate-and-interval table,
-so the grammar is usable from the first verb.
+order. \strong{A verb replaces only what you name.} Repeating a verb with the
+same instruction — the same selection dimension, block type, style field,
+or label name — replaces just that instruction with a message, and leaves
+everything else recorded on the specification standing (the \code{{ggplot2}}
+\code{labs()} merge behavior); calling a \verb{select_*()} verb with no arguments
+clears that dimension, which is the way to undo an earlier selection. A
+bare \code{mesa(mt) |> as_gt()} already renders a minimal estimate-and-interval
+table, so the grammar is usable from the first verb.
 }
 \details{
 \code{mesa()} validates before it builds. The object must be a \code{mdl_tbl}; only
@@ -70,6 +76,41 @@ and more than one attached dataset is reported with a message. See
 \code{\link[=model_table]{model_table()}} for the collection these are drawn from and \code{\link[=attach_data]{attach_data()}}
 for supplying the data that categorical levels and data-derived statistics
 are read from.
+}
+\examples{
+# The "adjustment" chain — adjustment sets on rows, outcomes as row
+# groups, a statistic block per term (the retired `tbl_beta()` shape)
+d <- mtcars
+d$cyl <- factor(d$cyl)
+mt <-
+  fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential") |>
+  fit(.fn = lm, data = d, raw = FALSE) |>
+  model_table(data = d)
+mt |>
+  mesa() |>
+  select_adjustment(1 ~ "Unadjusted", 3 ~ "Fully adjusted") |>
+  add_estimates(columns = list(beta ~ "Estimate", conf ~ "95\% CI")) |>
+  modify_labels(wt ~ "Weight (1000 lbs)") |>
+  as_gt()
+
+\dontshow{if (requireNamespace("survival", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+# The "levels" chain — event and rate rows over adjusted estimates, term
+# levels on columns (the retired hazard-table shape)
+lung <- survival::lung
+lung$sex <- factor(lung$sex, levels = 1:2, labels = c("Male", "Female"))
+mt <-
+  fmls(Surv(time, status) ~ .x(sex) + age, pattern = "sequential") |>
+  fit(.fn = survival::coxph, data = lung, raw = FALSE) |>
+  model_table(data = lung)
+mt |>
+  mesa() |>
+  modify_layout(preset = "levels") |>
+  select_adjustment(1 ~ "Unadjusted", 2 ~ "Age-adjusted") |>
+  add_events(followup = time) |>
+  add_rate_difference() |>
+  add_estimates(columns = list(beta ~ "HR", conf ~ "95\% CI")) |>
+  as_gt()
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=as_gt]{as_gt()}} to render, \code{\link[=model_table]{model_table()}} for the model collection

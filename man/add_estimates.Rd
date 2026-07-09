@@ -9,7 +9,7 @@ add_estimates(
   x,
   columns = list(beta ~ "Estimate", conf ~ "95\% CI", p ~ "P value"),
   exponentiate = NULL,
-  digits = 2
+  digits = NULL
 )
 
 add_n(x, label = "N")
@@ -25,7 +25,8 @@ p-value); the labels become the column headers}
 \item{exponentiate}{Controls the scale of the estimates: \code{NULL} (default)
 infers per model family (see Details), \code{TRUE}/\code{FALSE} overrides}
 
-\item{digits}{Number of digits the estimate and interval are formatted to}
+\item{digits}{Number of digits the estimate and interval are formatted to;
+unset, the table-wide default applies (see \code{\link[=modify_style]{modify_style()}})}
 
 \item{label}{The column header for the \code{n} column}
 }
@@ -66,8 +67,9 @@ inference for every model on the mesa.
 
 \subsection{Formatting}{
 
-\code{digits} applies to the estimate and its interval. P-values render with
-three decimals, with values below shown as \verb{<0.001}.
+\code{digits} applies to the estimate and its interval; left unset, it falls to
+the table-wide default (\code{\link[=modify_style]{modify_style()}}'s \code{digits}, or 2). P-values render
+with three decimals, with values below shown as \verb{<0.001}.
 }
 }
 \seealso{

@@ -4,19 +4,29 @@
 #'
 #' `r lifecycle::badge("experimental")`
 #'
-#' When using categorical interaction terms in a `mdl_tbl` object, estimates
-#' on interaction terms and their confidence intervals can be evaluated. The
-#' effect of interaction on the estimates is based on the levels of interaction
-#' term. The estimates and intervals can be derived through the
-#' `estimate_interaction()` function. The approach is based on the method
-#' described by Figueiras et al. (1998).
+#' When a model in a `mdl_tbl` carries an interaction term, the exposure's
+#' effect *within each level* of the interaction variable — and its
+#' confidence interval — can be derived from the stored coefficients and
+#' variance-covariance matrix, without refitting. The approach follows
+#' Figueiras et al. (1998): within the reference level the effect is the
+#' exposure coefficient; within level *j* it is the exposure coefficient plus
+#' the level's interaction coefficient, with variance
+#' `var(b_exp) + var(b_j) + 2 cov(b_exp, b_j)`.
 #'
-#' @details The `estimate_interaction()` requires a `mdl_tbl` object that is a
-#'   single row in length. Filtering the `mdl_tbl` should occur prior to
-#'   passing it to this function. Additionally, this function assumes the
-#'   interaction term is binary. If it is categorical, the current
-#'   recommendation is to use dummy variables for the corresponding levels prior
-#'   to modeling.
+#' @details
+#'
+#' `estimate_interaction()` requires a `mdl_tbl` subset to a single row;
+#' filter before calling. The interaction variable may be **binary or
+#' categorical**: every level of the attached-data factor yields a row, the
+#' reference level first. Terms are matched to the model's coefficients by
+#' **identity** (the tidy keys `exposure:interactionLevel`, either variable
+#' order), and the variance-covariance matrix is indexed by coefficient name
+#' — never by `grepl()` position.
+#'
+#' The `p_value` is the single across-levels test of interaction: with one
+#' interaction coefficient (a binary interaction) it is that coefficient's
+#' p-value; with several (a categorical interaction) it is the joint Wald
+#' chi-square test of all the interaction coefficients against zero.
 #'
 #' @param object A `mdl_tbl` object subset to a single row
 #'
@@ -28,16 +38,17 @@
 #'
 #' @param ... Arguments to be passed to or from other methods
 #'
-#' @return A `data.frame` with `n = levels(interaction)` rows (for the
-#'   presence or absence of the interaction term) and `n = 5` columns:
+#' @return A `tibble` with one row per level of the interaction variable
+#'   (the reference level first) and `n = 6` columns:
 #'
-#'   - estimate: beta coefficient for the interaction effect based on level
+#'   - estimate: the exposure's effect within the interaction level
 #'
-#'   - conf_low: lower bound of confidence interval for the estimate
+#'   - conf_low: lower bound of the confidence interval for the estimate
 #'
-#'   - conf_high: higher bound of confidence interval for the estimate
+#'   - conf_high: upper bound of the confidence interval for the estimate
 #'
 #'   - p_value: p-value for the overall interaction effect *across levels*
+#'     (the same value on every row)
 #'
 #'   - nobs: number of observations within the interaction level
 #'
@@ -55,108 +66,153 @@ estimate_interaction <- function(object,
 																 conf_level = 0.95,
 																 ...) {
 
-	# Remove global variables
-
-  # TODO
-  # For development of this, would need to add some way to generalize
-  # 	Categorical interaction variable levels
-  # 	Number of observations in each level
-  # Confidence interval estimates
-  #   Simulation / bootstrapping methods
-
 	validate_class(object, "mdl_tbl")
-	# Check that only one row is being provided from the `mdl_tbl` object
 	if (nrow(object) > 1) {
-		stop("The `mdl_tbl` object must be subset to single row to estimate interactions.")
+		stop(
+			"The `mdl_tbl` object must be subset to single row to estimate ",
+			"interactions.",
+			call. = FALSE
+		)
 	}
 
-  # Check exposure is in model table
-  if (!exposure %in% object$exposure) {
-    stop("The exposure variable is not in the model set.")
-  }
+	if (!exposure %in% object$exposure) {
+		stop("The exposure variable is not in the model set.", call. = FALSE)
+	}
+	# Identity, not `grepl()`: `sex` must not match a model interacting on
+	# `sexes` (the old substring bug)
+	if (is.na(object$interaction) ||
+			!identical(object$interaction, interaction)) {
+		stop("The interaction variable is not in the model set.", call. = FALSE)
+	}
 
-  # Check if interaction is in the model table
-  if (!grepl(interaction, object$interaction)) {
-    stop("The interaction variable is not in the model set.")
-  }
+	datLs <- attr(object, "dataList")
+	if (length(datLs) == 0 || !object$data_id %in% names(datLs)) {
+		stop(
+			"The model table object does not have the data available. ",
+			"Attach the fitting data with `attach_data()`.",
+			call. = FALSE
+		)
+	}
+	dat <- datLs[[object$data_id]]
+	if (!interaction %in% names(dat)) {
+		stop(
+			"The interaction variable `", interaction, "` is not a column of ",
+			"the attached dataset `", object$data_id, "`.",
+			call. = FALSE
+		)
+	}
 
-  # Check if data is availabe as an attribute from the model table object
-  datLs <- attr(object, "dataList")
-  if (length(datLs) == 0 | !object$data_id %in% names(datLs)) {
-    stop("The model table object does not have the data available.")
-  }
+	# The model's coefficients, on the linear scale, with the stored
+	# variance-covariance matrix and residual degrees of freedom
+	mod <- suppressMessages(flatten_models(object, exponentiate = FALSE))
+	nms <- mod$term
+	coefs <- stats::setNames(mod$estimate, nms)
+	varCov <- mod$var_cov[[1]]
+	degFree <- unique(mod$degrees_freedom)[1]
 
+	if (!exposure %in% nms) {
+		stop(
+			"The exposure term `", exposure, "` was not found among the model's ",
+			"terms (", paste0("`", nms, "`", collapse = ", "), ").",
+			call. = FALSE
+		)
+	}
 
-  # Get the model(s) and corresponding data
-  mod <-
-    object |>
-    flatten_models(exponentiate = FALSE) |>
-    dplyr::select(dplyr::any_of(c("model_call", "number", "outcome", "exposure", "interaction", "term", "estimate", "conf_low", "conf_high", "p_value", "nobs", "degrees_freedom", "var_cov")))
+	# Levels and per-level counts come from the attached data
+	intFct <- factor(dat[[interaction]])
+	lvls <- levels(intFct)
+	if (length(lvls) < 2) {
+		stop(
+			"The interaction variable `", interaction, "` needs at least two ",
+			"levels.",
+			call. = FALSE
+		)
+	}
+	counts <- table(intFct)
 
-  # Beta coefficients are based on the model type
-  coefs <- mod$estimate
-  nms <- mod$term
-  names(coefs) <- nms
+	# The tidy key of a level's interaction coefficient, by identity: the
+	# factor form (`exposure:interactionLevel`, either variable order), or the
+	# bare form when the interaction was modeled numerically
+	interaction_key <- function(lvl) {
+		candidates <- c(
+			paste0(exposure, ":", interaction, lvl),
+			paste0(interaction, lvl, ":", exposure),
+			paste0(exposure, ":", interaction),
+			paste0(interaction, ":", exposure)
+		)
+		hit <- candidates[candidates %in% nms]
+		if (length(hit) == 0) {
+			stop(
+				"No interaction coefficient matches level `", lvl, "` of `",
+				interaction, "` (looked for ",
+				paste0("`", candidates[1:2], "`", collapse = ", "),
+				" among the model's terms).",
+				call. = FALSE
+			)
+		}
+		hit[1]
+	}
+	intKeys <- vapply(lvls[-1], interaction_key, character(1))
 
-  # Interaction term and its levels in the dataset
-  # The names may also ahve been adjusted from the modeling process
-  # Use "closest match"
-  exp <- exposure
-  expPos <- grep(exp, nms)[1] # Take first match
-  int <- interaction
-  intPos <- grep(int, nms)[1] # Take first match
-  dat <- datLs[[object$data_id]]
-  lvls <-  levels(factor(dat[[int]]))
-  nobs <- table(dat[[int]])
-  stopifnot(
-    "`estimate_interaction()` currently only accepts binary interaction terms."
-    = length(lvls) == 2
-  )
+	# The variance-covariance matrix is indexed by coefficient name
+	if (is.null(rownames(varCov))) {
+		stop(
+			"The stored variance-covariance matrix carries no coefficient names, ",
+			"so terms cannot be matched by identity.",
+			call. = FALSE
+		)
+	}
+	vc <- function(a, b) varCov[a, b]
 
-  # Update interaction term to "actual" name from model
-  it <- paste0(nms[expPos], ":", nms[intPos])
-  itPos <- grep(it, nms)
+	# The single across-levels interaction p-value: the coefficient's own test
+	# when there is one, the joint Wald chi-square when there are several
+	pval <-
+		if (length(intKeys) == 1) {
+			mod$p_value[match(intKeys, nms)]
+		} else {
+			b <- coefs[intKeys]
+			V <- varCov[intKeys, intKeys]
+			stat <- drop(t(b) %*% solve(V) %*% b)
+			stats::pchisq(stat, df = length(b), lower.tail = FALSE)
+		}
 
-  # Variance-covariance matrix and P value for interaction
-  pval <- mod$p_value[mod$term == it]
-  varCovMat <- unique(mod$var_cov)[[1]]
-  degFree <- unique(mod$degrees_freedom)
+	critical <-
+		if (is.na(degFree)) {
+			stats::qnorm(conf_level / 2 + 0.5)
+		} else {
+			stats::qt(conf_level / 2 + 0.5, df = degFree)
+		}
 
-  # When interaction term is absent
-  # Taking the diagonal of the variance-covariance matrix gives `var(term)`
-  # This removes the need of having the full dataset
-  coefVar <- diag(varCovMat)
-  halfConf <- stats::qt(conf_level / 2 + 0.5, df = degFree) * sqrt(coefVar[[expPos]])
+	# One row per level: the reference level is the exposure coefficient
+	# alone; level j adds its interaction coefficient, with the covariance in
+	# the variance
+	rows <- vector("list", length(lvls))
+	rows[[1]] <- list(
+		estimate = coefs[[exposure]],
+		variance = vc(exposure, exposure),
+		level = lvls[1],
+		nobs = counts[[lvls[1]]]
+	)
+	for (i in seq_along(intKeys)) {
+		key <- intKeys[[i]]
+		rows[[i + 1]] <- list(
+			estimate = coefs[[exposure]] + coefs[[key]],
+			variance = vc(exposure, exposure) + vc(key, key) +
+				2 * vc(exposure, key),
+			level = lvls[i + 1],
+			nobs = counts[[lvls[i + 1]]]
+		)
+	}
 
-  absent <-
-  	list(
-  		estimate = coefs[[expPos]],
-  		conf_low = coefs[[expPos]] - halfConf,
-  		conf_high = coefs[[expPos]] + halfConf,
-  		p_value = pval,
-  		nobs = nobs[[lvls[1]]],
-  		level = lvls[[1]]
-  	)
-
-  # When interaction term is present
-  halfConf <-
-	  stats::qt(conf_level / 2 + 0.5, df = degFree) *
-	  	sqrt(coefVar[[expPos]] + coefVar[[itPos]] + 2 * varCovMat[expPos, itPos])
-
-  present <- list(
-  	estimate = coefs[[expPos]] + coefs[[itPos]],
-  	conf_low = (coefs[[expPos]] + coefs[[itPos]]) - halfConf,
-  	conf_high = (coefs[[expPos]] + coefs[[itPos]]) + halfConf,
-		p_value = pval,
-		nobs = nobs[[lvls[2]]],
-		level = lvls[[2]]
-  )
-
-  # Combine the binary outputs into a small table
-  intEsts <-
-    dplyr::bind_rows(absent, present)
-
-  # Return
-  intEsts
+	dplyr::bind_rows(lapply(rows, function(r) {
+		half <- critical * sqrt(r$variance)
+		tibble::tibble(
+			estimate = r$estimate,
+			conf_low = r$estimate - half,
+			conf_high = r$estimate + half,
+			p_value = pval,
+			nobs = r$nobs,
+			level = r$level
+		)
+	}))
 }
-

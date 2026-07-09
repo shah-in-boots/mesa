@@ -18,13 +18,14 @@ estimate_interaction(object, exposure, interaction, conf_level = 0.95, ...)
 \item{...}{Arguments to be passed to or from other methods}
 }
 \value{
-A \code{data.frame} with \code{n = levels(interaction)} rows (for the
-presence or absence of the interaction term) and \code{n = 5} columns:
+A \code{tibble} with one row per level of the interaction variable
+(the reference level first) and \code{n = 6} columns:
 \itemize{
-\item estimate: beta coefficient for the interaction effect based on level
-\item conf_low: lower bound of confidence interval for the estimate
-\item conf_high: higher bound of confidence interval for the estimate
+\item estimate: the exposure's effect within the interaction level
+\item conf_low: lower bound of the confidence interval for the estimate
+\item conf_high: upper bound of the confidence interval for the estimate
 \item p_value: p-value for the overall interaction effect \emph{across levels}
+(the same value on every row)
 \item nobs: number of observations within the interaction level
 \item level: level of the interaction term
 }
@@ -32,20 +33,28 @@ presence or absence of the interaction term) and \code{n = 5} columns:
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-When using categorical interaction terms in a \code{mdl_tbl} object, estimates
-on interaction terms and their confidence intervals can be evaluated. The
-effect of interaction on the estimates is based on the levels of interaction
-term. The estimates and intervals can be derived through the
-\code{estimate_interaction()} function. The approach is based on the method
-described by Figueiras et al. (1998).
+When a model in a \code{mdl_tbl} carries an interaction term, the exposure's
+effect \emph{within each level} of the interaction variable — and its
+confidence interval — can be derived from the stored coefficients and
+variance-covariance matrix, without refitting. The approach follows
+Figueiras et al. (1998): within the reference level the effect is the
+exposure coefficient; within level \emph{j} it is the exposure coefficient plus
+the level's interaction coefficient, with variance
+\verb{var(b_exp) + var(b_j) + 2 cov(b_exp, b_j)}.
 }
 \details{
-The \code{estimate_interaction()} requires a \code{mdl_tbl} object that is a
-single row in length. Filtering the \code{mdl_tbl} should occur prior to
-passing it to this function. Additionally, this function assumes the
-interaction term is binary. If it is categorical, the current
-recommendation is to use dummy variables for the corresponding levels prior
-to modeling.
+\code{estimate_interaction()} requires a \code{mdl_tbl} subset to a single row;
+filter before calling. The interaction variable may be \strong{binary or
+categorical}: every level of the attached-data factor yields a row, the
+reference level first. Terms are matched to the model's coefficients by
+\strong{identity} (the tidy keys \code{exposure:interactionLevel}, either variable
+order), and the variance-covariance matrix is indexed by coefficient name
+— never by \code{grepl()} position.
+
+The \code{p_value} is the single across-levels test of interaction: with one
+interaction coefficient (a binary interaction) it is that coefficient's
+p-value; with several (a categorical interaction) it is the joint Wald
+chi-square test of all the interaction coefficients against zero.
 }
 \references{
 A. Figueiras, J. M. Domenech-Massons, and Carmen Cadarso, 'Regression models:

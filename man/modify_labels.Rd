@@ -32,8 +32,11 @@ ascending order (\code{am ~ c("Manual", "Automatic")});
 }
 
 Column (statistic) relabelings are supplied through \code{columns} and consumed
-by the column verbs. Like every verb, a repeated \code{modify_labels()} replaces
-its earlier instruction with a message.
+by the column verbs. Like every verb, \code{modify_labels()} merges: naming a
+term, level, or column again replaces just that one label, with a message
+naming it, while every other label already recorded — from this call or an
+earlier one — stands (the \code{{ggplot2}} \code{labs()} merge behavior). So
+rethinking one label late never forces restating the rest.
 }
 \seealso{
 \code{\link[=mesa]{mesa()}}

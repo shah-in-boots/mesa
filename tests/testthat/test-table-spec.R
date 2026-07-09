@@ -89,6 +89,23 @@ test_that("realization injects a reference row for each categorical term", {
 	expect_equal(nrow(amRef), length(unique(dec$adj_index)))
 })
 
+test_that("mesa() errors on unused arguments", {
+
+	expect_error(mesa(spec_table(), foo = "bar"), "Unused argument")
+	expect_error(mesa(spec_table(), 1), "no selection arguments")
+})
+
+test_that("select_*() with no arguments clears the dimension", {
+
+	m <- mesa(spec_table()) |> select_terms(~ am)
+	expect_equal(unique(realize_mesa(m)$variable), "am")
+
+	# Calling the verb again with nothing clears the earlier selection, with a
+	# message, and the mesa falls back to its default (both exposures)
+	expect_message(cleared <- select_terms(m), "replaces the earlier terms")
+	expect_setequal(unique(realize_mesa(cleared)$variable), c("am", "cyl"))
+})
+
 test_that("selection verbs record instructions and compose in any order", {
 
 	mt <- spec_table()
@@ -140,6 +157,37 @@ test_that("modify_labels relabels terms and levels late", {
 		modify_labels(g, am ~ "Gearbox"),
 		"replaces the earlier label"
 	)
+})
+
+test_that("modify_labels() merges per name (M6.11)", {
+
+	mt <- spec_table()
+
+	# Relabeling `cyl` after `am` keeps both -- no restating the first
+	m <-
+		mt |> mesa() |> select_terms(~ am, ~ cyl) |>
+		modify_labels(am ~ "Transmission") |>
+		modify_labels(cyl ~ "Cylinders")
+	dec <- realize_mesa(m)
+	expect_equal(unique(dec$term_label[dec$variable == "am"]), "Transmission")
+	expect_equal(unique(dec$term_label[dec$variable == "cyl"]), "Cylinders")
+
+	# Naming the same term again replaces only that term's label, with a
+	# message naming it; the other term's label is untouched
+	expect_message(
+		m2 <- modify_labels(m, am ~ "Gearbox"),
+		"replaces the earlier label for `am`"
+	)
+	dec2 <- realize_mesa(m2)
+	expect_equal(unique(dec2$term_label[dec2$variable == "am"]), "Gearbox")
+	expect_equal(unique(dec2$term_label[dec2$variable == "cyl"]), "Cylinders")
+
+	# The same merge rule applies order-independently
+	m3 <-
+		mt |> mesa() |> select_terms(~ am, ~ cyl) |>
+		modify_labels(cyl ~ "Cylinders") |>
+		modify_labels(am ~ "Transmission")
+	expect_equal(realize_mesa(m), realize_mesa(m3))
 })
 
 test_that("selection is resolved lazily — bad selections error at realization", {

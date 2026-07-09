@@ -46,8 +46,9 @@
 #'
 #' ## Formatting
 #'
-#' `digits` applies to the estimate and its interval. P-values render with
-#' three decimals, with values below shown as `<0.001`.
+#' `digits` applies to the estimate and its interval; left unset, it falls to
+#' the table-wide default ([modify_style()]'s `digits`, or 2). P-values render
+#' with three decimals, with values below shown as `<0.001`.
 #'
 #' @param x A `<mesa>` specification (from [mesa()])
 #'
@@ -59,7 +60,8 @@
 #' @param exponentiate Controls the scale of the estimates: `NULL` (default)
 #'   infers per model family (see Details), `TRUE`/`FALSE` overrides
 #'
-#' @param digits Number of digits the estimate and interval are formatted to
+#' @param digits Number of digits the estimate and interval are formatted to;
+#'   unset, the table-wide default applies (see [modify_style()])
 #'
 #' @param label The column header for the `n` column
 #'
@@ -74,7 +76,7 @@ add_estimates <- function(x,
 																				 conf ~ "95% CI",
 																				 p ~ "P value"),
 													exponentiate = NULL,
-													digits = 2) {
+													digits = NULL) {
 
 	validate_class(x, "mesa")
 
@@ -85,7 +87,7 @@ add_estimates <- function(x,
 			call. = FALSE
 		)
 	}
-	known <- c("beta", "conf", "p")
+	known <- table_statistic_names("add_estimates")
 	unknown <- setdiff(names(statistics), known)
 	if (length(unknown) > 0) {
 		stop(
@@ -105,16 +107,13 @@ add_estimates <- function(x,
 			call. = FALSE
 		)
 	}
-	if (!is.numeric(digits) || length(digits) != 1 || is.na(digits) ||
-			digits < 0) {
-		stop("`digits` must be a single non-negative number.", call. = FALSE)
-	}
+	validate_scalar(digits, "digits", min = 0, allow_null = TRUE)
 
 	block <- list(
 		type = "estimates",
 		statistics = lapply(statistics, as.character),
 		exponentiate = exponentiate,
-		digits = as.integer(digits)
+		digits = if (is.null(digits)) NULL else as.integer(digits)
 	)
 	record_column_block(x, block, "add_estimates")
 }
@@ -124,10 +123,7 @@ add_estimates <- function(x,
 add_n <- function(x, label = "N") {
 
 	validate_class(x, "mesa")
-
-	if (!is.character(label) || length(label) != 1 || is.na(label)) {
-		stop("`label` must be a single string.", call. = FALSE)
-	}
+	validate_scalar(label, "label", type = "string")
 
 	block <- list(type = "n", label = label)
 	record_column_block(x, block, "add_n")
@@ -176,7 +172,12 @@ add_n <- function(x, label = "N") {
 #' @param x A `<mesa>` specification (from [mesa()])
 #'
 #' @param followup The column of the attached data holding each subject's
-#'   follow-up time, as a bare name or a string
+#'   follow-up time, as a bare name or a string. When the mesa's outcome is a
+#'   `Surv()` call, `followup` is inferred from its time argument and may be
+#'   omitted; a plain outcome (or outcomes that disagree on the time column)
+#'   still requires it explicitly. Supplying `followup` always overrides the
+#'   inference, e.g. when the attached data's follow-up column is not the one
+#'   named in the fitted formula
 #'
 #' @param person_years The person-time denominator the rates are expressed in
 #'   (`100` shows rates per 100 person-years)
@@ -205,31 +206,32 @@ add_events <- function(x,
 	validate_class(x, "mesa")
 
 	if (missing(followup)) {
-		stop(
-			"`add_events()` needs `followup`: the column of the attached data ",
-			"holding the follow-up time.",
-			call. = FALSE
-		)
-	}
-	fuExpr <- substitute(followup)
-	followup <- if (is.symbol(fuExpr)) as.character(fuExpr) else followup
-	if (!is.character(followup) || length(followup) != 1 || is.na(followup) ||
-			!nzchar(followup)) {
-		stop(
-			"`followup` must be a single column name (bare or as a string).",
-			call. = FALSE
-		)
-	}
-	for (arg in c("person_years", "scale")) {
-		val <- get(arg)
-		if (!is.numeric(val) || length(val) != 1 || is.na(val) || val <= 0) {
-			stop("`", arg, "` must be a single positive number.", call. = FALSE)
+		# Not supplied: infer from a Surv() outcome's time argument (M6.12) —
+		# identity, never a guess — and require it explicitly otherwise
+		followup <- infer_followup_column(x$mdl_tbl)
+		if (is.null(followup)) {
+			stop(
+				"`add_events()` needs `followup`: the column of the attached data ",
+				"holding the follow-up time. It can only be inferred when every ",
+				"outcome on the mesa is a `Surv()` call naming the same time ",
+				"column; pass `followup` explicitly here.",
+				call. = FALSE
+			)
+		}
+	} else {
+		fuExpr <- substitute(followup)
+		followup <- if (is.symbol(fuExpr)) as.character(fuExpr) else followup
+		if (!is.character(followup) || length(followup) != 1 ||
+				is.na(followup) || !nzchar(followup)) {
+			stop(
+				"`followup` must be a single column name (bare or as a string).",
+				call. = FALSE
+			)
 		}
 	}
-	if (!is.numeric(digits) || length(digits) != 1 || is.na(digits) ||
-			digits < 0) {
-		stop("`digits` must be a single non-negative number.", call. = FALSE)
-	}
+	validate_scalar(person_years, "person_years", min = 0, inclusive = FALSE)
+	validate_scalar(scale, "scale", min = 0, inclusive = FALSE)
+	validate_scalar(digits, "digits", min = 0)
 
 	block <- list(
 		type = "events",
@@ -241,19 +243,149 @@ add_events <- function(x,
 	record_column_block(x, block, "add_events")
 }
 
+#' Add interaction rows to a `<mesa>`
+#'
+#' @description
+#'
+#' `r lifecycle::badge('experimental')`
+#'
+#' `add_interaction()` puts effect modification on the mesa: one row per level
+#' of each model's interaction variable, grouped by interaction term, with the
+#' exposure's within-level estimate derived from the stored coefficients and
+#' variance-covariance matrix by [estimate_interaction()] — nothing is refit.
+#'
+#' The block *defines* the rows of the table, so declaring it **implies** the
+#' `"interaction"` layout: if no layout has been declared yet, `add_interaction()`
+#' selects it (with a message); if [modify_layout()] already declared a
+#' different preset, `add_interaction()` errors naming the conflict rather than
+#' silently overriding it. `modify_layout(preset = "interaction")` on its own
+#' — without `add_interaction()` — still errors at realization, since the
+#' block is what defines the rows. Its statistics carry two scopes: the
+#' per-level cells (estimate/CI from [add_estimates()]; the per-level `n` from
+#' [add_n()], which counts the attached data) are ordinary rows, while the
+#' single across-levels interaction p-value is a *group-scoped* cell the
+#' renderer floats over the level rows. A forest column ([add_forest()]) reads
+#' the same per-level estimates.
+#'
+#' @param x A `<mesa>` specification (from [mesa()])
+#'
+#' @param conf_level Confidence level of the within-level intervals
+#'
+#' @return The modified `<mesa>` specification.
+#'
+#' @seealso [mesa()], [modify_layout()], [estimate_interaction()]
+#' @export
+add_interaction <- function(x, conf_level = 0.95) {
+
+	validate_class(x, "mesa")
+	validate_scalar(conf_level, "conf_level", min = 0, max = 1, inclusive = FALSE)
+
+	# The block defines the interaction layout's rows, so declaring it implies
+	# the layout (M6.12) — one gesture for one decision, rather than the
+	# mandatory add_interaction() + modify_layout(preset = "interaction") pair
+	if (isTRUE(x$layout$declared) &&
+			!identical(x$layout$preset, "interaction")) {
+		stop(
+			"`add_interaction()` defines the rows of the `interaction` layout, ",
+			"but `modify_layout()` already selected the `", x$layout$preset,
+			"` preset. Use `modify_layout(preset = \"interaction\")`, or drop ",
+			"the earlier `modify_layout()` call.",
+			call. = FALSE
+		)
+	}
+	if (!identical(x$layout$preset, "interaction")) {
+		message("`add_interaction()` sets the layout to the `interaction` preset.")
+		x$layout$preset <- "interaction"
+		x$layout$declared <- TRUE
+	}
+
+	block <- list(type = "interaction", conf_level = as.numeric(conf_level))
+	record_column_block(x, block, "add_interaction")
+}
+
+#' Add a forest column to a `<mesa>`
+#'
+#' @description
+#'
+#' `r lifecycle::badge('experimental')`
+#'
+#' `add_forest()` appends a forest-plot column block to a [mesa()]
+#' specification — available to any table, not just interaction tables. Its
+#' cells *read* the estimate and interval already on the specification and
+#' compute nothing new, so the block requires `estimate` + `conf` statistics
+#' (the bare default carries them; an [add_estimates()] block must keep them).
+#'
+#' Per the grammar, the block is resolved at render: forest cells enter the
+#' cell frame as plain numbers, [as_gt()] resolves one shared x-scale across
+#' the whole column (limits, intercept, breaks, log versus linear — with
+#' `axis` overriding the guesses), draws each cell, and emits the bottom axis
+#' strip as a reserved row after every row group. Adding or dropping the
+#' block never changes any other cell.
+#'
+#' The block's dense look (zero vertical padding, borderless plot cells)
+#' enters as *defaults* to the style layer; [modify_style()]'s `padding`
+#' overrides it.
+#'
+#' @param x A `<mesa>` specification (from [mesa()])
+#'
+#' @param axis Options overriding the guessed x-scale, as a named list:
+#'   `limits` (length-2 numeric), `breaks` (numeric), `intercept` (the
+#'   reference line), and `log` (`TRUE` for a log scale)
+#'
+#' @param width Width of the drawn cells, in pixels
+#'
+#' @param invert Show reciprocal estimates: each cell draws `1 / estimate`
+#'   with the interval bounds swapped and inverted, so a protective ratio
+#'   reads as risk (and vice versa). The axis mirrors with the cells, since
+#'   the shared scale is resolved from the drawn values.
+#'
+#' @return The modified `<mesa>` specification.
+#'
+#' @seealso [mesa()], [as_gt()], [add_estimates()]
+#' @export
+add_forest <- function(x, axis = list(), width = 100, invert = FALSE) {
+
+	validate_class(x, "mesa")
+
+	if (!is.list(axis) ||
+			(length(axis) > 0 && is.null(names(axis)))) {
+		stop("`axis` must be a named list of axis options.", call. = FALSE)
+	}
+	known <- c("limits", "breaks", "intercept", "log")
+	unknown <- setdiff(names(axis), known)
+	if (length(unknown) > 0) {
+		stop(
+			"`axis` does not know the option ",
+			paste0("`", unknown, "`", collapse = ", "),
+			". The axis options are: ",
+			paste0("`", known, "`", collapse = ", "), ".",
+			call. = FALSE
+		)
+	}
+	if (!is.null(axis$limits) &&
+			(!is.numeric(axis$limits) || length(axis$limits) != 2)) {
+		stop("`axis$limits` must be a length-2 numeric.", call. = FALSE)
+	}
+	validate_scalar(width, "width", min = 0, inclusive = FALSE)
+	if (!is.logical(invert) || length(invert) != 1 || is.na(invert)) {
+		stop("`invert` must be `TRUE` or `FALSE`.", call. = FALSE)
+	}
+
+	block <- list(
+		type = "forest",
+		axis = axis,
+		width = as.numeric(width),
+		invert = invert
+	)
+	record_column_block(x, block, "add_forest")
+}
+
 #' @rdname add_events
 #' @export
 add_rate_difference <- function(x, conf_level = 0.95) {
 
 	validate_class(x, "mesa")
-
-	if (!is.numeric(conf_level) || length(conf_level) != 1 ||
-			is.na(conf_level) || conf_level <= 0 || conf_level >= 1) {
-		stop(
-			"`conf_level` must be a single number strictly between 0 and 1.",
-			call. = FALSE
-		)
-	}
+	validate_scalar(conf_level, "conf_level", min = 0, max = 1, inclusive = FALSE)
 
 	block <- list(type = "rate_difference", conf_level = as.numeric(conf_level))
 	record_column_block(x, block, "add_rate_difference")
@@ -377,6 +509,27 @@ compute_data_statistics <- function(dec, spec) {
 	dec
 }
 
+#' Parse a `Surv()` outcome call into its time and event arguments
+#'
+#' `Surv(time, event)` and `Surv(time, time2, event)` are both accepted: the
+#' event argument is the `event` argument if named, else the last argument;
+#' the time argument is the `time` argument if named, else the first. Returns
+#' `NULL` when `outcome` does not parse to a `Surv()` call — identity, never a
+#' guess.
+#' @keywords internal
+#' @noRd
+parse_surv_outcome <- function(outcome) {
+	expr <- tryCatch(str2lang(outcome), error = function(e) NULL)
+	if (!is.call(expr) ||
+			!deparse1(expr[[1]]) %in% c("Surv", "survival::Surv")) {
+		return(NULL)
+	}
+	args <- as.list(expr)[-1]
+	event <- if (!is.null(args[["event"]])) args[["event"]] else args[[length(args)]]
+	time <- if (!is.null(args[["time"]])) args[["time"]] else args[[1]]
+	list(time = deparse1(time), event = deparse1(event))
+}
+
 #' The event-indicator column an outcome stands for
 #'
 #' A plain outcome names its own event column; a `Surv()` outcome carries its
@@ -389,15 +542,9 @@ outcome_event_column <- function(outcome, dat) {
 		return(outcome)
 	}
 
-	expr <- tryCatch(str2lang(outcome), error = function(e) NULL)
-	if (is.call(expr) &&
-			deparse1(expr[[1]]) %in% c("Surv", "survival::Surv")) {
-		args <- as.list(expr)[-1]
-		ev <- if (!is.null(args[["event"]])) args[["event"]] else args[[length(args)]]
-		evName <- deparse1(ev)
-		if (evName %in% names(dat)) {
-			return(evName)
-		}
+	surv <- parse_surv_outcome(outcome)
+	if (!is.null(surv) && surv$event %in% names(dat)) {
+		return(surv$event)
 	}
 
 	stop(
@@ -405,6 +552,28 @@ outcome_event_column <- function(outcome, dat) {
 		"attached data, so `add_events()` cannot count its events.",
 		call. = FALSE
 	)
+}
+
+#' Infer the follow-up column from the mesa's `Surv()` outcome(s)
+#'
+#' `add_events(followup =)` can be inferred exactly when every outcome on the
+#' mesa parses to a `Surv()` call (`parse_surv_outcome()`) and they all
+#' name the same time argument; a plain outcome, or outcomes disagreeing on
+#' the time column, return `NULL` so the caller requires an explicit
+#' `followup`.
+#' @keywords internal
+#' @noRd
+infer_followup_column <- function(mt) {
+	outcomes <- unique(stats::na.omit(mt$outcome))
+	surv <- lapply(outcomes, parse_surv_outcome)
+	if (length(outcomes) == 0 || any(vapply(surv, is.null, logical(1)))) {
+		return(NULL)
+	}
+	times <- unique(vapply(surv, `[[`, character(1), "time"))
+	if (length(times) != 1) {
+		return(NULL)
+	}
+	times
 }
 
 #' Record a column block, replacing an earlier block of the same type with a
@@ -447,6 +616,8 @@ describe_column_block <- function(b) {
 		),
 		events = paste0("events + rate (per ", b$person_years, " person-years)"),
 		rate_difference = "rate difference",
+		forest = if (isTRUE(b$invert)) "forest (inverted)" else "forest",
+		interaction = "interaction rows",
 		b$type
 	)
 }

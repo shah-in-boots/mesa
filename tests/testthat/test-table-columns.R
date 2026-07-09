@@ -136,23 +136,6 @@ test_that("digits are honored per estimates block", {
 	expect_true(grepl(formatC(beta, format = "f", digits = 4), html, fixed = TRUE))
 })
 
-test_that("formatting helpers cover the estimate and p display rules", {
-
-	# Both statistics merge; either renders alone; missing collapses
-	expect_equal(format_estimate(1.234, 1.1, 1.4, 2, ""), "1.23 (1.10, 1.40)")
-	expect_equal(
-		format_estimate(1.234, 1.1, 1.4, 2, "", show_conf = FALSE), "1.23"
-	)
-	expect_equal(
-		format_estimate(1.234, 1.1, 1.4, 2, "", show_beta = FALSE), "(1.10, 1.40)"
-	)
-	expect_equal(format_estimate(NA_real_, 1.1, 1.4, 2, "-"), "-")
-	expect_equal(format_estimate(1.234, NA, NA, 2, ""), "1.23")
-
-	expect_equal(format_p_value(c(0.0432, 0.0001, NA), "-"),
-							 c("0.043", "<0.001", "-"))
-})
-
 test_that("modify_labels(columns=) overrides block headers late", {
 
 	html <-
@@ -167,6 +150,23 @@ test_that("modify_labels(columns=) overrides block headers late", {
 	expect_true(grepl("OR (CI)", html, fixed = TRUE))
 	expect_true(grepl("Obs", html, fixed = TRUE))
 	expect_false(grepl("Beta", html, fixed = TRUE))
+})
+
+test_that("modify_labels(columns=) errors at realization on an unknown column", {
+
+	# Recording the label does not error at verb time -- only at realization,
+	# matching every other selection input (M6.11)
+	m <-
+		columns_table() |> mesa() |>
+		modify_labels(columns = list(betaa ~ "HR"))
+	expect_s3_class(m, "mesa")
+	expect_error(as_gt(m), "not on the mesa")
+
+	# Naming a real statistic that simply is not on this mesa also errors
+	m2 <-
+		columns_table() |> mesa() |>
+		modify_labels(columns = list(events ~ "No. events"))
+	expect_error(as_gt(m2), "not on the mesa")
 })
 
 test_that("column verbs keep the grammar order-independent", {
@@ -246,7 +246,6 @@ test_that("add_events() and add_rate_difference() validate at verb time", {
 	skip_if_not_installed("survival")
 	m <- mesa(events_table())
 
-	expect_error(add_events(m), "`followup`")
 	expect_error(add_events(m, followup = c("a", "b")), "single column name")
 	expect_error(add_events(m, followup = time, person_years = 0),
 							 "`person_years`")
@@ -254,6 +253,9 @@ test_that("add_events() and add_rate_difference() validate at verb time", {
 	expect_error(add_events(m, followup = time, digits = -1), "`digits`")
 	expect_error(add_rate_difference(m, conf_level = 1), "`conf_level`")
 	expect_error(add_rate_difference(m, conf_level = 0), "`conf_level`")
+
+	# A plain (non-Surv()) outcome cannot infer a follow-up column (M6.12)
+	expect_error(add_events(mesa(columns_table())), "`followup`")
 
 	# Blocks record and a repeat replaces with a message, like every verb
 	m2 <- m |> add_events(followup = time) |> add_rate_difference()
@@ -263,6 +265,25 @@ test_that("add_events() and add_rate_difference() validate at verb time", {
 								 "replaces the earlier events")
 	expect_message(add_rate_difference(m2, conf_level = 0.9),
 								 "replaces the earlier rate_difference")
+})
+
+test_that("add_events() infers `followup` from a Surv() outcome (M6.12)", {
+
+	skip_if_not_installed("survival")
+	d <- events_data()
+
+	inferred <- events_table(d) |> mesa() |> add_events() |> realize_mesa()
+	explicit <-
+		events_table(d) |> mesa() |> add_events(followup = time) |> realize_mesa()
+	expect_equal(inferred$events, explicit$events)
+	expect_equal(inferred$rate, explicit$rate)
+
+	# An explicit `followup` still overrides the inference — a data column
+	# that does not match the fitted formula's time argument
+	d$time2 <- d$time
+	overridden <-
+		events_table(d) |> mesa() |> add_events(followup = time2) |> realize_mesa()
+	expect_equal(overridden$events, explicit$events)
 })
 
 test_that("events and rates match survival::pyears() per level", {

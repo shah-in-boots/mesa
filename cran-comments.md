@@ -1,15 +1,27 @@
-# mesa v0.1.0
+# mesa
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 0 notes
 
-* This is a new submission (R3)
+`devtools::check(args = c("--no-manual"))` (which runs under `--as-cran`) is
+clean locally, including vignette rebuilding and the full test suite.
 
-1. The DESCRIPTION file was modified to include references in the format suggested.
+* This is a new submission.
 
-2. The @return or \value field was documented in all functions
+* The package was previously prepared for submission under an earlier,
+  substantially different implementation (see `NEWS.md` and
+  [blueprint.md](https://github.com/shah-in-boots/mesa/blob/main/blueprint.md)
+  for the full rebuild history). The term, formula, fitting, collection, and
+  table layers have all been reworked since; the notes from that earlier
+  attempt (reference formatting, `@return`/`\value` documentation,
+  `.GlobalEnv` avoidance, a stray LaTeX symbol) no longer apply to the
+  current source and are not repeated here.
 
-3. The function that referenced the `.GlobalEnv` and have instead referenced it with `env = parent.frame()` instead with the intent to comply with CRAN policies. Our goal was to maintain the user's environment when they called the function `formula.tm()`. This is similar to the `stats::formula()` default argument (and hope its okay to have modeled our function after it).
+* Before submitting, bump `Version` in `DESCRIPTION` from the development
+  placeholder (`0.0.0.9000`) to the intended release version, and confirm
+  `NEWS.md`'s top entry is finalized.
 
-4. There remained an old latex symbol (\textrightarrow) that was causing manual building issues. We had fixed a majority of these the first time, but unfortunately missed one. It has now been fixed. To confirm, I've performed a recursive `grep` through all of the source files to confirm.
+## Downstream dependencies
+
+There are no downstream dependencies, as this is a new submission.

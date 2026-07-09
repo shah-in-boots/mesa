@@ -23,7 +23,7 @@ A \code{gt_tbl} object.
 \code{as_gt()} realizes a \code{\link[=mesa]{mesa()}} specification: it resolves the recorded
 selection against the model table, decorates each estimate with its term
 metadata, and emits a \code{{gt}} table. On a bare specification it renders a
-minimal default — each displayed term's point estimate and 95\% confidence
+minimal default -- each displayed term's point estimate and 95\% confidence
 interval, with adjustment sets on rows and outcomes as row groups.
 }
 \seealso{

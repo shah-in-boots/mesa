@@ -12,7 +12,9 @@ utils::globalVariables(c(
 	"number",
 	"outcome",
 	"p_value",
-	"term"
+	"term",
+	"x",
+	"y"
 ))
 
 .onLoad <- function(libname, pkgname) {

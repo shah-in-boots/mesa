@@ -132,3 +132,106 @@ term_roles <- function() {
 term_transformations <- function() {
 	.transformations
 }
+
+# The table statistics registry (M6.13) -----------------------------------
+
+# The `mesa` table grammar's statistics vocabulary, in one place: each
+# recognized statistic's block-declaration name (the name a labeled formula
+# or a block-argument uses, e.g. `add_estimates(columns = list(beta ~ ...))`),
+# the accent-criterion field name(s) it exposes on a decorated cell (its
+# `aliases`), the verb that adds it, its default column header, and whether
+# an accent criterion may compare it. Before this registry, the vocabulary
+# was written out separately in `add_estimates()`'s known-statistic check,
+# `validate_accent()`'s known-name check, `apply_accents()`'s alias patching,
+# and `frame_context()`'s default headers — four places that had to agree by
+# hand. Adding a statistic is now adding one entry here.
+.table_statistics <- list(
+	beta = list(
+		aliases = c("estimate", "beta"),
+		verb = "add_estimates",
+		header = "Estimate",
+		accentable = TRUE
+	),
+	conf = list(
+		aliases = c("conf_low", "conf_high"),
+		verb = "add_estimates",
+		header = "95% CI",
+		accentable = TRUE
+	),
+	p = list(
+		aliases = c("p", "p_value"),
+		verb = "add_estimates",
+		header = "P value",
+		accentable = TRUE
+	),
+	n = list(
+		aliases = "n",
+		verb = "add_n",
+		header = "N",
+		accentable = TRUE
+	),
+	events = list(
+		aliases = "events",
+		verb = "add_events",
+		header = "Events",
+		accentable = TRUE
+	),
+	rate = list(
+		aliases = "rate",
+		verb = "add_events",
+		header = "Rate",
+		accentable = TRUE
+	),
+	rate_difference = list(
+		aliases = "rate_difference",
+		verb = "add_rate_difference",
+		header = "Rate difference",
+		accentable = TRUE
+	),
+	forest = list(
+		aliases = "forest",
+		verb = "add_forest",
+		header = "",
+		accentable = FALSE
+	)
+)
+
+#' The table grammar's statistics registry
+#'
+#' Each column block's statistic (or statistics — `add_estimates()` declares
+#' several at once) is one entry: its block-declaration name, the field
+#' name(s) an accent criterion or `apply_accents()` reads it by (`aliases`),
+#' the verb that records it, and its default column header. See
+#' "The interface refinement pass" in `DESIGN.md` (M6.13).
+#'
+#' @param verb Restrict to the statistics one `add_*()` verb declares (e.g.
+#'   `"add_estimates"`); `NULL` (the default) returns every statistic
+#'
+#' @return A named list, one entry per statistic.
+#' @keywords internal
+#' @noRd
+table_statistics <- function(verb = NULL) {
+	if (is.null(verb)) {
+		return(.table_statistics)
+	}
+	Filter(function(s) identical(s$verb, verb), .table_statistics)
+}
+
+#' The block-declaration names of a verb's statistics (or every statistic)
+#' @keywords internal
+#' @noRd
+table_statistic_names <- function(verb = NULL) {
+	names(table_statistics(verb))
+}
+
+#' The flattened accent-criterion vocabulary: every alias of every
+#' accentable statistic
+#' @keywords internal
+#' @noRd
+table_statistic_aliases <- function() {
+	unlist(
+		lapply(Filter(function(s) isTRUE(s$accentable), .table_statistics),
+					 `[[`, "aliases"),
+		use.names = FALSE
+	)
+}

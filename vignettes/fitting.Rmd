@@ -1,0 +1,166 @@
+---
+title: "4. Fitting and Model Tables"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{4. Fitting and Model Tables}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(mesa)
+```
+
+A family of formulas is still just instructions. Layer 3 answers "what
+happens when a formula meets data and a fitting approach?" (`fit()`), and
+layer 4 answers "how do I store, recall, and compare many models?"
+(`mdl_tbl`). This vignette covers both, because in practice they are always
+used together: fit, then collect.
+
+```{r}
+d <- mtcars
+d$cyl <- factor(d$cyl)
+d$am <- factor(d$am, labels = c("Automatic", "Manual"))
+```
+
+## Fitting is plan-then-execute
+
+`fit()` accepts a family, a fitting function (`.fn`), and the data. It first
+builds an inspectable plan — every formula crossed with every stratum level
+and every subset — with `fit_plan()`, then executes it row by row:
+
+```{r}
+f <- fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential")
+fit_plan(f, data = d)
+```
+
+`.fn` resolves **by name**, so argument order never matters, and it accepts
+three things: a plain function (`lm`), a string naming one (`"lm"`), or a
+`{parsnip}` model specification.
+
+```{r, eval = requireNamespace("parsnip", quietly = TRUE)}
+spec <- parsnip::linear_reg() |> parsnip::set_engine("lm")
+fit(fmls(mpg ~ .x(wt) + hp), .fn = spec, data = d, raw = FALSE)
+```
+
+## Wrapped models, not raw fits
+
+`fit(..., raw = TRUE)` (the default) returns the plain list of fitted objects
+the fitting function itself produces — useful for a quick look, but nothing
+downstream can use it as a `{mesa}` object. `raw = FALSE` wraps each fit into
+a `mdl` — the object that carries a model's causal context (its formula, its
+term roles, its degrees of freedom, its variance–covariance matrix) alongside
+the fit itself:
+
+```{r}
+m <- fit(f, .fn = lm, data = d, raw = FALSE)
+m
+```
+
+## Collecting models: `mdl_tbl`
+
+A single family already produces several models; a research project produces
+many families. `model_table()` (alias `mdl_tbl()`) is the notebook that
+stores them:
+
+```{r}
+mt <- model_table(m, data = d)
+mt
+```
+
+The print leads with the fleet's status at a glance — how many fitted, how
+many failed, whether data is attached — then one line per model. Passing
+`data =` attaches the fitting dataset, which the table remembers for
+everything downstream that needs it (categorical levels, event counts, the
+table layer in the next vignette).
+
+`summary()` gives the aggregate view: models grouped by dataset, fitting
+function, outcome, and exposure, with their adjustment range and the terms by
+causal role.
+
+```{r}
+summary(mt)
+```
+
+## Stratified fits produce one model per level
+
+A family stratified with `add_strata()` (see `vignette("playing")`) is not
+fit once — `fit()` fits one model per stratum level automatically, and the
+level lands as provenance in the table:
+
+```{r}
+fs <- fmls(mpg ~ .x(wt) + hp) |> add_strata(am) |> set_data(d)
+ms <- fit(fs, .fn = lm, data = d, raw = FALSE)
+mts <- model_table(ms, data = d)
+mts
+```
+
+`mdl_tbl` is a `{dplyr}`-friendly tibble subclass — `filter()`, `select()`,
+`arrange()`, and `[` all work, and reconcile the table's internal attributes
+(the formula matrix, the term table, the attached data) down to the rows that
+remain:
+
+```{r}
+dplyr::filter(mts, level == "Manual")
+```
+
+## Fitting fails softly
+
+Twenty models in a batch should not sink because one formula references a
+column that does not exist. A failure is recorded, not thrown: `fit_status`
+is `FALSE`, the error is stored, and the fleet keeps its shape.
+
+```{r}
+fbad <- fmls(mpg ~ .x(wt) + not_a_real_column)
+mbad <- fit(fbad, .fn = lm, data = d, raw = FALSE)
+mtbad <- model_table(mbad, data = d)
+mtbad
+model_failures(mtbad)
+```
+
+## Mixed models fit through the same interface
+
+A family carrying a `.r()` random-effects term (`vignette("playing")`) fits
+directly through a mixed-model engine — no special-casing required:
+
+```{r, eval = requireNamespace("lme4", quietly = TRUE)}
+fr <- fmls(mpg ~ .x(wt) + hp + .r(gear))
+fit(fr, .fn = lme4::lmer, data = d, raw = FALSE)
+```
+
+## Extracting estimates: `flatten_models()`
+
+`mdl_tbl` stores models; `flatten_models()` unpacks them into one tidy row
+per coefficient, ready for analysis or a quick look before building a
+publication table:
+
+```{r}
+flatten_models(mt)[c("number", "term", "estimate", "conf_low", "conf_high", "p_value")]
+```
+
+Exponentiation is inferred, not requested by name: a Cox model or a GLM on a
+`log`/`logit`/`cloglog` link comes back as a ratio (hazard, odds, or rate);
+everything else stays on the linear scale. `exponentiate = TRUE/FALSE`
+overrides the inference when needed.
+
+```{r}
+mOr <-
+  fmls(am ~ .x(wt)) |>
+  fit(.fn = glm, family = stats::binomial, data = d, raw = FALSE) |>
+  model_table(data = d)
+
+flatten_models(mOr)[c("term", "estimate", "exponentiated")]
+```
+
+## What's next
+
+A `mdl_tbl` full of fitted models is the raw material for a publication
+table. `vignette("mesa")` covers the last layer: laying those models out on
+the *mesa* itself, built on `{gt}`.

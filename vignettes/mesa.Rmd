@@ -1,0 +1,189 @@
+---
+title: "5. Making the Mesa"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{5. Making the Mesa}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(mesa)
+```
+
+The destination of the grammar is the fifth layer: laying a collection of
+fitted models out for a paper. This is the package's namesake act — `mesa()`
+lays models on the *mesa*, the table upon which they are displayed — and it
+is built as a small composable grammar on top of `{gt}`, grown the way a
+`{ggplot2}` plot is grown: one verb, one decision, in any order.
+
+```{r}
+d <- mtcars
+d$cyl <- factor(d$cyl)
+
+mt <-
+  fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential") |>
+  fit(.fn = lm, data = d, raw = FALSE) |>
+  model_table(data = d)
+```
+
+`mt` is the `mdl_tbl` from `vignette("fitting")` — three nested models,
+`mpg ~ wt`, `mpg ~ wt + hp`, and `mpg ~ wt + hp + cyl`.
+
+## A bare mesa is already a table
+
+`mesa()` is deliberately bare — it takes no selection arguments — and puts
+everything fitted on the mesa with default labels:
+
+```{r}
+mt |> mesa()
+```
+
+Printing a `<mesa>` specification shows what's on it without rendering
+anything: the layout, the current selection, the column blocks so far.
+`as_gt()` renders it — and a bare specification already produces a minimal
+table, estimate and interval for every displayed term:
+
+```{r}
+mt |> mesa() |> as_gt()
+```
+
+## Growing the table, one verb at a time
+
+Nothing has to be decided up front. Each verb narrows or adds exactly one
+thing, and verbs compose in any order:
+
+- **`select_outcomes()` / `select_exposures()` / `select_terms()` /
+  `select_adjustment()` / `select_strata()`** narrow what is shown, and their
+  input is a labeled formula — so selecting and labeling are one gesture.
+- **`modify_labels()`** relabels terms, levels, or columns late, without
+  reselecting anything.
+- **`add_estimates()`, `add_n()`, `add_events()`, `add_rate_difference()`,
+  `add_forest()`, `add_interaction()`** each append one column block.
+- **`modify_layout()`, `modify_style()`** assign the table's axes and its
+  accents, digits, and padding.
+
+```{r}
+mt |>
+  mesa() |>
+  select_adjustment(1 ~ "Unadjusted", 3 ~ "Fully adjusted") |>
+  add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI")) |>
+  modify_labels(wt ~ "Weight (1000 lbs)") |>
+  as_gt()
+```
+
+Because a `<mesa>` specification is *declarative* — verbs record instructions,
+and resolution happens only at `as_gt()` — repeating a verb replaces just that
+instruction, with a message, rather than compounding silently. Rethinking a
+label, or narrowing the selection further, is always cheap.
+
+## The three layout presets
+
+A layout **preset** is a complete assignment of the grammar's four axes
+(rows, row groups, columns, spanners), selected with `modify_layout()`.
+
+### `"adjustment"` (the default)
+
+Adjustment sets on rows, outcomes as row groups — the shape above, and the
+one every bare mesa starts from.
+
+### `"levels"`
+
+Event counts and incidence rates, then adjusted-estimate rows, with term
+levels on columns — the shape of a hazard-ratio table:
+
+```{r, eval = requireNamespace("survival", quietly = TRUE)}
+lung <- survival::lung
+lung$sex <- factor(lung$sex, levels = 1:2, labels = c("Male", "Female"))
+
+mtSurv <-
+  fmls(Surv(time, status) ~ .x(sex) + age, pattern = "sequential") |>
+  fit(.fn = survival::coxph, data = lung, raw = FALSE) |>
+  model_table(data = lung)
+
+mtSurv |>
+  mesa() |>
+  modify_layout(preset = "levels") |>
+  select_adjustment(1 ~ "Unadjusted", 2 ~ "Age-adjusted") |>
+  add_events(followup = time) |>
+  add_rate_difference() |>
+  add_estimates(columns = list(beta ~ "HR", conf ~ "95% CI")) |>
+  as_gt()
+```
+
+`add_events()` reads the follow-up column from the `Surv()` outcome itself
+when it can (`followup = time` above makes it explicit; it is optional when
+the data's follow-up column matches the outcome's time argument). Because a
+Cox model's estimates come back exponentiated by default (the family
+inference from `vignette("fitting")`), the column is already labeled `HR` on
+the correct scale.
+
+### `"interaction"`
+
+Interaction levels on rows, grouped by interaction term, with the
+across-levels p-value floating over each band — effect modification made
+visible:
+
+```{r}
+mtInt <-
+  fmls(mpg ~ .x(hp) + .i(cyl)) |>
+  fit(.fn = lm, data = d, raw = FALSE) |>
+  model_table(data = d)
+
+mtInt |>
+  mesa() |>
+  add_interaction() |>
+  add_n(label = "No.") |>
+  add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI",
+                                p ~ "P for interaction")) |>
+  as_gt()
+```
+
+`add_interaction()` **implies** the `"interaction"` layout — it defines the
+rows, so declaring the block is declaring the layout; a separate
+`modify_layout(preset = "interaction")` call is never required for the common
+case.
+
+## A forest column, on any table
+
+`add_forest()` appends a forest-plot column to any table that already carries
+an estimate and interval — it reads them and computes nothing new, so adding
+or dropping it never changes any other cell:
+
+```{r}
+mtInt |>
+  mesa() |>
+  add_interaction() |>
+  add_estimates() |>
+  add_forest() |>
+  as_gt()
+```
+
+## Style: accents, digits, missing text
+
+`modify_style()` emphasizes cells that meet a criterion — any displayed
+statistic, not just a p-value — and controls formatting table-wide:
+
+```{r}
+mt |>
+  mesa() |>
+  add_estimates() |>
+  modify_style(accents = list(p < 0.05 ~ "bold"), digits = 3) |>
+  as_gt()
+```
+
+## What's next
+
+That is the whole grammar: `mesa()` to start, `select_*()` to narrow,
+`add_*()` to add statistics, `modify_*()` to lay out and style, `as_gt()` to
+render. `vignette("causal-reasoning", package = "mesa")` steps back from the
+mechanics to the reasoning the roles are for — how they map onto the
+estimands (total effect, direct effect, effect modification) the rest of
+`{mesa}` was built to make fluent.

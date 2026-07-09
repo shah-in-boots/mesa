@@ -13,7 +13,12 @@ add_rate_difference(x, conf_level = 0.95)
 \item{x}{A \verb{<mesa>} specification (from \code{\link[=mesa]{mesa()}})}
 
 \item{followup}{The column of the attached data holding each subject's
-follow-up time, as a bare name or a string}
+follow-up time, as a bare name or a string. When the mesa's outcome is a
+\code{Surv()} call, \code{followup} is inferred from its time argument and may be
+omitted; a plain outcome (or outcomes that disagree on the time column)
+still requires it explicitly. Supplying \code{followup} always overrides the
+inference, e.g. when the attached data's follow-up column is not the one
+named in the fitted formula}
 
 \item{person_years}{The person-time denominator the rates are expressed in
 (\code{100} shows rates per 100 person-years)}
