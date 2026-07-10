@@ -54,9 +54,8 @@ Items verified by execution are marked ✓.
   `formula_call`, and the model's recorded call deliberately stay the true
   fitted (unstratified) formula: they are consumed programmatically
   (re-fitting, term counting), so annotating them would corrupt real syntax.
-  *Still open (design question)*: how engine-native strata
-  (`survival::strata()` in a coxph formula — a conditioning term, not a
-  data split) should coexist with `.s()`.
+  The engine-native strata question is decided below: `strata()` is
+  conditioning and passes through; `.s()` is the data split.
 - [x] **`fit()` defaults to `raw = TRUE`**. *Fixed 2026-07-09*: the default
   is `raw = FALSE` — a `mdl` vector, the grammar's main path — and the
   vignettes no longer repeat the argument. `raw = TRUE` remains the opt-out
@@ -140,12 +139,32 @@ Items verified by execution are marked ✓.
   *Fixed 2026-07-09*: subsumed by `pattern_roles()` — each pattern reads
   only the roles it uses.
 
-## Open — design questions, not defects
+## Decided — the former open design questions (2026-07-09)
 
-- [ ] Engine-native strata (`survival::strata()` inside a coxph formula, a
-  conditioning term) versus `.s()` (a data split): two meanings, one word.
-  How do they coexist at the fitting stage?
-- [ ] The adjustment preset emits a `::p` column per term *level*; is a
-  per-term p-column the better default for wide tables?
-- [ ] Attached data frames make a `mdl_tbl` heavy to serialize; store only
-  the columns the terms reference?
+- [x] **Engine-native strata is conditioning; `.s()` is the data split**.
+  The two constructs work differently and both stay available:
+  `strata(x)` (bare or `survival::`-qualified) *conditions within* one
+  model, so it passes through the formula untouched — whole, as one term,
+  which the engine consumes — traced as `transformation = "strata"`.
+  `.s()` remains the grammar's own stratum: an actual segregation of the
+  data, one fit per level. Neither is rewritten into the other. (An
+  earlier convert-to-`.s()` approach was walked back 2026-07-09: the
+  mechanisms are not interchangeable.)
+- [x] **The term × effect cell is the core column concept**. A mesa is
+  composed of term (or term level) × effect cells — estimate, interval,
+  p-value, events, rate, n. The `add_*()` verbs append *groups* of effects
+  that travel together (an estimate with its CI and p), so groups compose,
+  move, and drop without touching each other's cells, and the presets place
+  the same cells wide (levels on columns) or long (levels on rows) without
+  recomputing. Documented in `mesa()`/table-columns.R and the vignettes.
+  *Future extension*: an explicit wide/long orientation choice on
+  `modify_layout()`, moving whole groups between the column and row axes.
+- [x] **Attached data attaches whole, at the `mdl_tbl` level only**. The
+  full frame is retained: later work routinely reaches for columns no
+  current formula names (an `add_events()` follow-up column, a variable
+  for the next family of models added to the same table), so pruning to
+  referenced columns was tried and walked back 2026-07-09. What stands is
+  the layering: `set_data()` on a `tm` or `fmls` only *teaches* (stamps
+  type/distribution/levels) and retains nothing, since formulas stay
+  abstract and source data keeps evolving; the `mdl_tbl` — where formulas
+  and data come together — is the one layer that retains data.

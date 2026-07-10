@@ -9,6 +9,17 @@
 # blocks, computed from the attached data each model's `data_id` resolves to —
 # there is no `data =` argument anywhere in the table layer, and every
 # data-needing error points to `attach_data()`.
+#
+# The unit every block resolves to is the **term x effect cell**: one term
+# (or term level) crossed with one effect — the estimate, its interval, a
+# p-value, an event count, a rate, an observation count. A block is a *group*
+# of these effects that travel together (an estimate with its CI and p; the
+# events with their rate), which is what makes blocks composable — adding,
+# dropping, or reordering one never changes another's cells — and what lets
+# the layout presets place the same cells wide (levels on columns) or long
+# (levels on rows) without recomputing anything. The column keys carry the
+# identity (`term::level::effect`, built in table-presets.R), and the accent
+# machinery judges each term x level context's effects together.
 
 #' Add model-statistic columns to a `<mesa>`
 #'

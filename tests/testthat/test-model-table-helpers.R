@@ -136,7 +136,8 @@ test_that("accessors expose the table attributes without attr() calls", {
 	expect_true(all(c("mpg", "wt", "hp") %in% names(fmMat)))
 	expect_s3_class(formula_matrix(f), "tbl_df")
 
-	# Data recall by name, with a helpful error otherwise
+	# Data recall by name (the frame attaches whole), with a helpful error
+	# otherwise
 	expect_named(model_data(x), "mtcars")
 	expect_identical(model_data(x, "mtcars"), mtcars)
 	expect_error(model_data(x, "lung"), regexp = "attached: mtcars")
@@ -186,5 +187,16 @@ test_that("attach_data() aliases the same frame arriving under another name", {
 		"attached for later use"
 	)
 	expect_equal(names(attr(mt4, "dataList")), "unrelated")
+
+})
+
+test_that("attach_data() keeps the whole frame for later reach", {
+
+	# Columns no current formula names stay available — a follow-up column
+	# for add_events(), a variable for the next family of models
+	d <- mtcars
+	m <- fit(fmls(mpg ~ .x(wt) + hp + .s(am)), .fn = lm, data = d)
+	mt <- attach_data(model_table(m), d)
+	expect_identical(model_data(mt, "d"), d)
 
 })

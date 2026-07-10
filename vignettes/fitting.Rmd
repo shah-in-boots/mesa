@@ -77,9 +77,10 @@ mt
 
 The print leads with the fleet's status at a glance — how many fitted, how
 many failed, whether data is attached — then one line per model. Passing
-`data =` attaches the fitting dataset, which the table remembers for
+`data =` attaches the fitting dataset whole, which the table remembers for
 everything downstream that needs it (categorical levels, event counts, the
-table layer in the next vignette).
+table layer in the next vignette) — including columns no current formula
+names, like a follow-up column or a variable for the next family of models.
 
 `summary()` gives the aggregate view: models grouped by dataset, fitting
 function, outcome, and exposure, with their adjustment range and the terms by

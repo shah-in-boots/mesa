@@ -63,7 +63,7 @@ term_roles()
 | confounder | `.c(...)` | a common cause of exposure and outcome | treated as a covariate; flagged for adjustment displays |
 | mediator | `.m(...)` | on the causal pathway between exposure and outcome | triggers the mediation triad of formulas |
 | interaction | `.i(...)` | a candidate effect modifier of the exposure | crossed with each exposure (`x:i`), grouped so the pair travels together |
-| strata | `.s(...)` | a variable defining subpopulations for separate fits | not a covariate; `fit()` fits one model per stratum level |
+| strata | `.s(...)` | a variable defining subpopulations for separate fits | not a covariate; `fit()` fits one model per stratum level. Engine-native `survival::strata(...)` is different — it *conditions within* one model, so it passes through the formula untouched |
 | random | `.r(...)` | a grouping variable for random (hierarchical) effects | rendered as `(1 \| term)` for mixed-model engines |
 | group | `.g(...)` | not a role, but a tier marker for terms that travel together | grouped terms enter and leave expanded formulas as one block |
 

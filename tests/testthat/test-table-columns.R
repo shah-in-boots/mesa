@@ -279,7 +279,8 @@ test_that("add_events() infers `followup` from a Surv() outcome (M6.12)", {
 	expect_equal(inferred$rate, explicit$rate)
 
 	# An explicit `followup` still overrides the inference — a data column
-	# that does not match the fitted formula's time argument
+	# that does not match the fitted formula's time argument (the frame
+	# attaches whole, so any column is reachable)
 	d$time2 <- d$time
 	overridden <-
 		events_table(d) |> mesa() |> add_events(followup = time2) |> realize_mesa()

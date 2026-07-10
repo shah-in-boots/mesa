@@ -351,6 +351,17 @@ collect_formula_terms <- function(expr, side) {
 		return(list(term_record(deparse1(expr), side, role = "random")))
 	}
 
+	# Engine-native stratification, e.g. `survival::strata(site)` in a coxph
+	# formula, is *conditioning within one model* — a different mechanism from
+	# the grammar's `.s()`, which splits the data into separate fits. The call
+	# passes through whole (the engine understands it; it rides the formula
+	# like any covariate), with its origin traced in `transformation`.
+	if (fn %in% c("strata", "survival::strata")) {
+		return(list(
+			term_record(deparse1(expr), side, transformation = "strata")
+		))
+	}
+
 	# Role shortcut runes, e.g. `.x(term)`
 	if (fn %in% unlist(.roles)) {
 		roleName <- names(.roles)[match(fn, unlist(.roles))]

@@ -72,6 +72,16 @@ formula(f)
 > after the right-hand terms (random effects annotate as `.r(...)` the same
 > way), so a stratified model can no longer be misread as unstratified.
 
+Engine-native stratification is a *different* mechanism, and stays one:
+`survival::strata(...)` conditions within a single model, so it passes
+through the formula untouched (traced as `transformation = "strata"`),
+while `.s()` splits the data into separate fits:
+
+```{r}
+fmls(Surv(time, status) ~ .x(age) + strata(sex))   # conditioning: one model
+fmls(Surv(time, status) ~ .x(age) + .s(sex))       # data split: one per level
+```
+
 Interactions cross with the exposure automatically:
 
 ```{r}
@@ -113,6 +123,12 @@ mt
 
 > ✓ **Resolved (2026-07-09).** `raw = FALSE` is now the default, so the main
 > path no longer repeats the argument at every call.
+
+Attached data is retained at the `mdl_tbl` level only, and the frame
+attaches whole — later work routinely reaches for columns no current formula
+names (a follow-up column, a variable for the next family). `set_data()` on
+terms or formulas *teaches* term properties and retains nothing; the model
+table is where formulas and data actually meet.
 
 ```{r}
 summary(mt)

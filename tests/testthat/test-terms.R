@@ -329,3 +329,37 @@ test_that("terms can be found and updated and attributes can be found", {
 	expect_equal(x, y)
 	expect_equal(vec_data(x)$role, c("outcome", "exposure", "confounder"))
 })
+
+test_that("engine-native strata() passes through as a conditioning term", {
+
+	# `survival::strata()` conditions *within* one model — a different
+	# mechanism from `.s()`, which splits the data into separate fits — so
+	# the call rides the formula whole, traced in `transformation`
+	t <- tm(Surv(time, status) ~ x + strata(sex))
+	proxy <- vctrs::vec_proxy(t)
+	row <- proxy[proxy$term == "strata(sex)", ]
+	expect_equal(nrow(row), 1)
+	expect_equal(row$side, "right")
+	expect_equal(row$transformation, "strata")
+	expect_false("strata" %in% proxy$role)
+
+	# Joint conditioning stays one term; the namespaced form works the same
+	t2 <- tm(y ~ x + strata(a, b))
+	expect_true("strata(a, b)" %in% vctrs::vec_proxy(t2)$term)
+	t3 <- tm(y ~ x + survival::strata(g))
+	expect_true("survival::strata(g)" %in% vctrs::vec_proxy(t3)$term)
+
+	# The fitted formula keeps the conditioning term for the engine, and no
+	# data split is planned — unlike a `.s()` stratum
+	f <- fmls(y ~ .x(x) + strata(g))
+	d <- data.frame(y = 1:4, x = 4:1, g = c("a", "a", "b", "b"))
+	fp <- fit_plan(f, data = d)
+	expect_match(fp$formula_call, "strata(g)", fixed = TRUE)
+	expect_true(all(is.na(fp$strata_variable)))
+
+	fs <- fmls(y ~ .x(x) + .s(g))
+	fps <- fit_plan(fs, data = d)
+	expect_false(any(grepl("strata", fps$formula_call)))
+	expect_equal(unique(fps$strata_variable), "g")
+
+})

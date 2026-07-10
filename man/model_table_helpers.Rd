@@ -76,7 +76,15 @@ that persist regardless of the underlying models, and by knowing which
 models used which datasets, it can be easy to back-transform information.
 The dataset is stored under the name it was passed as (or an explicit
 \code{name}), and should match the \code{data_id} column of the models that used it.
-Two conveniences keep that match from depending on retyping: a \code{data}
+
+Attached data lives at the \code{mdl_tbl} level — the layer where formulas and
+data come together. The frame attaches whole: later work routinely
+reaches for columns no current formula names (a follow-up column for
+\code{\link[=add_events]{add_events()}}, a variable for the next family of models). By contrast,
+\code{\link[=set_data]{set_data()}} on a \code{tm} or \code{fmls} only \emph{teaches} — it stamps term
+properties (type, distribution, levels) and retains no data at all.
+
+Two conveniences keep the name match from depending on retyping: a \code{data}
 passed as an inline expression takes the stable content-derived id
 (\verb{data_<hash>}) that \code{\link[=fit]{fit()}} gives the identical frame, and a frame
 arriving under a different name than the models recorded is aliased to the

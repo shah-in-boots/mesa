@@ -44,6 +44,15 @@
 #'
 #' @details
 #'
+#' The unit of a mesa is the **term × effect cell**: one term (or term level)
+#' crossed with one effect — an estimate, its interval, a p-value, an event
+#' count, a rate, an observation count. The `add_*()` verbs append *column
+#' blocks*, groups of effects that travel together (an estimate with its CI
+#' and p), so blocks compose freely — adding, dropping, or reordering one
+#' never changes another's cells — and the layout presets place the same
+#' cells wide (levels on columns) or long (levels on rows) without
+#' recomputing anything.
+#'
 #' `mesa()` validates before it builds. The object must be a `mdl_tbl`; only
 #' its fitted rows are laid out (failed and unfit rows are set aside); the
 #' table must hold a single model family (one fitting function) or it errors;

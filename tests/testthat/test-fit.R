@@ -238,3 +238,26 @@ test_that("an inline `data` expression records a stable content-derived id", {
 	expect_equal(names(attr(mt, "dataList")), mt$data_id)
 
 })
+
+test_that("engine-native strata() conditions within one model at fit", {
+
+	skip_if_not_installed("survival")
+	lung <- survival::lung
+	lung$sex <- factor(lung$sex)
+
+	m <- fit(
+		fmls(Surv(time, status) ~ .x(age) + survival::strata(sex)),
+		.fn = survival::coxph, data = lung
+	)
+	mt <- model_table(m, data = lung)
+
+	# One model, not one per sex level: conditioning, not a data split
+	expect_equal(nrow(mt), 1)
+	expect_true(is.na(mt$strata))
+	expect_match(mt$formula_call, "strata(sex)", fixed = TRUE)
+	expect_true(mt$fit_status)
+
+	# The engine absorbed the conditioning term; only `age` has a coefficient
+	expect_equal(mt$model_parameters[[1]]$term, "age")
+
+})

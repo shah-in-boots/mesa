@@ -57,6 +57,15 @@ mt |> mesa() |> as_gt()
 
 ## Growing the table, one verb at a time
 
+The unit of a mesa is the **term × effect cell**: one term (or term level)
+crossed with one effect — an estimate, its interval, a p-value, an event
+count, a rate, an observation count. The `add_*()` verbs append *column
+groups* of these effects that travel together (an estimate with its CI and
+p-value), so groups compose freely: adding, dropping, or reordering one
+never changes another's cells, and the layout presets place the same cells
+wide (levels on columns) or long (levels on rows) without recomputing
+anything.
+
 Nothing has to be decided up front. Each verb narrows or adds exactly one
 thing, and verbs compose in any order:
 
