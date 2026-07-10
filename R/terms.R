@@ -839,7 +839,12 @@ filter.tm <- function(.data, ...) {
 
 #' Describe attributes of a `tm` vector
 #'
-#' @param x A vector `tm` objects
+#' The printed form of a `fmls` object shows roles through term coloring
+#' rather than spelling them out; `describe()` is the explicit route to that
+#' information (e.g. `describe(f, "role")` on a `fmls` object).
+#'
+#' @param x A vector of `tm` objects, or a `fmls` object (whose key terms are
+#'   described)
 #'
 #' @param property A character vector of the following attributes of a `tm`
 #'   object: role, side, label, group, description, type, distribution, level
@@ -852,9 +857,14 @@ filter.tm <- function(.data, ...) {
 #' t <- tm(f)
 #' describe(t, "role")
 #'
+#' describe(fmls(mpg ~ .x(wt) + hp), "role")
+#'
 #' @export
 describe <- function(x, property) {
 
+	if (is_fmls(x)) {
+		x <- tm(x)
+	}
 	validate_class(x, "tm")
 	fieldNames <- fields(x)
 	if (!(property %in% fieldNames)) {

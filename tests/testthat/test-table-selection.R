@@ -196,3 +196,26 @@ test_that("labeled-formula inputs flow through one mechanism", {
 	expect_equal(l$terms$label, "Cylinders")
 	expect_equal(f$terms$label, "cyl") # falls back to the variable name
 })
+
+test_that("term levels stamp from each term's own dataset when models span
+					 several", {
+
+	d1 <- mtcars
+	d1$cyl <- factor(d1$cyl)
+	d2 <- data.frame(y = mtcars$mpg, grp = factor(mtcars$gear))
+
+	suppressMessages({
+		m1 <- fit(fmls(mpg ~ .x(cyl)), .fn = lm, data = d1)
+		m2 <- fit(fmls(y ~ .x(grp)), .fn = lm, data = d2)
+		mt <- model_table(m1, m2)
+		mt <- attach_data(mt, d1)
+		mt <- attach_data(mt, d2)
+	})
+
+	meta <- resolve_term_metadata(mt, list(cyl = "cyl", grp = "grp"))
+
+	# `grp` lives only in the second dataset; it still finds its levels
+	expect_setequal(meta$levels[[which(meta$variable == "cyl")]], c("4", "6", "8"))
+	expect_setequal(meta$levels[[which(meta$variable == "grp")]], c("3", "4", "5"))
+
+})

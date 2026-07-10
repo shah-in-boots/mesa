@@ -358,6 +358,12 @@ summary.mdl_tbl <- function(object, ...) {
 #' models used which datasets, it can be easy to back-transform information.
 #' The dataset is stored under the name it was passed as (or an explicit
 #' `name`), and should match the `data_id` column of the models that used it.
+#' Two conveniences keep that match from depending on retyping: a `data`
+#' passed as an inline expression takes the stable content-derived id
+#' (`data_<hash>`) that [fit()] gives the identical frame, and a frame
+#' arriving under a different name than the models recorded is aliased to the
+#' referenced `data_id` — with a message — when it is the only detached
+#' dataset and carries every variable those models use.
 #'
 #' @param x A `mdl_tbl` object (or, for `term_table()` and
 #'   `formula_matrix()`, a `fmls` object)
@@ -365,7 +371,7 @@ summary.mdl_tbl <- function(object, ...) {
 #' @param data A `data.frame` object that has been used by models
 #'
 #' @param name For `attach_data()`, the name to store the dataset under
-#'   (defaults to the expression `data` was passed as); for `model_data()`,
+#'   (defaults to the name `data` was passed as); for `model_data()`,
 #'   the name of a single attached dataset to return (when `NULL`, the full
 #'   named list is returned)
 #'
@@ -387,12 +393,37 @@ attach_data <- function(x, data, name = NULL, ...) {
   validate_class(x, "mdl_tbl")
   validate_class(data, "data.frame")
 
-	# Get name of object that will be the dataset
+	# Get name of object that will be the dataset; an inline expression takes
+	# the content-derived id that `fit()` gives the identical frame
 	mc <- match.call()
-	if (is.null(name)) {
-		name <- deparse1(mc$data)
+	explicit <- !is.null(name)
+	if (!explicit) {
+		if (is.symbol(mc$data)) {
+			name <- deparse1(mc$data)
+		} else {
+			name <- data_content_name(data)
+			message(
+				"`data` is an expression, not a name; attaching it as `", name, "`."
+			)
+		}
 	}
 	datLs <- attr(x, "dataList")
+
+	# The same frame under another name: when the table references exactly one
+	# detached dataset and this frame carries every variable its models use,
+	# alias it to that id instead of stranding the models without data. An
+	# explicit `name` is always honored as given.
+	if (!explicit && nrow(x) > 0 && !name %in% x$data_id) {
+		candidates <- data_id_candidates(x, data)
+		if (length(candidates) == 1) {
+			message(
+				"`", name, "` carries every variable of the models fit on `",
+				candidates, "`; attaching it as `", candidates,
+				"`. (Pass `name = \"", name, "\"` to keep it separate.)"
+			)
+			name <- candidates
+		}
+	}
 
 	if (name %in% names(datLs)) {
 		message("Replacing the dataset `", name, "` already attached to this table.")
@@ -413,6 +444,32 @@ attach_data <- function(x, data, name = NULL, ...) {
 
 	# Return
 	x
+}
+
+#' Referenced-but-detached dataset ids whose models' variables all appear in
+#' a candidate frame's columns (the basis for [attach_data()]'s aliasing)
+#' @keywords internal
+#' @noRd
+data_id_candidates <- function(x, data) {
+
+	detached <- setdiff(
+		unique(stats::na.omit(x$data_id)),
+		names(attr(x, "dataList"))
+	)
+	fmMat <- attr(x, "formulaMatrix")
+	if (length(detached) == 0 || !is.data.frame(fmMat) ||
+			nrow(fmMat) != nrow(x)) {
+		return(character())
+	}
+
+	Filter(function(id) {
+		rows <- which(!is.na(x$data_id) & x$data_id == id)
+		tms <- names(fmMat)[colSums(fmMat[rows, , drop = FALSE], na.rm = TRUE) > 0]
+		vars <- unique(unlist(lapply(tms, function(t) {
+			tryCatch(all.vars(str2lang(t)), error = function(e) t)
+		})))
+		length(vars) > 0 && all(vars %in% names(data))
+	}, detached)
 }
 
 #' @rdname model_table_helpers

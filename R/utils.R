@@ -23,12 +23,29 @@ rhs <- function(x, ...) {
 	UseMethod("rhs", object = x)
 }
 
+#' Split one side of a formula on its additive structure
+#'
+#' Walks the expression tree, so only true `+`/`-` joins split; a call that
+#' merely contains one (`I(a + b)`, a label like `"Weight (+/- SD)"`) stays
+#' one chunk. Each chunk deparses as written (runes such as `.x(wt)` keep
+#' their text).
+#' @keywords internal
+#' @noRd
+split_additive <- function(expr) {
+	if (is.call(expr) &&
+			deparse1(expr[[1]]) %in% c("+", "-") &&
+			length(expr) == 3) {
+		c(split_additive(expr[[2]]), split_additive(expr[[3]]))
+	} else {
+		deparse1(expr)
+	}
+}
+
 #' @rdname formula_helpers
 #' @export
 rhs.formula <- function(x, ...) {
 
 	# Handles name, call, and character options
-	# Does strip away parentheses
 	if (inherits(x[[length(x)]], 'character')) {
 		y <-
 			x[[length(x)]] |>
@@ -36,9 +53,7 @@ rhs.formula <- function(x, ...) {
 	} else {
 		y <-
 			x[[length(x)]] |>
-			deparse1() |>
-			strsplit("\\+|-") |>
-			unlist() |>
+			split_additive() |>
 			trimws() |>
 			{
 				\(.x) gsub('"', "", .x)
@@ -75,9 +90,7 @@ lhs.formula <- function(x, ...) {
 	} else if (length(x) == 3) {
 		y <-
 			x[[2]] |>
-			deparse1() |>
-			strsplit("\\+|-") |>
-			unlist() |>
+			split_additive() |>
 			trimws() |>
 			{
 				\(.x) gsub('"', "", .x)
@@ -87,6 +100,16 @@ lhs.formula <- function(x, ...) {
 	y
 }
 
+
+#' A stable content-derived dataset id for frames passed as inline
+#' expressions rather than names (`data_<hash>`); identical content gets the
+#' identical id at [fit()], [model_table()], and [attach_data()], so the
+#' pieces meet without the user retyping anything
+#' @keywords internal
+#' @noRd
+data_content_name <- function(data) {
+	paste0("data_", substr(rlang::hash(data), 1, 8))
+}
 
 #' Convert labeling formulas to named lists
 #'

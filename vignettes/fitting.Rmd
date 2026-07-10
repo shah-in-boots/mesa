@@ -47,20 +47,20 @@ three things: a plain function (`lm`), a string naming one (`"lm"`), or a
 
 ```{r, eval = requireNamespace("parsnip", quietly = TRUE)}
 spec <- parsnip::linear_reg() |> parsnip::set_engine("lm")
-fit(fmls(mpg ~ .x(wt) + hp), .fn = spec, data = d, raw = FALSE)
+fit(fmls(mpg ~ .x(wt) + hp), .fn = spec, data = d)
 ```
 
 ## Wrapped models, not raw fits
 
-`fit(..., raw = TRUE)` (the default) returns the plain list of fitted objects
-the fitting function itself produces — useful for a quick look, but nothing
-downstream can use it as a `{mesa}` object. `raw = FALSE` wraps each fit into
-a `mdl` — the object that carries a model's causal context (its formula, its
-term roles, its degrees of freedom, its variance–covariance matrix) alongside
-the fit itself:
+By default, each fit is wrapped into a `mdl` — the object that carries a
+model's causal context (its formula, its term roles, its degrees of freedom,
+its variance–covariance matrix) alongside the fit itself, which is what the
+rest of the grammar consumes. `fit(..., raw = TRUE)` instead returns the
+plain list of fitted objects the fitting function itself produces — useful
+for a quick look, but nothing downstream can use it as a `{mesa}` object.
 
 ```{r}
-m <- fit(f, .fn = lm, data = d, raw = FALSE)
+m <- fit(f, .fn = lm, data = d)
 m
 ```
 
@@ -97,7 +97,7 @@ level lands as provenance in the table:
 
 ```{r}
 fs <- fmls(mpg ~ .x(wt) + hp) |> add_strata(am) |> set_data(d)
-ms <- fit(fs, .fn = lm, data = d, raw = FALSE)
+ms <- fit(fs, .fn = lm, data = d)
 mts <- model_table(ms, data = d)
 mts
 ```
@@ -119,7 +119,7 @@ is `FALSE`, the error is stored, and the fleet keeps its shape.
 
 ```{r}
 fbad <- fmls(mpg ~ .x(wt) + not_a_real_column)
-mbad <- fit(fbad, .fn = lm, data = d, raw = FALSE)
+mbad <- fit(fbad, .fn = lm, data = d)
 mtbad <- model_table(mbad, data = d)
 mtbad
 model_failures(mtbad)
@@ -132,7 +132,7 @@ directly through a mixed-model engine — no special-casing required:
 
 ```{r, eval = requireNamespace("lme4", quietly = TRUE)}
 fr <- fmls(mpg ~ .x(wt) + hp + .r(gear))
-fit(fr, .fn = lme4::lmer, data = d, raw = FALSE)
+fit(fr, .fn = lme4::lmer, data = d)
 ```
 
 ## Extracting estimates: `flatten_models()`
@@ -153,7 +153,7 @@ overrides the inference when needed.
 ```{r}
 mOr <-
   fmls(am ~ .x(wt)) |>
-  fit(.fn = glm, family = stats::binomial, data = d, raw = FALSE) |>
+  fit(.fn = glm, family = stats::binomial, data = d) |>
   model_table(data = d)
 
 flatten_models(mOr)[c("term", "estimate", "exponentiated")]

@@ -97,6 +97,37 @@ test_that("the block and the layout come as a pair, erroring apart", {
 	)
 })
 
+test_that("one model per interaction term: shared terms error instead of
+					 overwriting each other's cells", {
+
+	# Two models around the same interaction term realize rows with the same
+	# term x level keys; they would collide at pivot, so the layout refuses
+	# until the mesa is narrowed to one model per term
+	d <- mtcars
+	m1 <- suppressMessages(
+		fmls(mpg ~ .x(hp) + .i(am)) |>
+			fit(.fn = lm, data = d, raw = FALSE)
+	)
+	m2 <- suppressMessages(
+		fmls(mpg ~ .x(hp) + wt + .i(am)) |>
+			fit(.fn = lm, data = d, raw = FALSE)
+	)
+	mt <- suppressMessages(model_table(m1, m2, data = d))
+
+	spec <- suppressMessages(
+		mt |> mesa() |> add_interaction() |> add_estimates()
+	)
+	expect_error(as_gt(spec), "one model per interaction term")
+
+	# Narrowed to a single adjustment set, the same chain lays out fine
+	narrowed <- suppressMessages(
+		mt |> mesa() |> select_adjustment(2 ~ "Adjusted") |>
+			add_interaction() |> add_estimates()
+	)
+	expect_no_error(as_gt(narrowed))
+
+})
+
 test_that("the interaction frame: level rows per band, per-level statistics,
 					 the p-value group-scoped", {
 
@@ -155,12 +186,23 @@ test_that("the rendered interaction table floats one visible p per band", {
 	flat <- vapply(pStyles$styles, function(s) {
 		paste(names(unlist(s)), unlist(s), sep = "=", collapse = ";")
 	}, character(1))
-	masked <- pStyles$rownum[grepl("size=0px", flat)]
 	visible <- pStyles$rownum[grepl("v_align", flat)]
-	expect_setequal(masked, c(2, 3, 5))
 	expect_setequal(visible, c(1, 4))
 	expect_true(any(pStyles$rownum == 1 & grepl("v_align=bottom", flat)))
 	expect_true(any(pStyles$rownum == 4 & grepl("v_align=middle", flat)))
+
+	# The duplicates are blanked by a text transform — a content substitution,
+	# not a white-text style, so the mask holds on any theme or output format
+	masked <- unlist(lapply(g[["_transforms"]], function(t) {
+		if (identical(t$resolved$colnames, "p")) t$resolved$rows else integer()
+	}))
+	expect_setequal(masked, c(2, 3, 5))
+	blanked <- vapply(g[["_transforms"]], function(t) {
+		identical(t$fn("0.021"), "")
+	}, logical(1))
+	expect_true(all(blanked[vapply(g[["_transforms"]], function(t) {
+		identical(t$resolved$colnames, "p")
+	}, logical(1))]))
 
 	# Level relabels arrive late, as everywhere
 	html <-

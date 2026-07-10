@@ -79,17 +79,26 @@ message_formula_to_fmls <- function() {
 
 #' @keywords internal
 #' @noRd
-message_fundamental_pattern <- function(mediationTerm,
-																				strataTerm) {
-
-	if (length(mediationTerm) == 0) mediationTerm <- NA
-	if (length(strataTerm) == 0) strataTerm <- NA
-
+message_meta_demotion <- function(terms) {
 	msg <-
 		paste0(
-			"Using `", .patterns[1], "` decomposition pattern: \n",
-			"- Mediation term: ", mediationTerm, "\n",
-			"- Stratifying term: ", strataTerm
+			"Fundamental decomposition: meta term(s) `",
+			paste0(terms, collapse = "`, `"),
+			"` will be treated as plain predictor(s)."
+		)
+
+	message(msg)
+}
+
+#' @keywords internal
+#' @noRd
+message_multiple_interactions <- function(terms) {
+	msg <-
+		paste0(
+			"A model carries multiple interaction terms (`",
+			paste0(terms, collapse = "`, `"),
+			"`); only the first is recorded in the `interaction` column. ",
+			"Tables can display one interaction term per model at this time."
 		)
 
 	message(msg)

@@ -138,9 +138,20 @@ mesa <- function(object, ...) {
 		)
 	}
 
-	# One table, one model family: mixing e.g. `lm` and `coxph` estimates in a
-	# single table is not interpretable
-	families <- unique(stats::na.omit(fitted$model_call))
+	# One table, one model family: mixing e.g. `lm` and `coxph` estimates -- or
+	# two `glm`s on different links (logit vs identity), whose estimates live
+	# on different scales -- in a single table is not interpretable
+	links <- vapply(fitted$model_summary, function(s) {
+		if (is.list(s) && length(s$model_link) == 1 && !is.na(s$model_link)) {
+			s$model_link
+		} else {
+			NA_character_
+		}
+	}, character(1))
+	families <- unique(stats::na.omit(
+		paste0(fitted$model_call,
+					 ifelse(is.na(links), "", paste0(" (", links, ")")))
+	))
 	if (length(families) > 1) {
 		stop(
 			"A `mesa` holds a single model family, but this table mixes ",

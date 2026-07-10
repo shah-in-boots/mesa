@@ -9,9 +9,16 @@
 #' Terms begin as names; once they meet a dataset they gain a character. The
 #' `set_data()` function inspects each term's column in `data` and stamps on
 #' its `type` (categorical or continuous), `distribution` (dichotomous,
-#' ordinal, nominal, or continuous), and observed `level`s. This is the step
-#' that makes strata and interactions *data-aware* — a stratifying term knows
-#' its levels before anything is fit.
+#' ordinal, nominal, binary, or continuous), and observed `level`s. This is
+#' the step that makes strata and interactions *data-aware* — a stratifying
+#' term knows its levels before anything is fit.
+#'
+#' Binary and categorical are different definitions: a *numeric* 0/1 column
+#' (e.g. a survival event indicator) is stamped `binary` and keeps the
+#' continuous type, matching how a model treats it (one quantitative
+#' coefficient); only factor-like columns are categorical and carry levels.
+#' Strata are the exception — a stratum splits the data by its observed
+#' values whatever their type, so its levels are always stamped.
 #'
 #' Terms wrapped in transformations (e.g. `log(x)`) are classified from their
 #' underlying variable. Terms without a matching column are left untouched.
@@ -70,12 +77,14 @@ set_data.tm <- function(x, data, ...) {
 
 		tmTab$distribution[i] <- classify_distribution(values)
 		tmTab$type[i] <-
-			if (tmTab$distribution[i] == "continuous") {
+			if (tmTab$distribution[i] %in% c("continuous", "binary")) {
 				"continuous"
 			} else {
 				"categorical"
 			}
-		if (tmTab$type[i] == "categorical") {
+		# Levels are stamped for categorical terms, and for strata regardless of
+		# type: a stratum splits the data by its observed values either way
+		if (tmTab$type[i] == "categorical" || tmTab$role[i] == "strata") {
 			tmTab$level[[i]] <- levels(factor(values))
 		}
 	}
@@ -97,6 +106,11 @@ set_data.fmls <- function(x, data, ...) {
 }
 
 #' Classify how a data vector is distributed
+#'
+#' Binary and categorical are different definitions: a numeric 0/1 column
+#' (e.g. a survival event indicator) is *binary* and models as one
+#' quantitative coefficient, while a two-level factor is *dichotomous* and
+#' models as level contrasts. Only the latter is a categorical type.
 #' @keywords internal
 #' @noRd
 classify_distribution <- function(values) {
@@ -105,10 +119,10 @@ classify_distribution <- function(values) {
 
 	if (is.ordered(values)) {
 		"ordinal"
+	} else if (is.numeric(values)) {
+		if (n == 2) "binary" else "continuous"
 	} else if (n == 2) {
 		"dichotomous"
-	} else if (is.numeric(values)) {
-		"continuous"
 	} else {
 		"nominal"
 	}
@@ -186,6 +200,8 @@ add_strata.fmls <- function(x, ...) {
 
 	vars <- vars_from_dots(...)
 	tmTab <- attr(x, "termTable")
+	inst <- attr(x, "instructions")
+	fmMat <- vec_data(x)
 
 	for (v in vars) {
 		if (v %in% tmTab$term) {
@@ -195,10 +211,12 @@ add_strata.fmls <- function(x, ...) {
 			newRow <- vec_proxy(tm(v, role = "strata", side = "meta"))
 			tmTab <- rbind(tmTab, newRow)
 		}
+		# The stratum applies to every formula of this family; membership in
+		# the formula matrix is what keeps it scoped when families combine
+		fmMat[[v]] <- 1
 	}
 
-	attr(x, "termTable") <- tmTab
-	x
+	new_fmls(fmMat, termTable = tmTab, instructions = inst)
 }
 
 #' @rdname fluent_verbs
@@ -213,14 +231,18 @@ remove_strata.fmls <- function(x, ...) {
 
 	vars <- vars_from_dots(...)
 	tmTab <- attr(x, "termTable")
+	inst <- attr(x, "instructions")
+	fmMat <- vec_data(x)
 
 	drop <- tmTab$role == "strata"
 	if (length(vars) > 0) {
 		drop <- drop & tmTab$term %in% vars
 	}
 
-	attr(x, "termTable") <- tmTab[!drop, ]
-	x
+	dropped <- tmTab$term[drop]
+	fmMat <- fmMat[, !names(fmMat) %in% dropped, drop = FALSE]
+
+	new_fmls(fmMat, termTable = tmTab[!drop, ], instructions = inst)
 }
 
 #' @rdname fluent_verbs
@@ -368,7 +390,10 @@ fmls_deck_header <- function(x) {
 
 	lines <- paste0("<fmls: ", n, if (n == 1) " formula>" else " formulas>")
 
-	for (r in c("outcome", "exposure", "mediator", "interaction", "strata", "random")) {
+	# Only context the printed formulas cannot show: roles are visible in the
+	# formula coloring (and retrievable with `describe(tm(x), "role")`), but
+	# strata, random effects, and subsets do not sit on either formula side
+	for (r in c("strata", "random")) {
 		hits <- which(tmTab$role == r)
 		if (length(hits) == 0) {
 			next

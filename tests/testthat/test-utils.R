@@ -51,3 +51,21 @@ test_that("formulas can be converted to named lists", {
 	expect_equal(y$hp, "hp")
 
 })
+
+test_that("rhs() splits on additive structure, not on characters", {
+
+	# `I(a + b)` is one term: the `+` inside the call does not split it
+	expect_equal(rhs(y ~ I(a + b) + c), c("I(a + b)", "c"))
+
+	# A label containing `+` or `-` stays whole
+	x <- wt ~ "Weight (+/- SD)"
+	y <- labeled_formulas_to_named_list(x)
+	expect_equal(y$wt, "Weight (+/- SD)")
+
+	# `a * b` still expands to its components and their interaction
+	expect_setequal(rhs(y ~ a * b), c("a", "b", "a:b"))
+
+	# Runes keep their text (rhs() reports the formula as written)
+	expect_match(rhs(y ~ .x(wt) + hp), ".x", all = FALSE, fixed = TRUE)
+
+})

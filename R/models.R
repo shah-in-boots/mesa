@@ -124,49 +124,6 @@ mdl.lm <- function(x = unspecified(),
 									 subset_name = character(),
 									 ...) {
 
-	# Class check
-	validate_class(formulas, "fmls")
-	validate_class(data_name, "character")
-	validate_class(strata_variable, "character")
-
-	# Model class/type
-	cl <- x$call
-	mc <- class(x)[1]
-
-	# Model formula
-	if (length(formulas) == 0) {
-		mf <-
-			stats::formula(x) |>
-			fmls()
-	} else {
-		mf <- formulas
-	}
-
-	# Model arguments
-	ma <- list()
-	nms <- names(cl)[!names(cl) %in% c("formula", "data", "")]
-	for (i in seq_along(nms)) {
-		ma[[nms[i]]] <- cl[[nms[i]]]
-	}
-
-	# Model data, if not specified
-	if (length(data_name) == 0) {
-		data_name <- as.character(cl[["data"]])
-	}
-	if (length(strata_variable) == 0 | length(strata_level) == 0) {
-		strata_variable <- NA
-		strata_level <- NA
-	}
-	if (length(subset_name) == 0) {
-		subset_name <- NA
-	}
-
-	da <-
-		list(dataName = data_name,
-				 strataVariable = strata_variable,
-				 strataLevel = strata_level,
-				 subsetName = subset_name)
-
 	# Get parameter information
 	# None of these values are exponentiated
 	# This must be done at the end through an additional function
@@ -177,18 +134,16 @@ mdl.lm <- function(x = unspecified(),
 		possible_glance(x) |>
 		as.list()
 
-	si$degrees_freedom <- model_degrees_freedom(x)
-	si$var_cov <- stats::vcov(x)
-	si$model_link <- model_link_function(x)
-
-	# Creation
-	new_model(
-		modelCall = mc,
-		modelFormula = mf,
-		modelArgs = ma,
+	new_model_from_fit(
+		x,
+		cl = x$call,
 		parameterEstimates = pe,
 		summaryInfo = si,
-		dataArgs = da
+		formulas = formulas,
+		data_name = data_name,
+		strata_variable = strata_variable,
+		strata_level = strata_level,
+		subset_name = subset_name
 	)
 }
 
@@ -217,16 +172,66 @@ mdl.lmerMod <- function(x = unspecified(),
 		)
 	}
 
+	# Fixed effects are what flows into tables; random effects are context
+	pe <- tryCatch(
+		broom.mixed::tidy(x, conf.int = TRUE, effects = "fixed") |>
+			dplyr::rename_with(.fn = ~ gsub("\\.", "_", x = .x)),
+		error = function(e) tibble::tibble(term = NA_character_, estimate = NA)
+	)
+
+	si <- tryCatch(
+		as.list(broom.mixed::glance(x)),
+		error = function(e) list()
+	)
+	names(si) <- gsub("\\.", "_", names(si))
+
+	# Mixed models are S4; their call lives in a slot
+	new_model_from_fit(
+		x,
+		cl = x@call,
+		parameterEstimates = pe,
+		summaryInfo = si,
+		formulas = formulas,
+		data_name = data_name,
+		strata_variable = strata_variable,
+		strata_level = strata_level,
+		subset_name = subset_name
+	)
+}
+
+#' @rdname models
+#' @export
+mdl.glmerMod <- mdl.lmerMod
+
+#' Assemble a `mdl` from a fitted model's pieces
+#'
+#' The shared trunk of the fitted-model methods (`mdl.lm`, `mdl.lmerMod`, and
+#' their aliases): the recorded call supplies the extra fitting arguments and
+#' the fallback data name, the strata/subset context defaults in, the formula
+#' rebuilds from the fit when none was given (the walker understands
+#' `(1 | id)` syntax), and the summary gains the fields every model carries
+#' (degrees of freedom, the variance-covariance matrix, the link).
+#' @keywords internal
+#' @noRd
+new_model_from_fit <- function(x,
+															 cl,
+															 parameterEstimates,
+															 summaryInfo,
+															 formulas = fmls(),
+															 data_name = character(),
+															 strata_variable = character(),
+															 strata_level = character(),
+															 subset_name = character()) {
+
 	# Class check
 	validate_class(formulas, "fmls")
 	validate_class(data_name, "character")
 	validate_class(strata_variable, "character")
 
-	# Mixed models are S4; their call lives in a slot
-	cl <- x@call
+	# Model class/type
 	mc <- class(x)[1]
 
-	# Model formula (the walker understands `(1 | id)` syntax)
+	# Model formula
 	if (length(formulas) == 0) {
 		mf <-
 			stats::formula(x) |>
@@ -260,18 +265,7 @@ mdl.lmerMod <- function(x = unspecified(),
 				 strataLevel = strata_level,
 				 subsetName = subset_name)
 
-	# Fixed effects are what flows into tables; random effects are context
-	pe <- tryCatch(
-		broom.mixed::tidy(x, conf.int = TRUE, effects = "fixed") |>
-			dplyr::rename_with(.fn = ~ gsub("\\.", "_", x = .x)),
-		error = function(e) tibble::tibble(term = NA_character_, estimate = NA)
-	)
-
-	si <- tryCatch(
-		as.list(broom.mixed::glance(x)),
-		error = function(e) list()
-	)
-	names(si) <- gsub("\\.", "_", names(si))
+	si <- summaryInfo
 	si$degrees_freedom <- model_degrees_freedom(x)
 	si$var_cov <- tryCatch(as.matrix(stats::vcov(x)), error = function(e) NA)
 	si$model_link <- model_link_function(x)
@@ -281,15 +275,23 @@ mdl.lmerMod <- function(x = unspecified(),
 		modelCall = mc,
 		modelFormula = mf,
 		modelArgs = ma,
-		parameterEstimates = pe,
+		parameterEstimates = pe_or_na(parameterEstimates),
 		summaryInfo = si,
 		dataArgs = da
 	)
 }
 
-#' @rdname models
-#' @export
-mdl.glmerMod <- mdl.lmerMod
+#' `possible_tidy()` falls back to a scalar `NA` when tidying fails; the
+#' constructor needs a one-row frame in that case
+#' @keywords internal
+#' @noRd
+pe_or_na <- function(pe) {
+	if (is.data.frame(pe)) {
+		pe
+	} else {
+		tibble::tibble(term = NA_character_, estimate = NA)
+	}
+}
 
 #' @rdname models
 #' @export

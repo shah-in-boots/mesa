@@ -90,8 +90,8 @@ Every \code{mdl_tbl} carries these columns; they may be reordered by row but not
 removed or renamed. Dropping any of them (e.g. through \code{\link[dplyr:select]{dplyr::select()}})
 returns a plain \code{data.frame} with a message.
 \itemize{
-\item \code{id} — hash identifying the model (links rows to the formula matrix)
-\item \code{formula_index} — the model's row of the formula matrix
+\item \code{id} — hash identifying the model (links rows to the formula matrix,
+whose rows stay parallel to the table's)
 \item \code{data_id} — name of the dataset the model was fit on
 \item \code{name} — the label the object was given when added to the table
 \item \code{model_call} — the fitting function (e.g. \code{lm}, \code{coxph}); \code{NA} until fit

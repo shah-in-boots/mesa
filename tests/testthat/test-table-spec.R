@@ -225,3 +225,18 @@ test_that("print.mesa shows the models, layout, and selection", {
 	expect_true(any(grepl("layout: adjustment", out)))
 	expect_true(any(grepl("everything fitted", out)))
 })
+
+test_that("mesa() rejects one fitting function on two different links", {
+
+	d <- mtcars
+	logit <- fit(
+		fmls(am ~ .x(wt)), .fn = glm, family = binomial(), data = d
+	)
+	identity <- fit(
+		fmls(am ~ .x(hp)), .fn = glm, family = gaussian(), data = d
+	)
+	mt <- model_table(logit, identity)
+
+	expect_error(mesa(mt), "glm \\(logit\\).*glm \\(identity\\)")
+
+})

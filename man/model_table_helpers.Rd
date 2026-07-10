@@ -38,7 +38,7 @@ model_data(x, name = NULL, ...)
 \item{data}{A \code{data.frame} object that has been used by models}
 
 \item{name}{For \code{attach_data()}, the name to store the dataset under
-(defaults to the expression \code{data} was passed as); for \code{model_data()},
+(defaults to the name \code{data} was passed as); for \code{model_data()},
 the name of a single attached dataset to return (when \code{NULL}, the full
 named list is returned)}
 
@@ -76,5 +76,11 @@ that persist regardless of the underlying models, and by knowing which
 models used which datasets, it can be easy to back-transform information.
 The dataset is stored under the name it was passed as (or an explicit
 \code{name}), and should match the \code{data_id} column of the models that used it.
+Two conveniences keep that match from depending on retyping: a \code{data}
+passed as an inline expression takes the stable content-derived id
+(\verb{data_<hash>}) that \code{\link[=fit]{fit()}} gives the identical frame, and a frame
+arriving under a different name than the models recorded is aliased to the
+referenced \code{data_id} — with a message — when it is the only detached
+dataset and carries every variable those models use.
 }
 

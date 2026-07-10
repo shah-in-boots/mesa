@@ -104,7 +104,7 @@ with its causal context intact:
 ``` r
 mt <-
   f |>
-  fit(.fn = lm, data = d, raw = FALSE) |>
+  fit(.fn = lm, data = d) |>
   model_table(data = d)
 mt
 #> <model_table> 3 models × 3 formulas

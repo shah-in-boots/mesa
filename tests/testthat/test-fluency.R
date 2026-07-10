@@ -9,9 +9,13 @@ test_that("set_data stamps type, distribution, and levels onto terms", {
 	expect_equal(d$type[d$term == "wt"], "continuous")
 	expect_equal(d$distribution[d$term == "wt"], "continuous")
 
-	# Strata become data-aware
-	expect_equal(d$type[d$term == "am"], "categorical")
-	expect_equal(d$distribution[d$term == "am"], "dichotomous")
+	# Binary and categorical are different definitions: a numeric 0/1 column
+	# is binary (one quantitative coefficient), not categorical
+	expect_equal(d$type[d$term == "am"], "continuous")
+	expect_equal(d$distribution[d$term == "am"], "binary")
+
+	# Strata still become data-aware: a stratum splits by observed values
+	# whatever the column's type
 	expect_equal(describe(t, "level")$am, c("0", "1"))
 
 	# Transformed terms classify from their underlying variable
@@ -127,10 +131,16 @@ test_that("printing a fmls shows the deck", {
 
 	out <- capture.output(print(f))
 	expect_match(out[1], "<fmls: 1 formula>")
-	expect_match(out, "outcome: mpg", all = FALSE)
-	expect_match(out, "exposure: wt", all = FALSE)
+
+	# Roles are visible in the formula coloring and through `describe()`, so
+	# the deck only carries what the formulas cannot show: strata, random
+	# effects, and subsets
+	expect_no_match(out, "outcome: mpg")
+	expect_no_match(out, "exposure: wt")
 	expect_match(out, "strata: am \\(2 levels\\)", all = FALSE)
 	expect_match(out, "subsets: cyl > 4", all = FALSE)
+
+	expect_equal(describe(f, "role")$wt, "exposure")
 
 })
 

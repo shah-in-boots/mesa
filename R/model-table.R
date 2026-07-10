@@ -43,8 +43,8 @@
 #' removed or renamed. Dropping any of them (e.g. through [dplyr::select()])
 #' returns a plain `data.frame` with a message.
 #'
-#' * `id` — hash identifying the model (links rows to the formula matrix)
-#' * `formula_index` — the model's row of the formula matrix
+#' * `id` — hash identifying the model (links rows to the formula matrix,
+#'   whose rows stay parallel to the table's)
 #' * `data_id` — name of the dataset the model was fit on
 #' * `name` — the label the object was given when added to the table
 #' * `model_call` — the fitting function (e.g. `lm`, `coxph`); `NA` until fit
@@ -140,7 +140,13 @@ model_table <- function(..., data = NULL) {
 
 	# Once it comes back as a new class, we need to add data if its available
 	if (!is.null(data)) {
-		mdTab <- attach_data(mdTab, data = data, name = deparse1(mc$data))
+		nm <-
+			if (is.symbol(mc$data)) {
+				deparse1(mc$data)
+			} else {
+				data_content_name(data)
+			}
+		mdTab <- attach_data(mdTab, data = data, name = nm)
 	}
 
 	# Return new class
@@ -173,14 +179,40 @@ vec_ptype_abbr.mdl_tbl <- function(x, ...) {
 
 # Constructors -----------------------------------------------------------------
 
+#' The role's term for each term list of a table under construction, `NA`
+#' when a model has none; the shared role pull of both constructors
+#' @keywords internal
+#' @noRd
+role_term <- function(termList, wanted) {
+	vapply(termList, function(.x) {
+		tms <- as.character(.x)[vec_proxy(.x)$role == wanted]
+		if (length(tms) == 0) NA_character_ else tms[1]
+	}, character(1))
+}
+
+#' The one recorded interaction term per model (component terms like `a:b`
+#' are skipped; several declared terms keep the first, with a message)
+#' @keywords internal
+#' @noRd
+interaction_term <- function(termList) {
+	vapply(termList, function(.x) {
+		tms <- as.character(.x)[vec_proxy(.x)$role == "interaction"]
+		tms <- tms[!grepl(":", tms)]
+		if (length(tms) == 0) {
+			return(NA_character_)
+		}
+		if (length(tms) > 1) {
+			message_multiple_interactions(tms)
+		}
+		tms[1]
+	}, character(1))
+}
+
 #' Restructure models to fit within a model table
 #' Passes information to `new_model_table()` for initialization
 #' @param x Single-element, possibly-named list holding a `mdl` vector
 #' @keywords internal
 construct_table_from_models <- function(x, ...) {
-
-	# Global variables
-	role <- NULL
 
 	# Meta components of the models
 	obj <- x[[1]] # Removes it from its list
@@ -210,8 +242,7 @@ construct_table_from_models <- function(x, ...) {
 	fl <- unname(sapply(mf, as.character, USE.NAMES = FALSE))
 	num <- formula_term_count(fl)
 
-	# Formula IDs require checking against the formula matrix
-	fid <- lapply(mf, unlist, recursive = FALSE)
+	# The formula matrix rows, parallel to the models
 	fmMat <-
 		do.call(what = rbind, args = lapply(mf, vec_proxy)) |>
 		vec_data()
@@ -221,47 +252,10 @@ construct_table_from_models <- function(x, ...) {
 		do.call(what = rbind, args = lapply(tl, vec_data)) |>
 		unique()
 
-	out <-
-		sapply(tl, function(.x) {
-			.y <- as.character(dplyr::filter(.x, role == "outcome"))
-			if (length(.y) == 0) {
-				.y <- NA_character_
-			} else {
-				.y
-			}
-		}) |>
-		as.character()
-	exp <-
-		sapply(tl, function(.x) {
-			.y <- as.character(dplyr::filter(.x, role == "exposure"))
-			if (length(.y) == 0) {
-				.y <- NA_character_
-			} else {
-				.y
-			}
-		}) |>
-		as.character()
-	med <-
-		sapply(tl, function(.x) {
-			.y <- as.character(dplyr::filter(.x, role == "mediator"))
-			if (length(.y) == 0) {
-				.y <- NA_character_
-			} else {
-				.y
-			}
-		}) |>
-		as.character()
-	int <-
-		sapply(tl, function(.x) {
-			.y <- as.character(dplyr::filter(.x, role == "interaction"))
-			.z <- .y[!grepl(":", .y)]
-			if (length(.z) == 0) {
-				.z <- NA_character_
-			} else {
-				.z
-			}
-		}) |>
-		as.character()
+	out <- role_term(tl, "outcome")
+	exp <- role_term(tl, "exposure")
+	med <- role_term(tl, "mediator")
+	int <- interaction_term(tl)
 
 	# Get all data names, strata variables, and subsets back
 	da <- field(obj, "dataArgs")
@@ -291,7 +285,6 @@ construct_table_from_models <- function(x, ...) {
 	# Initialize a new list
 	res <- df_list(
 		id = rid,
-		formula_index = fid,
 		data_id = did,
 		name = nm,
 		model_call = mc,
@@ -322,9 +315,6 @@ construct_table_from_models <- function(x, ...) {
 #' @keywords internal
 construct_table_from_formulas <- function(x, ...) {
 
-	# Global variables
-	role <- NULL
-
 	# Meta components of the models
 	obj <- x[[1]] # Removes it from its list
 	nm <-
@@ -342,9 +332,6 @@ construct_table_from_formulas <- function(x, ...) {
 	tl <- formulas_to_terms(mf)
 	fl <- as.character(stats::formula(mf))
 	num <- formula_term_count(fl)
-
-	# Formula IDs require checking against the formula matrix
-	fid <- apply(mf, MARGIN = 1, list) |> unlist(recursive = FALSE)
 	fmMat <- vec_data(mf)
 
 	# Terms must be combined into a term table for later look up
@@ -352,55 +339,18 @@ construct_table_from_formulas <- function(x, ...) {
 		do.call(what = rbind, args = lapply(tl, vec_data)) |>
 		unique()
 
-	out <- sapply(tl, function(.x) {
-		.y <- as.character(filter(.x, role == "outcome"))
-		if (length(.y) == 0) {
-			.y <- NA_character_
-		} else {
-			.y
-		}
-	})
-	exp <- sapply(tl, function(.x) {
-		.y <- as.character(filter(.x, role == "exposure"))
-		if (length(.y) == 0) {
-			.y <- NA_character_
-		} else {
-			.y
-		}
-	})
-	med <- sapply(tl, function(.x) {
-		.y <- as.character(filter(.x, role == "mediator"))
-		if (length(.y) == 0) {
-			.y <- NA_character_
-		} else {
-			.y
-		}
-	})
-	int <- sapply(tl, function(.x) {
-		.y <- as.character(filter(.x, role == "interaction"))
-		.z <- .y[!grepl(":", .y)]
-		if (length(.z) == 0) {
-			.z <- NA_character_
-		} else {
-			.z
-		}
-	})
+	out <- role_term(tl, "outcome")
+	exp <- role_term(tl, "exposure")
+	med <- role_term(tl, "mediator")
+	int <- interaction_term(tl)
 
 	# Data will be empty because this is just a formula
 	# Strata may be present, but levels cannot be
-	sta <- sapply(tl, function(.x) {
-		.y <- as.character(filter(.x, role == "strata"))
-		if (length(.y) == 0) {
-			.y <- NA_character_
-		} else {
-			.y
-		}
-	})
+	sta <- role_term(tl, "strata")
 
 	# Initialize a new list
 	res <- df_list(
 		id = rid,
-		formula_index = fid,
 		data_id = NA_character_,
 		name = nm,
 		model_call = NA_character_,
@@ -443,7 +393,6 @@ formula_term_count <- function(formulaCalls) {
 model_table_columns <- function() {
 	c(
 		"id",
-		"formula_index",
 		"data_id",
 		"name",
 		"model_call",

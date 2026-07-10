@@ -15,3 +15,4 @@
 ^blueprint\.md$
 ^DESIGN\.md$
 ^tests/manual$
+^issues\.md$

@@ -128,6 +128,21 @@ fmls <- function(x = unspecified(),
 				 call. = FALSE)
 	}
 
+	## Meta terms under fundamental decomposition
+	# The fundamental pattern breaks every formula down to a single left- and
+	# right-hand term, so "meta" terms (strata, random effects) cannot keep
+	# their global position; they demote to plain predictors, with a message
+	if (pattern == "fundamental") {
+		tmTab <- vec_proxy(x)
+		meta <- which(tmTab$side == "meta")
+		if (length(meta) > 0) {
+			message_meta_demotion(tmTab$term[meta])
+			tmTab$role[meta] <- "predictor"
+			tmTab$side[meta] <- "right"
+			x <- vec_restore(tmTab, to = tm())
+		}
+	}
+
 	## Patterns
 	# If pattern is acceptable can send for pattern tracing
 	# Shuttled through the parent function `trace_pattern()`
@@ -146,18 +161,29 @@ fmls <- function(x = unspecified(),
 	# Will remove rows if they will cause an error
 	tbl <- check_groups(x, tbl)
 
-	# Create a list where each item is a vector of terms
-	# These can be then turned into a term matrix
-	fmMat <-
-		lapply(as.list(as.data.frame(t(tbl))), function(.x) {
-			table(.x) |>
-				rbind() |>
-				as.data.frame()
-		}) |>
-	  dplyr::bind_rows() |>
-	  {
-	    \(.x) replace(.x, is.na(.x), 0)
-	  }()
+	## Meta terms
+	# Strata and random effects ride with every formula of this family -- and
+	# only this family. Recording them in the formula matrix is what scopes
+	# them: when families combine with `c()`, a stratum declared here cannot
+	# leak into formulas that never asked for it.
+	metaTerms <- with(vec_proxy(x), term[side == "meta"])
+	for (i in seq_along(metaTerms)) {
+		tbl[[paste0("meta_", i)]] <- metaTerms[i]
+	}
+
+	# The formula matrix: one row per precursor row, one column per term,
+	# recording membership (0/1) — a term repeated within one precursor row
+	# still counts once
+	rowTerms <- apply(tbl, MARGIN = 1, function(.x) {
+		unique(as.character(stats::na.omit(unname(.x))))
+	}, simplify = FALSE)
+	allTerms <- unique(unlist(rowTerms))
+	fmMat <- as.data.frame(
+		do.call(rbind, lapply(rowTerms, function(.x) {
+			as.integer(allTerms %in% .x)
+		}))
+	)
+	names(fmMat) <- allTerms
 
 	new_fmls(formulaMatrix = fmMat,
 					 termTable = vec_proxy(x))
@@ -199,15 +225,13 @@ key_terms <- function(x) {
 
 	# If a formula object, must pull only terms that are available
 	if (is_fmls(x)) {
-		# Formula matrix
+		# Formula matrix records every member, meta terms included, so
+		# membership alone decides which terms belong to these formulas
 		fm <- vec_data(x)
 		fm[is.na(fm)] <- 0
 		tms <- names(fm)[colSums(fm) >= 1]
 
-		# Term table.. add on extra "meta" terms PRN
 		tmTab <- attr(x, 'termTable')
-		tms <- c(tms, tmTab$term[tmTab$side == 'meta'])
-
 
 		subset(tmTab, term %in% tms) |>
 			vec_restore(to = tm())
@@ -230,38 +254,47 @@ format.fmls <- function(x,
 			fmMat,
 			MARGIN = 1,
 			FUN = function(.x) {
-				.y <- tmTab[tmTab$term %in% names(.x[which(.x == 1)]),]
+				.y <- tmTab[tmTab$term %in% names(.x[which(.x >= 1)]), ]
 
 				if ("mediator" %in% .y$role & !("outcome" %in% .y$role)) {
 					# Handle mediation formula
-					.l <-
-						vec_restore(.y[.y$role == "mediator", ], to = tm()) |>
-						format(color = color) |>
-						paste0(collapse = " + ")
-
-					.r <-
-						vec_restore(.y[.y$side == "right" &
-													 	.y$role != "mediator", ], to = tm()) |>
-						format(color = color) |>
-						paste0(collapse = " + ")
-
-					.f <- paste(.l, sep = " ~ ", .r)
+					left <- .y[.y$role == "mediator", ]
+					right <- .y[.y$side == "right" & .y$role != "mediator", ]
 				} else {
-					.l <-
-						vec_restore(.y[.y$side == "left", ], to = tm()) |>
-						format(color = color) |>
-						paste0(collapse = " + ")
+					left <- .y[.y$side == "left", ]
+					right <- .y[.y$side == "right", ]
+				}
 
-					.r <-
-						vec_restore(.y[.y$side == "right", ], to = tm()) |>
-						format(color = color) |>
-						paste0(collapse = " + ")
+				.l <-
+					vec_restore(left, to = tm()) |>
+					format(color = color) |>
+					paste0(collapse = " + ")
 
-					.f <- paste(.l, sep = " ~ ", .r)
+				.r <-
+					vec_restore(right, to = tm()) |>
+					format(color = color) |>
+					paste0(collapse = " + ")
 
-				.f
+				# Meta terms sit on neither side of the fitted formula (a stratum
+				# splits the data, a random effect conditions it), but hiding them
+				# reads as an unstratified model — so they print in their declared
+				# rune form (`.s(am)`, `.r(id)`) after the right-hand terms
+				meta <- .y[.y$side == "meta", ]
+				if (nrow(meta) > 0) {
+					runes <- unlist(.roles)[meta$role]
+					runes[is.na(runes)] <- ""
+					fmtMeta <-
+						vec_restore(meta, to = tm()) |>
+						format(color = color)
+					.r <- paste(
+						c(.r[nzchar(.r)], paste0(runes, "(", fmtMeta, ")")),
+						collapse = " + "
+					)
+				}
+
+				paste(.l, sep = " ~ ", .r)
 			}
-		})
+		)
 
 	# Return
 	fmt
@@ -471,15 +504,11 @@ vec_cast.fmls.formula <- function(x, to, ...) {
 #' @noRd
 check_mediation <- function(x, tbl) {
 
-	# Roles
-	tmTab <- vec_proxy(x)
-	out <- tmTab$term[tmTab$role == "outcome"]
-	exp <- tmTab$term[tmTab$role == "exposure"]
-	prd <- tmTab$term[tmTab$role == "predictor"]
-	con <- tmTab$term[tmTab$role == "confounder"]
-	med <- tmTab$term[tmTab$role == "mediator"]
-	int <- tmTab$term[tmTab$role == "interaction"]
-	sta <- tmTab$term[tmTab$role == "strata"]
+	# Roles (the mediation triad needs the outcome, exposure, and mediator)
+	roles <- pattern_roles(vec_proxy(x))
+	out <- roles$outcome
+	exp <- roles$exposure
+	med <- roles$mediator
 
 	# Requires a table from the `apply_*_pattern()` functions
 	# Each row has been expanded for exposure and outcome
@@ -525,15 +554,8 @@ check_groups <- function(x, tbl) {
 	# Global variables
 	group <- NULL
 
-	# Roles
+	# Only the grouping tiers matter here; roles play no part
 	tmTab <- vec_proxy(x)
-	out <- tmTab$term[tmTab$role == "outcome"]
-	exp <- tmTab$term[tmTab$role == "exposure"]
-	prd <- tmTab$term[tmTab$role == "predictor"]
-	con <- tmTab$term[tmTab$role == "confounder"]
-	med <- tmTab$term[tmTab$role == "mediator"]
-	int <- tmTab$term[tmTab$role == "interaction"]
-	sta <- tmTab$term[tmTab$role == "strata"]
 
 	# Requires a table from the `apply_*_pattern()` functions
 	validate_class(tbl, "tbl_df")
@@ -591,14 +613,15 @@ formulas_to_terms <- function(x) {
 	fmMat <- vec_data(x)
 	tmTab <- attr(x, "termTable")
 
+	# Membership in the formula matrix is the whole story: strata and random
+	# effects are recorded there like any other term, so a stratum stays with
+	# the formula that declared it instead of leaking across combined families
 	tms <-
 		apply(
 			fmMat,
 			MARGIN = 1,
 			FUN = function(.x) {
-				.y <-
-					tmTab[tmTab$term %in% names(.x[which(.x == 1)]) |
-									tmTab$role %in% c("strata", "random"), ]
+				.y <- tmTab[tmTab$term %in% names(.x[which(.x >= 1)]), ]
 				vec_restore(.y, to = tm())
 		})
 

@@ -85,6 +85,59 @@ test_that("interaction generalizes to categorical levels, against
 	expect_equal(i$nobs, unname(as.integer(table(d$cyl))))
 })
 
+test_that("a categorical exposure derives one row-set per exposure contrast", {
+
+	d <- mtcars
+	d$cyl <- factor(d$cyl)
+
+	mt <-
+		fmls(mpg ~ .x(cyl) + .i(am)) |>
+		fit(.fn = lm, data = d, raw = FALSE) |>
+		model_table(data = d) |>
+		suppressMessages()
+	object <- dplyr::filter(mt, interaction == "am")
+
+	i <- estimate_interaction(object, exposure = "cyl", interaction = "am")
+
+	# Two non-reference exposure levels x two interaction levels, with the
+	# exposure contrast named on every row
+	expect_named(
+		i,
+		c("estimate", "conf_low", "conf_high", "p_value", "nobs", "level",
+			"exposure_level")
+	)
+	expect_equal(nrow(i), 4)
+	expect_equal(i$exposure_level, c("6", "6", "8", "8"))
+	expect_equal(i$level, c("0", "1", "0", "1"))
+
+	# Against a hand fit: within am = 0 the effect of level k is its own
+	# coefficient; within am = 1 it adds the interaction coefficient, with the
+	# covariance in the variance (Figueiras et al. 1998)
+	ref <- stats::lm(mpg ~ cyl * am, data = d)
+	b <- stats::coef(ref)
+	V <- stats::vcov(ref)
+	crit <- stats::qt(0.975, df = stats::df.residual(ref))
+	for (k in c("6", "8")) {
+		expKey <- paste0("cyl", k)
+		intKey <- paste0("cyl", k, ":am")
+		at0 <- which(i$exposure_level == k & i$level == "0")
+		at1 <- which(i$exposure_level == k & i$level == "1")
+		expect_equal(i$estimate[at0], unname(b[expKey]))
+		expect_equal(i$estimate[at1], unname(b[expKey] + b[intKey]))
+		se1 <- sqrt(V[expKey, expKey] + V[intKey, intKey] +
+									2 * V[expKey, intKey])
+		expect_equal(i$conf_low[at1], unname(b[expKey] + b[intKey]) - crit * se1)
+	}
+
+	# The across-levels p-value is the joint Wald test over every interaction
+	# coefficient the exposure's contrasts carry
+	keys <- c("cyl6:am", "cyl8:am")
+	stat <- drop(t(b[keys]) %*% solve(V[keys, keys]) %*% b[keys])
+	expect_equal(unique(i$p_value),
+							 stats::pchisq(stat, df = 2, lower.tail = FALSE))
+
+})
+
 test_that("interaction terms match by identity, never by substring", {
 
 	# `am` must not match `gam`, the adversarial-naming rule of M6.2

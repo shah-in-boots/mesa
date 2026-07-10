@@ -32,23 +32,21 @@ selection_input <- function(x) {
 	labeled_formulas_to_named_list(x)
 }
 
-#' Pick the dataset a model table's rows refer to
+#' The datasets a model table's rows refer to, in reference order
 #'
 #' The attached data is the canonical source for a categorical term's levels.
-#' When several datasets are attached, the one the rows reference is used; a
-#' single attached dataset is taken as-is.
+#' Datasets the rows reference come first (in row order), so the
+#' first-referenced dataset that carries a term's column speaks for that term;
+#' attached-but-unreferenced datasets follow as fallbacks.
 #' @keywords internal
 selection_data <- function(x) {
 	datLs <- attr(x, "dataList")
 	if (length(datLs) == 0) {
-		return(NULL)
+		return(list())
 	}
 	referenced <- unique(stats::na.omit(x$data_id))
 	hit <- referenced[referenced %in% names(datLs)]
-	if (length(hit) >= 1) {
-		return(datLs[[hit[1]]])
-	}
-	datLs[[1]]
+	datLs[c(hit, setdiff(names(datLs), hit))]
 }
 
 #' The sequential adjustment index of every model row
@@ -109,11 +107,17 @@ resolve_term_metadata <- function(x, tmSel) {
 
 	# The term table carries the variable-level relationship; stamp it from the
 	# attached data so categorical levels are known (the fit pipeline leaves
-	# them empty)
+	# them empty). Each term takes its levels from the first dataset -- in
+	# reference order -- that carries its column, so models spanning several
+	# datasets each find their own terms stamped
 	tmTab <- vec_restore(attr(x, "termTable"), to = tm())
-	data <- selection_data(x)
-	if (!is.null(data)) {
-		tmTab <- set_data(tmTab, data)
+	seen <- character()
+	for (data in selection_data(x)) {
+		newCols <- setdiff(names(data), seen)
+		if (length(newCols) > 0) {
+			tmTab <- set_data(tmTab, data[newCols])
+			seen <- c(seen, newCols)
+		}
 	}
 	proxy <- vec_proxy(tmTab)
 

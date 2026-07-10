@@ -4,7 +4,7 @@
 \alias{fit.fmls}
 \title{Fit the family of models a \code{fmls} object describes}
 \usage{
-\method{fit}{fmls}(object, .fn, ..., data, raw = TRUE)
+\method{fit}{fmls}(object, .fn, ..., data, raw = FALSE)
 }
 \arguments{
 \item{object}{A \code{fmls} object}
@@ -23,14 +23,14 @@ engine \code{{parsnip}} knows about serve as the modeling approach
 
 \item{data}{A \code{data.frame} containing the modeling variables}
 
-\item{raw}{A \code{logical}. When \code{TRUE} (default), returns the list of fitted
-model objects as the fitting function made them (for \code{{parsnip}}
-specifications, the underlying engine fit). When \code{FALSE}, returns a
-\code{mdl} vector that carries the causal context forward into
-\code{\link[=model_table]{model_table()}}.}
+\item{raw}{A \code{logical}. When \code{FALSE} (default), returns a \code{mdl} vector
+that carries the causal context forward into \code{\link[=model_table]{model_table()}}. When
+\code{TRUE}, returns the list of fitted model objects as the fitting function
+made them (for \code{{parsnip}} specifications, the underlying engine fit).}
 }
 \value{
-A \code{list} of models (when \code{raw = TRUE}) or a \code{mdl} vector
+A \code{mdl} vector (when \code{raw = FALSE}, the default) or a \code{list} of
+models
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}

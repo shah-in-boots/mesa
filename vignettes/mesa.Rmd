@@ -30,7 +30,7 @@ d$cyl <- factor(d$cyl)
 
 mt <-
   fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential") |>
-  fit(.fn = lm, data = d, raw = FALSE) |>
+  fit(.fn = lm, data = d) |>
   model_table(data = d)
 ```
 
@@ -105,7 +105,7 @@ lung$sex <- factor(lung$sex, levels = 1:2, labels = c("Male", "Female"))
 
 mtSurv <-
   fmls(Surv(time, status) ~ .x(sex) + age, pattern = "sequential") |>
-  fit(.fn = survival::coxph, data = lung, raw = FALSE) |>
+  fit(.fn = survival::coxph, data = lung) |>
   model_table(data = lung)
 
 mtSurv |>
@@ -134,7 +134,7 @@ visible:
 ```{r}
 mtInt <-
   fmls(mpg ~ .x(hp) + .i(cyl)) |>
-  fit(.fn = lm, data = d, raw = FALSE) |>
+  fit(.fn = lm, data = d) |>
   model_table(data = d)
 
 mtInt |>
@@ -183,7 +183,7 @@ mt |>
 
 That is the whole grammar: `mesa()` to start, `select_*()` to narrow,
 `add_*()` to add statistics, `modify_*()` to lay out and style, `as_gt()` to
-render. `vignette("causal-reasoning", package = "mesa")` steps back from the
-mechanics to the reasoning the roles are for — how they map onto the
-estimands (total effect, direct effect, effect modification) the rest of
-`{mesa}` was built to make fluent.
+render. To step back from the mechanics to the reasoning the roles are for —
+how variable roles map onto estimands like the total effect, direct effect,
+and effect modification — start from `vignette("terms", package = "mesa")`,
+where the role vocabulary is laid out.

@@ -207,3 +207,34 @@ test_that("degrees of freedom follow each model family's accounting", {
 	)
 
 })
+
+# The grammar's default: fit() returns mdl vectors ----
+
+test_that("fit() defaults to raw = FALSE, returning a `mdl` vector", {
+
+	object <- fmls(mpg ~ .x(wt) + hp)
+	m <- fit(object, .fn = lm, data = mtcars)
+
+	expect_s3_class(m, "mdl")
+	expect_identical(m, fit(object, .fn = lm, data = mtcars, raw = FALSE))
+
+})
+
+test_that("an inline `data` expression records a stable content-derived id", {
+
+	object <- fmls(mpg ~ .x(wt))
+	expect_message(
+		m <- fit(object, .fn = lm, data = subset(mtcars, am == 1)),
+		"record the dataset as `data_"
+	)
+	mt <- model_table(m)
+	expect_match(mt$data_id, "^data_[0-9a-f]{8}$")
+
+	# The identical frame gets the identical id at attach time, so they meet
+	expect_message(
+		mt <- attach_data(mt, subset(mtcars, am == 1)),
+		"attaching it as `data_"
+	)
+	expect_equal(names(attr(mt, "dataList")), mt$data_id)
+
+})

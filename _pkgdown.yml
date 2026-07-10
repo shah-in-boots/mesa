@@ -61,10 +61,11 @@ articles:
   - playing
   - fitting
   - mesa
-  - causal-reasoning
 - title: More
   navbar: More
   contents:
+  - articles/usage
+  - articles/internals
   - articles/development
 
 footer:

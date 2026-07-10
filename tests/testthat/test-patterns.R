@@ -11,7 +11,8 @@ test_that("basic patterns can be applied", {
 	expect_named(yp, c("outcome", "covariate_1"))
 	yf <- apply_pattern(x, "fundamental")
 	expect_length(yf, 2)
-	expect_named(yf, c("left", "right"))
+	expect_named(yf, c("outcome", "covariate_1"))
+	expect_equal(nrow(yf), 2)
 
 	x <- tm(witch ~ wicked + west + green)
 	y <- apply_sequential_pattern(x)
@@ -30,6 +31,45 @@ test_that("basic patterns can be applied", {
 	yp <- apply_parallel_pattern(x)
 	yf <- apply_fundamental_pattern(x)
 	yd <- apply_direct_pattern(x)
+
+})
+
+test_that("the fundamental pattern honors the pattern contract", {
+
+	# The exposure keeps its key-pair column; every other RHS term rides as
+	# the single covariate of its own row (the old `left`/`right` columns
+	# violated the documented contract and unshielded the outcome in
+	# `check_groups()`)
+	x <- tm(witch ~ .x(wicked) + west + green)
+	tbl <- apply_fundamental_pattern(x)
+	expect_named(tbl, c("outcome", "exposure", "covariate_1"))
+	expect_equal(nrow(tbl), 3)
+	expect_equal(sum(!is.na(tbl$exposure)), 1)
+
+	f <- fmls(witch ~ .x(wicked) + west + green, pattern = "fundamental")
+	expect_setequal(
+		unname(as.character(f)),
+		c("witch ~ wicked", "witch ~ west", "witch ~ green")
+	)
+
+})
+
+test_that("fundamental decomposition demotes meta terms with a message", {
+
+	# Strata cannot stay global when each formula is a single left- and
+	# right-hand term; they become plain predictors, and the message says so
+	expect_message(
+		f <- fmls(mpg ~ wt + .s(am), pattern = "fundamental"),
+		"meta term"
+	)
+	expect_setequal(
+		unname(as.character(f)),
+		c("mpg ~ wt", "mpg ~ am")
+	)
+
+	# The demotion is real: no strata role survives into the family
+	tmTab <- attr(f, "termTable")
+	expect_false("strata" %in% tmTab$role)
 
 })
 

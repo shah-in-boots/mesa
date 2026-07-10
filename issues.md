@@ -1,0 +1,151 @@
+# Issues
+
+Working list for pre-release repair, ordered by urgency. Found during the
+codebase review that produced `vignettes/articles/usage.qmd` and
+`vignettes/articles/internals.qmd`; file references are approximate anchors.
+Items verified by execution are marked ✓.
+
+## High — wrong results or broken contracts
+
+- [x] ✓ **`apply_fundamental_pattern()` violates the pattern contract**
+  ([patterns.R:106](R/patterns.R#L106)). *Fixed 2026-07-09*: the pattern now
+  returns the documented `outcome`/`exposure`/`covariate_1` columns — the
+  exposure keeps its key-pair column, every other RHS term rides one row as
+  the single covariate — so `check_groups()` shields the outcome again.
+- [x] ✓ **Fundamental pattern turns strata into covariates**
+  ([patterns.R:133](R/patterns.R#L133)). *Fixed 2026-07-09*: documented as
+  intentional decomposition. `fmls(pattern = "fundamental")` demotes meta
+  terms (strata, random) to plain predictors *before* expansion, with a
+  message, and the demotion is recorded in the family's term table.
+- [x] ✓ **Strata/random leak when families combine**
+  ([formulas.R:600](R/formulas.R#L600)). *Fixed 2026-07-09*: meta terms are
+  now recorded in the formula matrix like any other member, and
+  `formulas_to_terms()`/`key_terms()` read membership alone — a stratum only
+  applies to the family that declared it. `add_strata()`/`remove_strata()`
+  write the matrix membership too.
+- [x] **Interaction layout collides when several models share an interaction
+  term** ([table-presets.R:696](R/table-presets.R#L696)). *Fixed
+  2026-07-09*: `realize_interaction()` errors when several selected models
+  share an interaction term, pointing at `select_adjustment()`. Relatedly,
+  the `mdl_tbl` `interaction` column records one term per model (first wins,
+  with a message). Qualifying rows per model — and displaying several
+  interaction terms per model — is the future extension.
+- [x] **`estimate_interaction()` cannot handle a categorical exposure**
+  ([interaction.R:113](R/interaction.R#L113)). *Fixed 2026-07-09*: a factor
+  exposure resolves through its `exposureLEVEL` keys; one row-set per
+  non-reference exposure level comes back with an `exposure_level` column,
+  and the joint Wald p-value spans all interaction coefficients. The
+  interaction *layout* still shows one contrast (a two-level exposure) and
+  errors otherwise.
+- [x] **Two definitions of "categorical"**. *Fixed 2026-07-09*: binary and
+  categorical are different definitions now. `classify_distribution()`
+  stamps a numeric 2-valued column (e.g. a 0/1 survival outcome) as
+  `binary`, keeping the continuous type — matching how the model treats it —
+  and only factor-like columns are categorical. Strata get their levels
+  stamped regardless of type. `add_events()` still requires a factor, and
+  its error now says how to convert.
+
+## Medium — design friction and visible quality
+
+- [x] ✓ **Strata is invisible in every formula representation**
+  ([terms.R:719](R/terms.R#L719)). *Fixed 2026-07-09*: the printed family
+  (`format.fmls`) now annotates meta terms in their declared rune form —
+  `.s(am)`, `.r(id)` — after the right-hand terms. `formula()`,
+  `formula_call`, and the model's recorded call deliberately stay the true
+  fitted (unstratified) formula: they are consumed programmatically
+  (re-fitting, term counting), so annotating them would corrupt real syntax.
+  *Still open (design question)*: how engine-native strata
+  (`survival::strata()` in a coxph formula — a conditioning term, not a
+  data split) should coexist with `.s()`.
+- [x] **`fit()` defaults to `raw = TRUE`**. *Fixed 2026-07-09*: the default
+  is `raw = FALSE` — a `mdl` vector, the grammar's main path — and the
+  vignettes no longer repeat the argument. `raw = TRUE` remains the opt-out
+  for a quick look at the plain fits.
+- [x] ✓ **`formula_index` column is not an index**. *Fixed 2026-07-09*:
+  dropped. The formula matrix's rows stay parallel to the table's rows, so
+  a row-index column carried no information; nothing consumed it.
+- [x] **Forest cells are fixed-size PNGs**
+  ([table-render.R:432](R/table-render.R#L432)). *Fixed 2026-07-09*: cells
+  draw as inline vector SVG (each its own base64 `data:` document, so glyph
+  ids cannot collide), sized in `em` units so they scale with the text
+  beside them. A build without cairo falls back to the old PNG path.
+- [x] **Group-scoped cell mask is white text**. *Fixed 2026-07-09*: the
+  rowspan emulation blanks duplicates with a `gt::text_transform()` — a
+  content substitution rather than styling, which holds on dark themes and
+  on every output format (LaTeX/RTF/Word).
+- [x] **`mesa()`'s one-family check compares `model_call` strings only**.
+  *Fixed 2026-07-09*: the check now folds in each model's recorded link
+  (`summary_info$model_link`), so two `glm`s on different links error as
+  `glm (logit)` vs `glm (identity)`.
+- [x] **`selection_data()` picks the first referenced dataset**. *Fixed
+  2026-07-09*: `selection_data()` returns all attached datasets in
+  reference order, and `resolve_term_metadata()` stamps each term's levels
+  from the first dataset that carries its column — models spanning several
+  datasets each find their own terms stamped. (When two datasets share a
+  column name with different levels, the first-referenced one still wins:
+  the term table is table-wide by design.)
+- [x] **Silent exponentiation skip in the interaction realizer**. *Fixed
+  2026-07-09*: a scale flag that does not resolve to one decision per
+  interaction term errors, pointing at `add_estimates(exponentiate = )`,
+  instead of falling silently to the linear scale.
+- [x] **Two `mdl()` construction paths in `fit.fmls`**. *Fixed 2026-07-09*:
+  one shared context (formulas, data name, strata, subset) feeds both
+  paths; an error only swaps the model object for its message.
+- [x] **`_pkgdown.yml` articles index references `causal-reasoning`**.
+  *Fixed 2026-07-09*: the references are dropped (`_pkgdown.yml` and the
+  `mesa.Rmd` closing pointer, which now sends readers to the terms
+  vignette). Writing the article remains an option for later.
+- [x] **`attach_data()` matches by deparsed name**. *Fixed 2026-07-09*: an
+  inline expression passed as `data` now takes a stable content-derived id
+  (`data_<hash>`) at `fit()`, `model_table()`, and `attach_data()` alike, so
+  identical content meets itself; and a frame arriving under a different
+  name is aliased — with a message — to the one referenced-but-detached
+  `data_id` whose models' variables it fully carries. An explicit `name = `
+  always wins.
+
+## Low — parsimony and clarity
+
+- [x] **Role-extraction block copy-pasted 6×**. *Fixed 2026-07-09*:
+  `pattern_roles()` pulls every role once and `key_pair_grid()` replaces the
+  outcome × exposure ladder; the patterns and `check_mediation()` draw from
+  them, and `check_groups()` (which never used the roles) dropped the pulls.
+- [x] **`construct_table_from_models()` / `construct_table_from_formulas()`
+  are ~80% identical**. *Improved 2026-07-09*: the four near-identical
+  role-pulls in each collapsed into shared `role_term()` /
+  `interaction_term()` helpers. The two constructors themselves stay
+  separate — their sources (fitted `mdl` fields vs a bare `fmls` matrix)
+  differ enough that a full merge would obscure more than it saves.
+- [x] **`mdl.lm` / `mdl.lmerMod` are ~80% identical**. *Fixed 2026-07-09*:
+  both are thin wrappers over `new_model_from_fit()`, each computing only
+  its own tidy/glance pieces (and the S4 call slot).
+- [x] **Formula matrix built via `table() |> rbind()` per row**. *Fixed
+  2026-07-09*: membership (0/1) is built directly from each precursor row's
+  unique non-`NA` terms, and the downstream membership tests read `>= 1`.
+- [x] **`my_tidy()` exposes an `exponentiate` argument it ignores**. *Fixed
+  2026-07-09*: parameter dropped; exponentiation stays deferred to
+  `flatten_models()`, and the docstring says so.
+- [x] **`rhs.formula()` splits deparsed text on `+|-`**. *Fixed
+  2026-07-09*: `split_additive()` walks the expression tree, so `I(a + b)`
+  stays one term and labels containing `+`/`-` (e.g. `"Weight (+/- SD)"`)
+  stay whole; `lhs.formula()` uses the same walk.
+- [x] **`apply_sequential_pattern()` generates all 2^n rows then culls**.
+  *Fixed 2026-07-09*: the n+1 covariate prefixes are built directly (the
+  bare key-pair row only when an exposure anchors it).
+- [x] **`format.fmls` brace/indent confusion**. *Fixed 2026-07-09*: both
+  branches now select their sides and one shared tail formats and returns.
+- [x] **Duplicated section header** in table-render.R. *Fixed 2026-07-09*.
+- [x] **`frame_context(dec, spec)` never uses `dec`**. *Fixed 2026-07-09*:
+  the parameter is gone; `frame_context(spec)`.
+- [x] **Dead role pulls** in the direct, sequential, and parallel patterns.
+  *Fixed 2026-07-09*: subsumed by `pattern_roles()` — each pattern reads
+  only the roles it uses.
+
+## Open — design questions, not defects
+
+- [ ] Engine-native strata (`survival::strata()` inside a coxph formula, a
+  conditioning term) versus `.s()` (a data split): two meanings, one word.
+  How do they coexist at the fitting stage?
+- [ ] The adjustment preset emits a `::p` column per term *level*; is a
+  per-term p-column the better default for wide tables?
+- [ ] Attached data frames make a `mdl_tbl` heavy to serialize; store only
+  the columns the terms reference?

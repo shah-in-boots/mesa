@@ -36,20 +36,20 @@ generics::fit
 #'
 #' @param data A `data.frame` containing the modeling variables
 #'
-#' @param raw A `logical`. When `TRUE` (default), returns the list of fitted
-#'   model objects as the fitting function made them (for `{parsnip}`
-#'   specifications, the underlying engine fit). When `FALSE`, returns a
-#'   `mdl` vector that carries the causal context forward into
-#'   [model_table()].
+#' @param raw A `logical`. When `FALSE` (default), returns a `mdl` vector
+#'   that carries the causal context forward into [model_table()]. When
+#'   `TRUE`, returns the list of fitted model objects as the fitting function
+#'   made them (for `{parsnip}` specifications, the underlying engine fit).
 #'
-#' @return A `list` of models (when `raw = TRUE`) or a `mdl` vector
+#' @return A `mdl` vector (when `raw = FALSE`, the default) or a `list` of
+#'   models
 #'
 #' @export
 fit.fmls <- function(object,
 										 .fn,
 										 ...,
 										 data,
-										 raw = TRUE) {
+										 raw = FALSE) {
 
 	cl <- match.call()
 	dots <- list(...)
@@ -59,7 +59,7 @@ fit.fmls <- function(object,
 
 	# Check data
 	stopifnot(is.data.frame(data))
-	dataName <- deparse1(cl[["data"]])
+	dataName <- data_expression_name(cl[["data"]], data)
 
 	# Draw up the plan: formula x stratum x subset
 	plan <- fit_plan(object, data = data)
@@ -101,34 +101,25 @@ fit.fmls <- function(object,
 			}
 			ml <- append(ml, list(x))
 		} else {
-			if (inherits(x, "error")) {
-				y <- mdl(
-					engine$name,
-					formulas = object[plan$formula_index[i], ],
-					summary_info = list(error = conditionMessage(x)),
-					data_name = dataName,
-					strata_variable = plan$strata_variable[i],
-					strata_level = plan$strata_level[[i]],
-					subset_name = plan$subset[i]
-				)
-			} else {
-				y <- mdl(
-					x,
-					formulas = object[plan$formula_index[i], ],
-					data_name = dataName,
-					strata_variable = if (is.na(plan$strata_variable[i])) {
-						character()
-					} else {
-						plan$strata_variable[i]
-					},
-					strata_level = if (is.na(plan$strata_variable[i])) {
-						character()
-					} else {
-						plan$strata_level[[i]]
-					},
-					subset_name = plan$subset[i]
-				)
-			}
+			# One shape for the shared context: an error only swaps the model
+			# object for its message
+			context <- list(
+				formulas = object[plan$formula_index[i], ],
+				data_name = dataName,
+				strata_variable = plan$strata_variable[i],
+				strata_level = plan$strata_level[[i]],
+				subset_name = plan$subset[i]
+			)
+			y <-
+				if (inherits(x, "error")) {
+					do.call(mdl, c(
+						list(engine$name,
+								 summary_info = list(error = conditionMessage(x))),
+						context
+					))
+				} else {
+					do.call(mdl, c(list(x), context))
+				}
 			ml <- c(ml, y)
 		}
 	}
@@ -235,6 +226,27 @@ fit_plan <- function(object, data = NULL, ...) {
 	dplyr::bind_rows(rows)
 }
 
+#' A usable dataset id for any `data` argument
+#'
+#' A bare name is taken as-is (the common `data = d` case). An inline
+#' expression (`data = subset(d, am == 1)`) would deparse into an unusable
+#' id, so it takes a stable content-derived one instead: `data_<hash>`, the
+#' same id the identical frame gets anywhere else (e.g. [attach_data()]), so
+#' the two meet without the user retyping anything.
+#' @keywords internal
+#' @noRd
+data_expression_name <- function(expr, data) {
+	if (is.symbol(expr)) {
+		return(deparse1(expr))
+	}
+	name <- data_content_name(data)
+	message(
+		"The `data` argument is an expression, not a name; its models record ",
+		"the dataset as `", name, "`."
+	)
+	name
+}
+
 #' Resolve the modeling approach from a function, name, or parsnip spec
 #' @keywords internal
 #' @noRd
@@ -318,11 +330,13 @@ execute_fit <- function(engine, f, fitData, dots, dataName) {
 generics::tidy
 
 #' Create a "fail-safe" of tidying fits
+#'
+#' Estimates are stored on the linear scale, always; exponentiation is
+#' deferred to [flatten_models()], so no `exponentiate` argument is offered.
 #' @noRd
 my_tidy <- function(x,
 										conf.int = TRUE,
 										conf.level = 0.95,
-										exponentiate = FALSE,
 										...) {
 	broom::tidy(x,
 							conf.int = conf.int,

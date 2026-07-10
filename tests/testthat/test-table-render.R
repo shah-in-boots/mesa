@@ -429,16 +429,21 @@ test_that("group-scoped cells emulate a rowspan: duplicated, one visible,
 	expect_equal(dat[["t::p"]], c("0.021", "0.021"))
 
 	# ...exactly one visible (with two rows: the first, floated on the seam by
-	# bottom alignment), the duplicate masked white and zero-size
+	# bottom alignment), the duplicate blanked by a text transform — content
+	# substitution, so the mask holds on dark themes and non-HTML outputs
 	styles <- g[["_styles"]]
 	pStyles <- styles[styles$colname == "t::p" & styles$locname == "data", ]
 	flat <- vapply(pStyles$styles, function(s) {
 		paste(names(unlist(s)), unlist(s), sep = "=", collapse = ";")
 	}, character(1))
 	expect_true(any(pStyles$rownum == 1 & grepl("v_align=bottom", flat)))
-	expect_true(any(pStyles$rownum == 2 &
-										grepl("color=#FFFFFF", flat, ignore.case = TRUE) &
-										grepl("size=0px", flat)))
+
+	maskTransforms <- Filter(function(t) {
+		identical(t$resolved$colnames, "t::p")
+	}, g[["_transforms"]])
+	expect_length(maskTransforms, 1)
+	expect_equal(maskTransforms[[1]]$resolved$rows, 2L)
+	expect_equal(maskTransforms[[1]]$fn("0.021"), "")
 })
 
 test_that("plot cells draw at render on one shared x-scale, with the

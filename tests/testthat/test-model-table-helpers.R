@@ -158,3 +158,33 @@ test_that("mixed models flow through the flattening inference", {
 	expect_false(any(fl$exponentiated))
 
 })
+
+test_that("attach_data() aliases the same frame arriving under another name", {
+
+	d <- mtcars
+	mt <- fit(fmls(mpg ~ .x(wt) + hp), .fn = lm, data = d) |>
+		model_table()
+
+	renamed <- d
+	expect_message(
+		mt2 <- attach_data(mt, renamed),
+		"attaching it as `d`"
+	)
+	expect_equal(names(attr(mt2, "dataList")), "d")
+
+	# An explicit `name` is always honored as given
+	expect_message(
+		mt3 <- attach_data(mt, renamed, name = "renamed"),
+		"attached for later use"
+	)
+	expect_equal(names(attr(mt3, "dataList")), "renamed")
+
+	# A frame missing the models' variables is not aliased
+	unrelated <- data.frame(a = 1:3)
+	expect_message(
+		mt4 <- attach_data(mt, unrelated),
+		"attached for later use"
+	)
+	expect_equal(names(attr(mt4, "dataList")), "unrelated")
+
+})

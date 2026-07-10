@@ -1,0 +1,309 @@
+---
+title: "Internals: how the machine is built"
+---
+
+```{r}
+#| include: false
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+Developer-facing companion to `vignette("usage")`. Shows the data structure
+under each layer and the seams between them, using `mesa:::` internals where
+needed. Each section ends with **review questions** — the places where the
+design deserves a second pair of eyes. Concrete defects live in `issues.md`.
+
+```{r setup}
+library(mesa)
+d <- mtcars
+d$cyl <- factor(d$cyl)
+```
+
+## 1. A term is a record
+
+`tm` is a `vctrs` record: parallel fields, one slot per term. The proxy *is*
+the term table — every later structure is built from this.
+
+```{r}
+t <- tm(mpg ~ .x(wt) + .s(am) + log(hp))
+vctrs::vec_proxy(t)
+```
+
+`tm.formula()` is a fixed pipeline over the syntax tree:
+
+1. `parse_formula_terms()` — recursive descent; runes, `a:b`, `(1|g)`,
+   transformations, opaque calls (`Surv(...)`) each handled at the node
+2. `demote_orphan_roles()` — `.i()`/`.m()` without an exposure demote to
+   predictors, with a warning
+3. `expand_shortcut_interactions()` — each `.i()` crosses each exposure into
+   an explicit `x:i` term, group-tiered so the pair travels together
+4. `apply_default_roles()` — position fills in what wasn't declared
+5. `apply_term_arguments()` — explicit `role = `/`label = ` arguments override
+
+The raw parse, before defaults:
+
+```{r}
+mesa:::parse_formula_terms(mpg ~ .x(wt) + .i(cyl))
+```
+
+Note `side`: strata and random effects get `side = "meta"` — neither left nor
+right. That single value drives everything in §3.
+
+**Review questions**
+
+- `log(hp)` keeps its full call as its *name* and records the wrapper in
+  `transformation`. Two representations of one fact — is the field earning
+  its keep, or should the call be parsed once at `set_data()`?
+- Roles live in a flat character field; `group` is a separate integer tier.
+  Interactions need both to travel together. Simpler as one composite?
+
+## 2. A `fmls` is a membership matrix plus a term table
+
+Two structures, stitched by term name:
+
+```{r}
+f <- fmls(mpg ~ .x(wt) + hp, pattern = "sequential")
+vctrs::vec_data(f)      # rows = formulas, cols = terms, 1 = membership
+attr(f, "termTable")    # scalar attribute: one definition per term
+```
+
+Patterns are functions `tm -> tbl_df` (a registry, `register_pattern()`);
+their output is a *precursor table*, one row per future formula:
+
+```{r}
+apply_sequential_pattern(tm(mpg ~ .x(wt) + hp))
+```
+
+`fmls()` then flattens each precursor row into the 0/1 matrix directly —
+each row's unique non-`NA` terms become that row's memberships, so a term
+repeated within one precursor row still records `1`.
+
+Every registered pattern honors that contract now,
+`apply_fundamental_pattern()` included: the exposure keeps its key-pair
+column and each remaining term rides one row as `covariate_1`. Because the
+fundamental pattern reduces each formula to a single left- and right-hand
+term, `fmls(pattern = "fundamental")` demotes meta terms (strata, random
+effects) to plain predictors before expansion, with a message:
+
+```{r}
+fmls(mpg ~ wt + .s(am), pattern = "fundamental")
+```
+
+**Review questions** *(both resolved 2026-07-09)*
+
+- ~~The seven-role extraction block is copy-pasted through every pattern.~~
+  `pattern_roles()` pulls every role once and `key_pair_grid()` builds the
+  outcome × exposure grid; the patterns, `check_mediation()`, and
+  `check_groups()` all draw from them.
+- ~~The `table()`-based matrix build records a count of 2 for a repeated
+  term.~~ The membership build above is 0/1 by construction, and the
+  downstream tests read `>= 1`.
+
+## 3. Where the strata goes (and why formulas drop it)
+
+`formula.tm()` rebuilds from `side == "left"` and `side == "right"` only.
+Random effects are re-added as `(1 | g)`; **strata is not re-added anywhere**:
+
+```{r}
+f <- fmls(mpg ~ .x(wt) + .s(am))
+formula(f)
+```
+
+The stratum re-enters at `fit_plan()` — not as formula syntax but as *data
+splitting*: one plan row per stratum level, the level's rows subset before
+the engine sees anything.
+
+```{r}
+fit_plan(f, data = d)
+```
+
+Meta terms are members of the formula matrix like any other term, and
+`formulas_to_terms()` reads membership alone — so a stratum applies only to
+the family that declared it, and combining families cannot leak it:
+
+```{r}
+combined <- suppressMessages(c(f, fmls(qsec ~ .x(hp))))
+fit_plan(combined, data = d)[, c("formula_call", "strata_variable")]
+```
+
+**Review questions**
+
+- ~~The stratum is invisible everywhere models print.~~ *Resolved
+  2026-07-09*: the printed family annotates meta terms in rune form
+  (`.s(am)`, `.r(id)`) after the right-hand terms, while `formula()`,
+  `formula_call`, and the recorded call stay the true fitted formula —
+  they are consumed programmatically (re-fitting, term counting), so
+  annotating them would corrupt real syntax. The `strata`/`level` columns
+  remain the machine-readable context.
+- Some engines have native stratification (`survival::strata()` inside a
+  `coxph` formula — a *conditioning* term, not a data split). The two
+  meanings share a word but not a mechanism. Do we need both, and how do
+  they coexist at the fitting stage? *(Still open; tracked in `issues.md`.)*
+
+## 4. Why data attaches to the *table*, not the formula
+
+Formulas stay abstract on purpose — a `fmls` captures no data, so families
+are cheap to build, combine, and store. But three consumers need real data
+at realization time:
+
+- **categorical levels** — the term table's `level` field is empty until
+  `set_data()`; the table layer stamps it from attached data to know that
+  `cyl8` is level `8` of `cyl` (`resolve_term_metadata()`)
+- **events and rates** — `add_events()` runs `survival::pyears()` on the
+  attached data at render
+- **interaction rows** — per-level `n` counts come from the attached data
+
+So the dataset attaches once, to the `mdl_tbl`, keyed by name:
+
+```{r}
+mt <-
+  fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential") |>
+  fit(.fn = lm, data = d) |>
+  model_table(data = d)
+
+names(attr(mt, "dataList"))
+term_table(mt)
+```
+
+**Review questions**
+
+- ~~The link is a fragile *name* match.~~ *Resolved 2026-07-09*: a `data`
+  passed as an inline expression takes a stable content-derived id
+  (`data_<hash>`) at both `fit()` and `attach_data()`, so identical content
+  meets itself; and a frame arriving under a different name is aliased —
+  with a message — to the one referenced-but-detached `data_id` whose
+  models' variables it fully carries (`data_id_candidates()`). An explicit
+  `name = ` always wins.
+- Attaching whole data frames makes a `mdl_tbl` heavy to serialize. Store
+  only the columns the terms reference?
+
+## 5. A `mdl` is a deconstructed model
+
+Not the fitted object — a blueprint: call name, `fmls`, tidy estimates,
+glance summary, data context. Enough to present and diagnose, cheap to keep.
+
+```{r}
+m <- fit(fmls(mpg ~ .x(wt) + hp), .fn = lm, data = d)
+vctrs::field(m, "parameterEstimates")[[1]]
+vctrs::field(m, "dataArgs")[[1]]
+```
+
+Notes:
+
+- `execute_fit()` rewrites the recorded call (function by name, data by
+  name) so models hash and compare cleanly.
+- Failures are soft: an error becomes a `mdl` whose `summary_info$error`
+  carries the message; `fit_status` turns `FALSE` downstream.
+- The `var_cov` matrix is stored per model — that is what lets
+  `estimate_interaction()` derive within-level effects without refitting.
+
+**Review questions** *(both resolved 2026-07-09)*
+
+- ~~`mdl.lm` and `mdl.lmerMod` are ~80% identical.~~ Both are thin
+  wrappers now: each computes its own tidy/glance pieces and hands the
+  rest to `new_model_from_fit()`, the shared trunk.
+- ~~`my_tidy()` exposes an `exponentiate` argument it ignores.~~ The
+  parameter is gone; exponentiation stays deferred to `flatten_models()`.
+
+## 6. The `mdl_tbl`: invariant columns, reconciled attributes
+
+A tibble subclass — one row per model — carrying three scalar attributes
+that must stay parallel to the rows: the formula matrix, the term table, the
+data list. Every subset/filter reconciles them (`df_reconstruct()`):
+
+```{r}
+sub <- dplyr::filter(mt, number < 3)
+class(sub)
+formula_matrix(sub)      # trimmed to the surviving rows and their terms
+```
+
+Dropping an invariant column deliberately demotes the object:
+
+```{r}
+class(dplyr::select(mt, -fit_status))
+```
+
+**Review questions**
+
+- ~~`formula_index` stores the membership row itself, and nothing consumes
+  it.~~ *Resolved 2026-07-09*: dropped. The formula matrix's rows stay
+  parallel to the table's, so a row-index column carried no information.
+- Rows link to attributes by `id = rlang::hash(model)`. Two identical fits
+  (same formula, same data) collide by design — is dedup ever wrong?
+
+## 7. The mesa: five stages from spec to `{gt}`
+
+A `<mesa>` is a plain list of *instructions* — nothing is computed until
+render:
+
+```{r}
+spec <- mt |> mesa() |> add_estimates()
+spec$selection
+spec$columns
+spec$layout
+```
+
+Realization runs in fixed stages, each file owning one:
+
+| stage | function | file |
+|---|---|---|
+| select | `resolve_selection()` | table-selection.R |
+| decorate | `realize_mesa()` | table-realize.R |
+| compute | `compute_data_statistics()` | table-columns.R |
+| layout | `mesa_frame()` → cell frame | table-presets.R |
+| render | `render_cell_frame()` | table-render.R |
+
+The decorated frame — one row per displayed estimate, reference rows
+injected for categorical terms:
+
+```{r}
+mesa:::realize_mesa(spec)[, c("outcome", "adj_index", "variable", "level",
+                              "estimate", "is_reference", "adj_label")]
+```
+
+The **cell frame** — the single contract between layout and render, one row
+per rendered cell; `render_cell_frame()` is the only place `{gt}` calls are
+emitted:
+
+```{r}
+mesa:::mesa_frame(spec)
+```
+
+Two mechanisms live only in the renderer:
+
+- **Group-scoped cells** (the interaction p-value floating over its level
+  rows): `{gt}` has no body rowspan, so the value is written into every row
+  and all but one copy is *blanked by a text transform*
+  (`apply_group_scoped()`) — a content substitution, which holds on dark
+  themes and every output format (the old white, zero-size text styling
+  did not).
+- **Plot cells** (the forest column): each cell is a ggplot drawn as vector
+  SVG and inlined as its own base64 `data:` document, sized in `em` units
+  so it scales with the text beside it (`plot_image()`; a build without
+  cairo falls back to the fixed-size PNG).
+
+**Review questions**
+
+- The adjustment preset emits a `::p` column per term *level*; wide tables
+  get very wide. Is a per-term p-column the better default?
+- ~~`frame_context()` is called with `dec = NULL` on the interaction
+  path.~~ *Resolved 2026-07-09*: the unused parameter is gone;
+  `frame_context(spec)` takes the specification alone.
+
+## 8. Review agenda
+
+Ordered start-points, cross-referenced to `issues.md`. The 2026-07-09
+repair pass closed the outstanding items: the high-severity contract fixes
+(the fundamental-pattern contract, the strata leak on family combination,
+the two definitions of "categorical", the interaction layout and estimator),
+the medium design-friction items (`fit(raw = )` now defaults to `FALSE`,
+strata annotate in printed formulas, forest cells draw as scalable SVG, the
+group mask survives themes and formats, the one-family check compares
+links, data attaches by content when names diverge), and the parsimony
+passes (§2, §5, the sequential pattern, `rhs()`'s tree split).
+
+Still open, by choice:
+
+1. Engine-native strata (`survival::strata()` in a `coxph` formula) versus
+   `.s()` data splitting — a design question, not a defect
+2. Per-term versus per-level `::p` columns in the adjustment preset
+3. Serializing attached data frames (store only referenced columns?)

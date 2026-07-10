@@ -29,6 +29,10 @@ A \code{tibble} with one row per level of the interaction variable
 \item nobs: number of observations within the interaction level
 \item level: level of the interaction term
 }
+
+When the exposure is categorical, one such set of rows is returned per
+non-reference exposure level, and an \code{exposure_level} column names the
+exposure contrast.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -51,10 +55,17 @@ reference level first. Terms are matched to the model's coefficients by
 order), and the variance-covariance matrix is indexed by coefficient name
 — never by \code{grepl()} position.
 
+The exposure may also be \strong{categorical}: its non-reference levels each
+carry their own coefficient (\code{exposureLEVEL}), so the within-level effect
+is derived per exposure level, and the returned tibble gains an
+\code{exposure_level} column naming the exposure contrast each row belongs to.
+A numeric (including binary 0/1) exposure keeps the six-column shape.
+
 The \code{p_value} is the single across-levels test of interaction: with one
 interaction coefficient (a binary interaction) it is that coefficient's
-p-value; with several (a categorical interaction) it is the joint Wald
-chi-square test of all the interaction coefficients against zero.
+p-value; with several (a categorical interaction, a categorical exposure,
+or both) it is the joint Wald chi-square test of all the interaction
+coefficients against zero.
 }
 \references{
 A. Figueiras, J. M. Domenech-Massons, and Carmen Cadarso, 'Regression models:

@@ -466,7 +466,9 @@ compute_data_statistics <- function(dec, spec) {
 			stop(
 				"`add_events()` counts events per term level, but `", variable,
 				"` is not a categorical (factor) column of the attached dataset `",
-				id, "`.",
+				id, "`. A binary 0/1 column models and displays as continuous; ",
+				"convert it with `factor()` in the data (and refit) to show ",
+				"per-level statistics.",
 				call. = FALSE
 			)
 		}

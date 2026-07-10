@@ -131,12 +131,13 @@ test_that("patterns can be included into formula", {
 	f3 <- fmls(witch ~ .x(wicked) + west + green, pattern = "sequential")
 	expect_equal(nrow(f3), 3)
 
-	# Printing for sequential works
+	# Printing for sequential works; the stratum holds a matrix column of its
+	# own alongside the four modeling terms
 	x <- mpg ~ wt + hp + cyl + .s(am)
 	pattern <- "sequential"
 	f <- fmls(x, pattern = pattern)
 	expect_equal(nrow(f), 3)
-	expect_length(f, 4)
+	expect_length(f, 5)
 
 })
 
@@ -179,8 +180,35 @@ test_that("strata terms can be kept within the formula appropriately", {
 	x <- mpg ~ wt + hp + .s(am)
 	f <- fmls(x)
 	expect_length(key_terms(f), 4)
-	expect_equal(ncol(f), 3)
+	# The stratum is a member of the formula matrix like any other term (this
+	# is what scopes it to its own family when families combine)
+	expect_equal(ncol(f), 4)
 	expect_equal(nrow(f), 1)
+
+})
+
+test_that("strata stay scoped to the family that declared them", {
+
+	# A stratum from one family must not leak into a combined family that
+	# never asked for it (`fit()` would silently stratify the second family)
+	f <- suppressMessages(
+		c(fmls(mpg ~ .x(wt) + .s(am)), fmls(qsec ~ .x(hp)))
+	)
+
+	tms <- formulas_to_terms(f)
+	strataOf <- lapply(tms, function(t) {
+		with(vec_proxy(t), term[role == "strata"])
+	})
+	expect_equal(strataOf[[1]], "am")
+	expect_length(strataOf[[2]], 0)
+
+	# And the fitting plan agrees: only the mpg formula expands by stratum
+	plan <- fit_plan(f, data = mtcars)
+	expect_equal(
+		plan$strata_variable[plan$formula_index == 1],
+		c("am", "am")
+	)
+	expect_true(all(is.na(plan$strata_variable[plan$formula_index == 2])))
 
 })
 
@@ -205,3 +233,23 @@ test_that("terms with multiple roles can be converted to formulas", {
 	expect_equal(nrow(f), 10)
 })
 
+
+test_that("printed formulas annotate meta terms with their runes", {
+
+	withr::local_options(mesa.color = FALSE)
+
+	f <- fmls(mpg ~ .x(wt) + hp + .s(am))
+	expect_match(format(f), "mpg ~ wt + hp + .s(am)", fixed = TRUE)
+
+	# Random effects annotate the same way
+	r <- fmls(mpg ~ .x(wt) + .r(cyl))
+	expect_match(format(r), ".r(cyl)", fixed = TRUE)
+
+	# A stratum stays with its own family after combining
+	g <- fmls(mpg ~ .x(hp))
+	both <- c(f, g)
+	fmt <- format(both)
+	expect_match(fmt[1], ".s(am)", fixed = TRUE)
+	expect_false(grepl(".s(am)", fmt[2], fixed = TRUE))
+
+})

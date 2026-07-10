@@ -29,9 +29,16 @@ and \code{level} fields filled in from the data
 Terms begin as names; once they meet a dataset they gain a character. The
 \code{set_data()} function inspects each term's column in \code{data} and stamps on
 its \code{type} (categorical or continuous), \code{distribution} (dichotomous,
-ordinal, nominal, or continuous), and observed \code{level}s. This is the step
-that makes strata and interactions \emph{data-aware} — a stratifying term knows
-its levels before anything is fit.
+ordinal, nominal, binary, or continuous), and observed \code{level}s. This is
+the step that makes strata and interactions \emph{data-aware} — a stratifying
+term knows its levels before anything is fit.
+
+Binary and categorical are different definitions: a \emph{numeric} 0/1 column
+(e.g. a survival event indicator) is stamped \code{binary} and keeps the
+continuous type, matching how a model treats it (one quantitative
+coefficient); only factor-like columns are categorical and carry levels.
+Strata are the exception — a stratum splits the data by its observed
+values whatever their type, so its levels are always stamped.
 
 Terms wrapped in transformations (e.g. \code{log(x)}) are classified from their
 underlying variable. Terms without a matching column are left untouched.

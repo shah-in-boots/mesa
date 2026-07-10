@@ -7,7 +7,8 @@
 describe(x, property)
 }
 \arguments{
-\item{x}{A vector \code{tm} objects}
+\item{x}{A vector of \code{tm} objects, or a \code{fmls} object (whose key terms are
+described)}
 
 \item{property}{A character vector of the following attributes of a \code{tm}
 object: role, side, label, group, description, type, distribution, level}
@@ -17,11 +18,15 @@ A list of \code{term = property} pairs, where the term is the name of the
 element (e.g. could be the `role' of the term).
 }
 \description{
-Describe attributes of a \code{tm} vector
+The printed form of a \code{fmls} object shows roles through term coloring
+rather than spelling them out; \code{describe()} is the explicit route to that
+information (e.g. \code{describe(f, "role")} on a \code{fmls} object).
 }
 \examples{
 f <- .o(output) ~ .x(input) + .m(mediator) + random
 t <- tm(f)
 describe(t, "role")
+
+describe(fmls(mpg ~ .x(wt) + hp), "role")
 
 }

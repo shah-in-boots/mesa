@@ -2,13 +2,14 @@
 % Please edit documentation in R/table-selection.R
 \name{selection_data}
 \alias{selection_data}
-\title{Pick the dataset a model table's rows refer to}
+\title{The datasets a model table's rows refer to, in reference order}
 \usage{
 selection_data(x)
 }
 \description{
 The attached data is the canonical source for a categorical term's levels.
-When several datasets are attached, the one the rows reference is used; a
-single attached dataset is taken as-is.
+Datasets the rows reference come first (in row order), so the
+first-referenced dataset that carries a term's column speaks for that term;
+attached-but-unreferenced datasets follow as fallbacks.
 }
 \keyword{internal}

@@ -41,8 +41,6 @@ as_gt.mesa <- function(x, ...) {
 
 # The render stage -------------------------------------------------------------
 
-# The render stage -------------------------------------------------------------
-
 #' Render a cell frame to a `{gt}` table
 #'
 #' The *render* stage, and the only place in the package that emits `{gt}`
@@ -265,9 +263,11 @@ format_cell <- function(value, format, missing_text) {
 #' into every row of the group (done at pivot), exactly one copy stays
 #' visible, vertically centered on the band (with an even row count, the row
 #' above the seam, bottom-aligned, which is what makes it float on the seam),
-#' and the duplicates are masked with white zero-size text. The mask is a
-#' render artifact and never appears in the cell frame; if `{gt}` ever grows
-#' body rowspans, only this function changes.
+#' and the duplicates are blanked by a text transform — a content substitution
+#' rather than a white-text style, so the mask holds on dark themes and on
+#' every output format (LaTeX, RTF, Word). The mask is a render artifact and
+#' never appears in the cell frame; if `{gt}` ever grows body rowspans, only
+#' this function changes.
 #' @keywords internal
 #' @noRd
 apply_group_scoped <- function(gtbl, placements) {
@@ -284,13 +284,13 @@ apply_group_scoped <- function(gtbl, placements) {
 			)
 		)
 		if (length(placement$masked) > 0) {
-			gtbl <- gt::tab_style(
+			gtbl <- gt::text_transform(
 				gtbl,
-				style = gt::cell_text(color = "white", size = gt::px(0)),
 				locations = gt::cells_body(
 					columns = dplyr::all_of(placement$column),
 					rows = !!placement$masked
-				)
+				),
+				fn = function(x) rep("", length(x))
 			)
 		}
 	}
@@ -424,12 +424,34 @@ resolve_plot_scale <- function(values, options = NULL) {
 #' [gt::ggplot_image()] draws every plot on a fixed 5-inch canvas and squashes
 #' it to the displayed height, which shrinks each mark ~17-fold -- the point
 #' and interval come out sub-pixel, effectively invisible. The cells here
-#' render at their true pixel size (doubled for sharpness on dense displays),
-#' so the drawn weights survive to the page and every cell in a column shares
-#' identical panel geometry -- what makes the column read as one forest plot.
+#' render at their true size, so the drawn weights survive to the page and
+#' every cell in a column shares identical panel geometry -- what makes the
+#' column read as one forest plot.
+#'
+#' Cells draw as vector SVG (each its own base64 `data:` document, so glyph
+#' ids cannot collide across cells), sized in `em` units so they scale with
+#' the text they sit beside instead of holding a fixed pixel geometry. A
+#' build without cairo falls back to the fixed-size PNG.
 #' @keywords internal
 #' @noRd
 plot_image <- function(plot, width, height) {
+
+	if (isTRUE(capabilities("cairo")[[1]])) {
+		file <- tempfile(fileext = ".svg")
+		on.exit(unlink(file))
+		ggplot2::ggsave(
+			file, plot = plot, device = grDevices::svg, bg = "transparent",
+			width = width / 96, height = height / 96
+		)
+		tag <- as.character(gt::local_image(file, height = height))
+		# The fixed pixel height becomes em units (16 px = 1 em, the CSS root
+		# default); the width follows from the SVG's intrinsic aspect ratio
+		return(sub(
+			"height:[0-9.]+px;",
+			sprintf("height:%sem;", format(round(height / 16, 3))),
+			tag
+		))
+	}
 
 	file <- tempfile(fileext = ".png")
 	on.exit(unlink(file))

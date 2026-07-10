@@ -33,7 +33,7 @@ test_that("model constructors work for initialization", {
 	# Will only handle first model
 	m <- construct_table_from_models(x)
 	expect_s3_class(m, "mdl_tbl")
-	expect_length(m, 17)
+	expect_length(m, 16)
 	expect_equal(nrow(m), 1) # Only one strata level at a time
 
 	# Provenance columns are type-stable
@@ -68,7 +68,7 @@ test_that("can handle list of models appropriately", {
 	expect_s3_class(z, "mdl_tbl")
 	expect_output(print(z), "<model_table>")
 	expect_equal(nrow(z), 3)
-	expect_length(z, 17)
+	expect_length(z, 16)
 	expect_length(attr(z, "termTable")$term, 7)
 	expect_length(unique(attr(z, "termTable")$term), 6)
 	expect_length(attr(z, "formulaMatrix"), 6)
@@ -115,7 +115,7 @@ test_that("formulas can be input into a model table", {
 	x <- fmls(f, pattern = "sequential")
 	m <- construct_table_from_formulas(list(x))
 	expect_s3_class(m, "mdl_tbl")
-	expect_length(m, 17)
+	expect_length(m, 16)
 	expect_equal(nrow(m), 3)
 
 	# Unfit formulas have list columns awaiting their fits, not logical holes
@@ -209,10 +209,11 @@ test_that("dplyr compatibility", {
 	x <- model_table(m1, m2)
 	expect_equal(model_table(list(m1, m2)), x)
 
-	# Row subsets downscale every attribute to the remaining models
+	# Row subsets downscale every attribute to the remaining models; the
+	# stratum `am` holds a formula-matrix column like any other term
 	y <- x[1:2, ]
 	a <- attributes(y)
-	expect_length(a$formulaMatrix, 3)
+	expect_length(a$formulaMatrix, 4)
 	expect_equal(nrow(a$formulaMatrix), 2)
 	expect_length(a$termTable$term, 4)
 	expect_false("vs" %in% a$termTable$term)
@@ -317,9 +318,10 @@ test_that("attributes of models will adjust appropriately", {
 		fmls(mpg ~ wt + hp + cyl + .s(am), pattern = "sequential") |>
 		fit(.fn = lm, data = mtcars, raw = FALSE) |>
 		model_table()
-	expect_length(m1, 17)
+	expect_length(m1, 16)
 	expect_equal(nrow(m1), 6)
-	expect_length(attr(m1, "formulaMatrix"), 4)
+	# Four modeling terms plus the ridden-along stratum column
+	expect_length(attr(m1, "formulaMatrix"), 5)
 	expect_equal(nrow(attr(m1, "termTable")), 5)
 
 	m2 <-
@@ -331,7 +333,7 @@ test_that("attributes of models will adjust appropriately", {
 	m3 <- vec_c(m1, m2)
 	expect_s3_class(m3, "mdl_tbl")
 	expect_equal(nrow(m3), 8)
-	expect_length(attr(m3, "formulaMatrix"), 4)
+	expect_length(attr(m3, "formulaMatrix"), 5)
 	expect_equal(nrow(attr(m3, "termTable")), 7)
 
 	# Filtering tables prunes terms to the roles the rows still claim,

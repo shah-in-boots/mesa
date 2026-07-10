@@ -1,0 +1,208 @@
+---
+title: "Usage: terms → formulas → models → tables"
+---
+
+```{r}
+#| include: false
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+Working surface for interactive development. One continuous walkthrough of the
+pipeline, layer by layer — point at a chunk, say what looks wrong, we repair
+it. Succinct by intent; the machinery behind each chunk is in
+`vignette("internals")`.
+
+```{r setup}
+library(mesa)
+d <- mtcars
+d$cyl <- factor(d$cyl)
+d$am <- factor(d$am, levels = c(0, 1), labels = c("Automatic", "Manual"))
+```
+
+## 1. Terms
+
+Roles declared inline with runes (`.x()` exposure, `.o()` outcome, `.s()`
+strata, `.i()` interaction, `.m()` mediator, ...):
+
+```{r}
+t <- tm(mpg ~ .x(wt) + hp + .s(am))
+t
+describe(t, "role")
+```
+
+Terms become data-aware when they meet a dataset — type, distribution, and
+levels get stamped on:
+
+```{r}
+t <- set_data(t, d)
+describe(t, "level")
+```
+
+## 2. Formulas
+
+A `fmls` is a *family*: one recipe, many formulas, expanded by a pattern.
+
+```{r}
+fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential")
+```
+
+```{r}
+fmls(mpg ~ .x(wt) + hp + cyl, pattern = "parallel")
+```
+
+The listing *is* the display: roles show through the term coloring rather
+than a legend, and `describe()` reads them off a family directly:
+
+```{r}
+describe(fmls(mpg ~ .x(wt) + hp), "role")
+```
+
+Strata ride along as *meta* terms — annotated in the printed family with
+their declared rune, absent from the fitted formula itself:
+
+```{r}
+f <- fmls(mpg ~ .x(wt) + hp + .s(am))
+f
+formula(f)
+```
+
+> ✓ **Resolved (2026-07-09).** The stratum splits data at `fit()` — it is not
+> a covariate — so `formula()` and the `formula_call` column stay the true
+> fitted (unstratified) formula. The *printed* family now carries `.s(am)`
+> after the right-hand terms (random effects annotate as `.r(...)` the same
+> way), so a stratified model can no longer be misread as unstratified.
+
+Interactions cross with the exposure automatically:
+
+```{r}
+fmls(mpg ~ .x(hp) + .i(cyl))
+```
+
+A mediator triggers the causal triad:
+
+```{r}
+fmls(mpg ~ .x(wt) + .m(hp) + qsec)
+```
+
+Families are playable after the fact:
+
+```{r}
+fmls(mpg ~ .x(wt) + hp) |>
+  add_strata(am) |>
+  subset_data(disp > 100)
+```
+
+## 3. Models
+
+The plan comes before the fit — formula × stratum × subset, inspectable:
+
+```{r}
+fs <- fmls(mpg ~ .x(wt) + hp, pattern = "sequential") |> add_strata(am)
+fit_plan(fs, data = d)
+```
+
+`fit()` keeps the causal context attached by default (a `mdl` vector;
+`raw = TRUE` opts out for a quick look at the plain fits); `model_table()`
+is the notebook of models:
+
+```{r}
+m <- fit(fs, .fn = lm, data = d)
+mt <- model_table(m, data = d)
+mt
+```
+
+> ✓ **Resolved (2026-07-09).** `raw = FALSE` is now the default, so the main
+> path no longer repeats the argument at every call.
+
+```{r}
+summary(mt)
+```
+
+Estimates, one row per parameter:
+
+```{r}
+flatten_models(mt)
+```
+
+## 4. Tables — the mesa
+
+```{r}
+mt2 <-
+  fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential") |>
+  fit(.fn = lm, data = d) |>
+  model_table(data = d)
+```
+
+A bare `mesa()` is already a table; printing shows the specification without
+rendering:
+
+```{r}
+mt2 |> mesa()
+mt2 |> mesa() |> as_gt()
+```
+
+Grown one verb at a time — select, add, modify, in any order:
+
+```{r}
+mt2 |>
+  mesa() |>
+  select_adjustment(1 ~ "Unadjusted", 3 ~ "Fully adjusted") |>
+  add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI")) |>
+  modify_labels(wt ~ "Weight (1000 lbs)") |>
+  as_gt()
+```
+
+### The `"levels"` layout: events, rates, hazard ratios
+
+```{r}
+#| eval: !expr requireNamespace("survival", quietly = TRUE)
+lung <- survival::lung
+lung$sex <- factor(lung$sex, levels = 1:2, labels = c("Male", "Female"))
+
+mtSurv <-
+  fmls(Surv(time, status) ~ .x(sex) + age, pattern = "sequential") |>
+  fit(.fn = survival::coxph, data = lung) |>
+  model_table(data = lung)
+
+mtSurv |>
+  mesa() |>
+  modify_layout(preset = "levels") |>
+  select_adjustment(1 ~ "Unadjusted", 2 ~ "Age-adjusted") |>
+  add_events(followup = time) |>
+  add_rate_difference() |>
+  add_estimates(columns = list(beta ~ "HR", conf ~ "95% CI")) |>
+  as_gt()
+```
+
+### The `"interaction"` layout, with a forest column
+
+```{r}
+mtInt <-
+  fmls(mpg ~ .x(hp) + .i(cyl)) |>
+  fit(.fn = lm, data = d) |>
+  model_table(data = d)
+
+mtInt |>
+  mesa() |>
+  add_interaction() |>
+  add_n(label = "No.") |>
+  add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI",
+                               p ~ "P for interaction")) |>
+  add_forest() |>
+  as_gt()
+```
+
+> ✓ **Resolved (2026-07-09).** Forest cells now draw as inline vector SVG
+> sized in `em` units, so they scale with the text they sit beside (a build
+> without cairo falls back to the old fixed-size PNG). See
+> `vignette("internals")` §7.
+
+### Style
+
+```{r}
+mt2 |>
+  mesa() |>
+  add_estimates() |>
+  modify_style(accents = list(p < 0.05 ~ "bold"), digits = 3) |>
+  as_gt()
+```

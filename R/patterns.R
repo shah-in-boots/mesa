@@ -101,6 +101,33 @@ apply_pattern <- function(x, pattern) {
 	patternFn(x)
 }
 
+#' The terms of each causal role, pulled once from a term table
+#' @keywords internal
+#' @noRd
+pattern_roles <- function(tmTab) {
+	roles <- c("outcome", "exposure", "predictor", "confounder",
+						 "mediator", "interaction", "strata")
+	stats::setNames(
+		lapply(roles, function(r) tmTab$term[tmTab$role == r]),
+		roles
+	)
+}
+
+#' The outcome x exposure "key pair" grid every pattern expands from
+#' @keywords internal
+#' @noRd
+key_pair_grid <- function(out, exp) {
+	if (length(out) > 0 && length(exp) > 0) {
+		tidyr::expand_grid(outcome = out, exposure = exp)
+	} else if (length(out) > 0) {
+		tidyr::expand_grid(outcome = out)
+	} else if (length(exp) > 0) {
+		tidyr::expand_grid(exposure = exp)
+	} else {
+		tidyr::expand_grid()
+	}
+}
+
 #' @rdname patterns
 #' @export
 apply_fundamental_pattern <- function(x) {
@@ -111,28 +138,29 @@ apply_fundamental_pattern <- function(x) {
 	# Handle roles
 	out <- tmTab$term[tmTab$role == "outcome"]
 	exp <- tmTab$term[tmTab$role == "exposure"]
-	prd <- tmTab$term[tmTab$role == "predictor"]
-	con <- tmTab$term[tmTab$role == "confounder"]
-	med <- tmTab$term[tmTab$role == "mediator"]
-	int <- tmTab$term[tmTab$role == "interaction"]
-	sta <- tmTab$term[tmTab$role == "strata"]
 
-	# Outcomes and exposures should be set as a "key pair"
-	if (length(out) > 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(outcome = out, exposure = exp)
-	} else if (length(out) > 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid(outcome = out)
-	} else if (length(out) == 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(exposure = exp)
-	} else if (length(out) == 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid()
+	# Fundamental decomposition pairs each outcome with exactly one
+	# right-hand-side term per formula. The exposure keeps its key-pair
+	# column; every other non-outcome term takes a row as the single
+	# covariate. (Meta terms are demoted to predictors by `fmls()` before
+	# this pattern runs, so they decompose like any other term.)
+	cov <- tmTab$term[!tmTab$role %in% c("outcome", "exposure")]
+
+	pair <- function(col, terms) {
+		if (length(terms) == 0) {
+			return(NULL)
+		}
+		if (length(out) > 0) {
+			tidyr::expand_grid(outcome = out, "{col}" := terms)
+		} else {
+			tibble::tibble("{col}" := terms)
+		}
 	}
 
-	# This forms the right hand side variables
-	# However fundamental decomposition breaks the rules generally
-	cov <- c(exp, prd, con, med, int, sta)
-	tbl <- tidyr::expand_grid(left = out, right = cov)
-	message_fundamental_pattern(med, sta)
+	tbl <- dplyr::bind_rows(pair("exposure", exp), pair("covariate_1", cov))
+	if (nrow(tbl) == 0) {
+		tbl <- tidyr::expand_grid(outcome = out)
+	}
 
 	# Return
 	tbl
@@ -144,31 +172,14 @@ apply_fundamental_pattern <- function(x) {
 #' @export
 apply_direct_pattern <- function(x) {
 
-	# Term table
-	tmTab <- vec_proxy(x)
-
-	# Handle roles
-	out <- tmTab$term[tmTab$role == "outcome"]
-	exp <- tmTab$term[tmTab$role == "exposure"]
-	prd <- tmTab$term[tmTab$role == "predictor"]
-	con <- tmTab$term[tmTab$role == "confounder"]
-	med <- tmTab$term[tmTab$role == "mediator"]
-	int <- tmTab$term[tmTab$role == "interaction"]
-	sta <- tmTab$term[tmTab$role == "strata"]
+	# Roles
+	roles <- pattern_roles(vec_proxy(x))
 
 	# Outcomes and exposures should be set as a "key pair"
-	if (length(out) > 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(outcome = out, exposure = exp)
-	} else if (length(out) > 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid(outcome = out)
-	} else if (length(out) == 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(exposure = exp)
-	} else if (length(out) == 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid()
-	}
+	tbl <- key_pair_grid(roles$outcome, roles$exposure)
 
 	# Covariates would be everything
-	cov <- c(prd, con, int)
+	cov <- c(roles$predictor, roles$confounder, roles$interaction)
 
 	if (length(cov) > 0) {
 		for (i in seq_along(cov)) {
@@ -185,28 +196,11 @@ apply_direct_pattern <- function(x) {
 #' @export
 apply_sequential_pattern <- function(x) {
 
-	# Term table
-	tmTab <- vec_proxy(x)
-
-	# Handle roles
-	out <- tmTab$term[tmTab$role == "outcome"]
-	exp <- tmTab$term[tmTab$role == "exposure"]
-	prd <- tmTab$term[tmTab$role == "predictor"]
-	con <- tmTab$term[tmTab$role == "confounder"]
-	med <- tmTab$term[tmTab$role == "mediator"]
-	int <- tmTab$term[tmTab$role == "interaction"]
-	sta <- tmTab$term[tmTab$role == "strata"]
+	# Roles
+	roles <- pattern_roles(vec_proxy(x))
 
 	# Outcomes and exposures should be set as a "key pair"
-	if (length(out) > 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(outcome = out, exposure = exp)
-	} else if (length(out) > 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid(outcome = out)
-	} else if (length(out) == 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(exposure = exp)
-	} else if (length(out) == 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid()
-	}
+	tbl <- key_pair_grid(roles$outcome, roles$exposure)
 
 	## Covariate order
 	# Covariates are all predictors on RHS
@@ -214,99 +208,38 @@ apply_sequential_pattern <- function(x) {
 	# Cool enough, 'x' as a `tm` works for matching as a `character`
 	# Interaction terms should be placed next to each other
 
-	cov <- c(prd, con, int)
+	cov <- c(roles$predictor, roles$confounder, roles$interaction)
 	cov <- cov[order(match(cov, x))]
-
-
-	# Expand based on number of covariates
-	for (i in seq_along(cov)) {
-		tbl <-
-			tidyr::expand_grid(tbl, "{paste0('covariate_', i)}" := c(NA, cov[i]))
-	}
-
-	# Remove rows that are not appropriate...
-	# 	e.g. no exposure or covariates
-	# 	e.g. doesn't follow sequential rules
 	n <- length(cov)
 
-	if (n > 0 & !("exposure" %in% names(tbl))) {
-		tbl <- tbl[which(!is.na(tbl[["covariate_1"]])), ]
+	if (n == 0) {
+		return(tbl)
 	}
 
-	ntbl <- list()
+	# The sequential family is the covariate prefixes — {}, {c1}, {c1, c2},
+	# ... — built directly, one row per prefix; the bare key-pair row only
+	# stands when an exposure anchors it
+	prefixes <- seq(if ("exposure" %in% names(tbl)) 0 else 1, n)
+	covTbl <-
+		dplyr::bind_rows(lapply(prefixes, function(k) {
+			vals <- as.list(c(cov[seq_len(k)], rep(NA_character_, n - k)))
+			names(vals) <- paste0("covariate_", seq_len(n))
+			tibble::as_tibble(vals)
+		}))
 
-	for (i in seq_along(cov)) {
-		# Potential columns, may not exist
-		pc <- paste0("covariate_", i - 1)
-		cc <- paste0("covariate_", i + 0)
-		nc <- paste0("covariate_", i + 1)
-
-		if (i == 1 & n == 1) {
-			 # If there is only a single term overall, then it must be present?
-			ntbl <- list()
-		} else if (i == 1) {
-			# First term
-			# If missing, future terms cannot be present either
-			ntbl[[i]] <-
-				tbl |>
-				dplyr::filter(is.na(!!rlang::sym(cc)) & !is.na(!!rlang::sym(nc)))
-
-		} else if (i == n) {
-			# Last term
-			# If present, previous term must also be present
-			ntbl[[i]] <-
-				tbl |>
-				dplyr::filter(!is.na(!!rlang::sym(cc)) & is.na(!!rlang::sym(pc)))
-
-		} else {
-			# All other rows
-			# If variable i is empty, i...n must also be empty
-			ntbl[[i]] <-
-				tbl |>
-				dplyr::filter(
-					(!is.na(!!rlang::sym(cc)) & is.na(!!rlang::sym(pc))) |
-						(is.na(!!rlang::sym(cc)) & !is.na(!!rlang::sym(nc)))
-				)
-
-		}
-	}
-
-	# Combine the bad tables together and cull them from original tables
-	ntbl <- unique(dplyr::bind_rows(ntbl))
-	if (nrow(ntbl) > 0) {
-		tbl <- suppressMessages(dplyr::anti_join(tbl, ntbl))
-	}
-
-	# Return
-	tbl
+	tidyr::expand_grid(tbl, covTbl)
 }
 
 #' @rdname patterns
 #' @export
 apply_parallel_pattern <- function(x) {
 
-	# Term table
+	# Term table (the grouping tiers below need more than the role names)
 	tmTab <- vec_proxy(x)
-
-	# Handle roles
-	out <- tmTab$term[tmTab$role == "outcome"]
-	exp <- tmTab$term[tmTab$role == "exposure"]
-	prd <- tmTab$term[tmTab$role == "predictor"]
-	con <- tmTab$term[tmTab$role == "confounder"]
-	med <- tmTab$term[tmTab$role == "mediator"]
-	int <- tmTab$term[tmTab$role == "interaction"]
-	sta <- tmTab$term[tmTab$role == "strata"]
+	roles <- pattern_roles(tmTab)
 
 	# Outcomes and exposures should be set as a "key pair"
-	if (length(out) > 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(outcome = out, exposure = exp)
-	} else if (length(out) > 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid(outcome = out)
-	} else if (length(out) == 0 & length(exp) > 0) {
-		tbl <- tidyr::expand_grid(exposure = exp)
-	} else if (length(out) == 0 & length(exp) == 0) {
-		tbl <- tidyr::expand_grid()
-	}
+	tbl <- key_pair_grid(roles$outcome, roles$exposure)
 
 	# This needs to handle the issue of grouped variables
 	# Group = NA generic variables that can be parallelized

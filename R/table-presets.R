@@ -56,7 +56,7 @@ spanner_sep <- "///"
 #' @noRd
 mesa_cell_frame <- function(dec, spec) {
 
-	ctx <- frame_context(dec, spec)
+	ctx <- frame_context(spec)
 
 	switch(
 		spec$layout$preset,
@@ -77,7 +77,7 @@ mesa_cell_frame <- function(dec, spec) {
 #' resolve block first, then the table-wide style, then 2.
 #' @keywords internal
 #' @noRd
-frame_context <- function(dec, spec) {
+frame_context <- function(spec) {
 
 	estBlock <- mesa_column_block(spec, "estimates")
 	nBlock <- mesa_column_block(spec, "n")
@@ -633,7 +633,7 @@ mesa_interaction_frame <- function(x) {
 			call. = FALSE
 		)
 	}
-	ctx <- frame_context(NULL, x)
+	ctx <- frame_context(x)
 	if (!is.null(ctx$evBlock) || !is.null(ctx$rdBlock)) {
 		stop(
 			"The `interaction` layout does not carry event or rate columns at ",
@@ -681,6 +681,22 @@ realize_interaction <- function(x, block) {
 		)
 	}
 
+	# One model per interaction term: rows are keyed by term and level, so
+	# several models sharing an interaction term would silently overwrite one
+	# another's cells at pivot. (Qualifying the rows per model is the future
+	# extension; at launch the layout realizes one row-set per term.)
+	dupInts <- unique(models$interaction[duplicated(models$interaction)])
+	if (length(dupInts) > 0) {
+		stop(
+			"The `interaction` layout shows one model per interaction term, but ",
+			"several selected models share ",
+			paste0("`", dupInts, "`", collapse = ", "),
+			". Narrow the mesa (e.g. `select_adjustment()`) so each interaction ",
+			"term comes from a single model.",
+			call. = FALSE
+		)
+	}
+
 	# The scale decision is the estimates block's, deferring to the M5 family
 	# inference by default -- the same contract as every other table
 	estBlock <- mesa_column_block(x, "estimates")
@@ -688,6 +704,20 @@ realize_interaction <- function(x, block) {
 		models, exponentiate = if (is.null(estBlock)) NULL else estBlock$exponentiate
 	))
 	expByModel <- tapply(flat$exponentiated, flat$interaction, unique)
+
+	# Each interaction term is one model here (checked above), so its scale
+	# must resolve to a single decision; a mixed flag falling silently onto
+	# the linear scale would misstate every exponentiated estimate
+	mixedScale <- names(expByModel)[lengths(expByModel) != 1]
+	if (length(mixedScale) > 0) {
+		stop(
+			"The models behind ",
+			paste0("`", mixedScale, "`", collapse = ", "),
+			" do not resolve to one estimate scale. Set ",
+			"`add_estimates(exponentiate = )` explicitly.",
+			call. = FALSE
+		)
+	}
 
 	# Interaction-term labels default from the term table
 	ints <- unique(models$interaction)
@@ -701,6 +731,21 @@ realize_interaction <- function(x, block) {
 			interaction = row$interaction,
 			conf_level = block$conf_level
 		)
+		# A categorical exposure returns one row-set per exposure contrast; the
+		# layout keys rows by interaction level alone, so it can carry exactly
+		# one contrast (a binary factor exposure) at launch
+		if ("exposure_level" %in% names(est)) {
+			if (length(unique(est$exposure_level)) > 1) {
+				stop(
+					"The `interaction` layout shows one within-level effect per ",
+					"interaction level, but the categorical exposure `",
+					row$exposure, "` has more than two levels. Refit with a ",
+					"two-level exposure, or use `estimate_interaction()` directly.",
+					call. = FALSE
+				)
+			}
+			est$exposure_level <- NULL
+		}
 		if (isTRUE(expByModel[[row$interaction]])) {
 			est$estimate <- exp(est$estimate)
 			est$conf_low <- exp(est$conf_low)

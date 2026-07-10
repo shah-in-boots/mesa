@@ -23,10 +23,17 @@
 #' order), and the variance-covariance matrix is indexed by coefficient name
 #' — never by `grepl()` position.
 #'
+#' The exposure may also be **categorical**: its non-reference levels each
+#' carry their own coefficient (`exposureLEVEL`), so the within-level effect
+#' is derived per exposure level, and the returned tibble gains an
+#' `exposure_level` column naming the exposure contrast each row belongs to.
+#' A numeric (including binary 0/1) exposure keeps the six-column shape.
+#'
 #' The `p_value` is the single across-levels test of interaction: with one
 #' interaction coefficient (a binary interaction) it is that coefficient's
-#' p-value; with several (a categorical interaction) it is the joint Wald
-#' chi-square test of all the interaction coefficients against zero.
+#' p-value; with several (a categorical interaction, a categorical exposure,
+#' or both) it is the joint Wald chi-square test of all the interaction
+#' coefficients against zero.
 #'
 #' @param object A `mdl_tbl` object subset to a single row
 #'
@@ -53,6 +60,10 @@
 #'   - nobs: number of observations within the interaction level
 #'
 #'   - level: level of the interaction term
+#'
+#'   When the exposure is categorical, one such set of rows is returned per
+#'   non-reference exposure level, and an `exposure_level` column names the
+#'   exposure contrast.
 #'
 #' @references
 #' A. Figueiras, J. M. Domenech-Massons, and Carmen Cadarso, 'Regression models:
@@ -110,7 +121,35 @@ estimate_interaction <- function(object,
 	varCov <- mod$var_cov[[1]]
 	degFree <- unique(mod$degrees_freedom)[1]
 
-	if (!exposure %in% nms) {
+	# The exposure's coefficient key(s): the bare name when it was modeled
+	# numerically, or one key per non-reference level (`exposureLEVEL`, the
+	# treatment-contrast naming) when the exposure is categorical
+	if (exposure %in% nms) {
+		expKeys <- stats::setNames(exposure, NA_character_)
+	} else if (exposure %in% names(dat)) {
+		expLvls <- levels(factor(dat[[exposure]]))
+		candidates <- paste0(exposure, expLvls[-1])
+		found <- candidates %in% nms
+		if (length(expLvls) < 2 || !any(found)) {
+			stop(
+				"The exposure term `", exposure, "` was not found among the ",
+				"model's terms, neither as itself nor as level coefficients (",
+				paste0("`", nms, "`", collapse = ", "), ").",
+				call. = FALSE
+			)
+		}
+		if (!all(found)) {
+			stop(
+				"The exposure `", exposure, "` is categorical, but the level ",
+				"coefficient(s) ",
+				paste0("`", candidates[!found], "`", collapse = ", "),
+				" were not found among the model's terms. The attached dataset `",
+				object$data_id, "` may not be the data the model was fit on.",
+				call. = FALSE
+			)
+		}
+		expKeys <- stats::setNames(candidates, expLvls[-1])
+	} else {
 		stop(
 			"The exposure term `", exposure, "` was not found among the model's ",
 			"terms (", paste0("`", nms, "`", collapse = ", "), ").",
@@ -133,12 +172,12 @@ estimate_interaction <- function(object,
 	# The tidy key of a level's interaction coefficient, by identity: the
 	# factor form (`exposure:interactionLevel`, either variable order), or the
 	# bare form when the interaction was modeled numerically
-	interaction_key <- function(lvl) {
+	interaction_key <- function(expKey, lvl) {
 		candidates <- c(
-			paste0(exposure, ":", interaction, lvl),
-			paste0(interaction, lvl, ":", exposure),
-			paste0(exposure, ":", interaction),
-			paste0(interaction, ":", exposure)
+			paste0(expKey, ":", interaction, lvl),
+			paste0(interaction, lvl, ":", expKey),
+			paste0(expKey, ":", interaction),
+			paste0(interaction, ":", expKey)
 		)
 		hit <- candidates[candidates %in% nms]
 		if (length(hit) == 0) {
@@ -152,7 +191,9 @@ estimate_interaction <- function(object,
 		}
 		hit[1]
 	}
-	intKeys <- vapply(lvls[-1], interaction_key, character(1))
+	intKeys <- unlist(lapply(expKeys, function(k) {
+		vapply(lvls[-1], interaction_key, character(1), expKey = k)
+	}), use.names = FALSE)
 
 	# The variance-covariance matrix is indexed by coefficient name
 	if (is.null(rownames(varCov))) {
@@ -183,28 +224,35 @@ estimate_interaction <- function(object,
 			stats::qt(conf_level / 2 + 0.5, df = degFree)
 		}
 
-	# One row per level: the reference level is the exposure coefficient
-	# alone; level j adds its interaction coefficient, with the covariance in
-	# the variance
-	rows <- vector("list", length(lvls))
-	rows[[1]] <- list(
-		estimate = coefs[[exposure]],
-		variance = vc(exposure, exposure),
-		level = lvls[1],
-		nobs = counts[[lvls[1]]]
-	)
-	for (i in seq_along(intKeys)) {
-		key <- intKeys[[i]]
-		rows[[i + 1]] <- list(
-			estimate = coefs[[exposure]] + coefs[[key]],
-			variance = vc(exposure, exposure) + vc(key, key) +
-				2 * vc(exposure, key),
-			level = lvls[i + 1],
-			nobs = counts[[lvls[i + 1]]]
+	# One row per interaction level (per exposure level, when the exposure is
+	# categorical): the reference level is the exposure coefficient alone;
+	# level j adds its interaction coefficient, with the covariance in the
+	# variance
+	rows <- list()
+	for (e in seq_along(expKeys)) {
+		expKey <- expKeys[[e]]
+		expLvl <- names(expKeys)[e]
+		rows[[length(rows) + 1]] <- list(
+			estimate = coefs[[expKey]],
+			variance = vc(expKey, expKey),
+			level = lvls[1],
+			nobs = counts[[lvls[1]]],
+			exposure_level = expLvl
 		)
+		for (lvl in lvls[-1]) {
+			key <- interaction_key(expKey, lvl)
+			rows[[length(rows) + 1]] <- list(
+				estimate = coefs[[expKey]] + coefs[[key]],
+				variance = vc(expKey, expKey) + vc(key, key) +
+					2 * vc(expKey, key),
+				level = lvl,
+				nobs = counts[[lvl]],
+				exposure_level = expLvl
+			)
+		}
 	}
 
-	dplyr::bind_rows(lapply(rows, function(r) {
+	out <- dplyr::bind_rows(lapply(rows, function(r) {
 		half <- critical * sqrt(r$variance)
 		tibble::tibble(
 			estimate = r$estimate,
@@ -212,7 +260,16 @@ estimate_interaction <- function(object,
 			conf_high = r$estimate + half,
 			p_value = pval,
 			nobs = r$nobs,
-			level = r$level
+			level = r$level,
+			exposure_level = r$exposure_level
 		)
 	}))
+
+	# The `exposure_level` column only appears when the exposure is
+	# categorical; a numeric exposure keeps the documented six columns
+	if (all(is.na(out$exposure_level))) {
+		out$exposure_level <- NULL
+	}
+
+	out
 }
