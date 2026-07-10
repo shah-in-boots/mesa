@@ -264,10 +264,24 @@ frame_row_context <- function(dec, layout) {
 		}, character(1))
 		list(group = group, key = paste0(dec$adj_label, qual))
 	} else {
-		list(
-			group = dec$outcome_label,
-			key = paste0(dec$adj_label, row_qualifier(dec))
-		)
+		# The parenthetical qualifier distinguishes stratified / subset /
+		# multi-dataset rows in the minimal layout
+		nData <- length(unique(stats::na.omit(dec$data_id)))
+		qual <- vapply(seq_len(nrow(dec)), function(i) {
+			parts <- c(
+				if (!is.na(dec$strata[i])) {
+					paste0(dec$strata[i], "=", dec$stratum_level[i])
+				},
+				if (!is.na(dec$subset[i])) dec$subset[i],
+				if (nData > 1 && !is.na(dec$data_id[i])) dec$data_id[i]
+			)
+			if (length(parts) > 0) {
+				paste0(" (", paste(parts, collapse = ", "), ")")
+			} else {
+				""
+			}
+		}, character(1))
+		list(group = dec$outcome_label, key = paste0(dec$adj_label, qual))
 	}
 }
 
@@ -899,21 +913,5 @@ assemble_cell_frame <- function(cells, rows, cols) {
 	), , drop = FALSE]
 
 	tibble::as_tibble(frame[frame_fields])
-}
-
-#' A parenthetical qualifier distinguishing stratified / subset / multi-dataset
-#' rows in the minimal layout
-#' @keywords internal
-#' @noRd
-row_qualifier <- function(dec) {
-	nData <- length(unique(stats::na.omit(dec$data_id)))
-	vapply(seq_len(nrow(dec)), function(i) {
-		parts <- c(
-			if (!is.na(dec$strata[i])) paste0(dec$strata[i], "=", dec$stratum_level[i]),
-			if (!is.na(dec$subset[i])) dec$subset[i],
-			if (nData > 1 && !is.na(dec$data_id[i])) dec$data_id[i]
-		)
-		if (length(parts) > 0) paste0(" (", paste(parts, collapse = ", "), ")") else ""
-	}, character(1))
 }
 

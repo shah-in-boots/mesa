@@ -266,31 +266,46 @@ new_model_from_fit <- function(x,
 				 subsetName = subset_name)
 
 	si <- summaryInfo
-	si$degrees_freedom <- model_degrees_freedom(x)
+
+	# Degrees of freedom by each model family's own accounting
+	dfRes <- tryCatch(stats::df.residual(x), error = function(e) NULL)
+	if (is.null(dfRes) || length(dfRes) == 0 || is.na(dfRes)) {
+		dfRes <- tryCatch(
+			stats::nobs(x) - length(stats::coef(x)),
+			error = function(e) NA_integer_
+		)
+	}
+	si$degrees_freedom <- dfRes
+
 	si$var_cov <- tryCatch(as.matrix(stats::vcov(x)), error = function(e) NA)
-	si$model_link <- model_link_function(x)
+
+	# The link function a model's estimates live on, when it declares one
+	# (e.g. "logit" for a binomial `glm`); lets `flatten_models()` decide
+	# whether exponentiation gives a meaningful ratio
+	si$model_link <- tryCatch({
+		link <- stats::family(x)$link
+		if (is.character(link) && length(link) == 1) {
+			link
+		} else {
+			NA_character_
+		}
+	}, error = function(e) NA_character_)
+
+	# `possible_tidy()` falls back to a scalar `NA` when tidying fails; the
+	# constructor needs a one-row frame in that case
+	if (!is.data.frame(parameterEstimates)) {
+		parameterEstimates <- tibble::tibble(term = NA_character_, estimate = NA)
+	}
 
 	# Creation
 	new_model(
 		modelCall = mc,
 		modelFormula = mf,
 		modelArgs = ma,
-		parameterEstimates = pe_or_na(parameterEstimates),
+		parameterEstimates = parameterEstimates,
 		summaryInfo = si,
 		dataArgs = da
 	)
-}
-
-#' `possible_tidy()` falls back to a scalar `NA` when tidying fails; the
-#' constructor needs a one-row frame in that case
-#' @keywords internal
-#' @noRd
-pe_or_na <- function(pe) {
-	if (is.data.frame(pe)) {
-		pe
-	} else {
-		tibble::tibble(term = NA_character_, estimate = NA)
-	}
 }
 
 #' @rdname models
@@ -316,38 +331,6 @@ mdl.default <- function(x, ...) {
 			 "` object.",
 			 call. = FALSE
 	)
-}
-
-#' The link function a model's estimates live on, when it declares one
-#' (e.g. "logit" for a binomial `glm`); lets [flatten_models()] decide
-#' whether exponentiation gives a meaningful ratio
-#' @keywords internal
-#' @noRd
-model_link_function <- function(x) {
-	tryCatch({
-		link <- stats::family(x)$link
-		if (is.character(link) && length(link) == 1) {
-			link
-		} else {
-			NA_character_
-		}
-	}, error = function(e) NA_character_)
-}
-
-#' Degrees of freedom by each model family's own accounting
-#' @keywords internal
-#' @noRd
-model_degrees_freedom <- function(x) {
-
-	dfRes <- tryCatch(stats::df.residual(x), error = function(e) NULL)
-	if (is.null(dfRes) || length(dfRes) == 0 || is.na(dfRes)) {
-		dfRes <- tryCatch(
-			stats::nobs(x) - length(stats::coef(x)),
-			error = function(e) NA_integer_
-		)
-	}
-
-	dfRes
 }
 
 #' @rdname models

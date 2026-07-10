@@ -98,7 +98,7 @@ add_estimates <- function(x,
 			call. = FALSE
 		)
 	}
-	known <- table_statistic_names("add_estimates")
+	known <- names(table_statistics("add_estimates"))
 	unknown <- setdiff(names(statistics), known)
 	if (length(unknown) > 0) {
 		stop(
@@ -218,8 +218,18 @@ add_events <- function(x,
 
 	if (missing(followup)) {
 		# Not supplied: infer from a Surv() outcome's time argument (M6.12) —
-		# identity, never a guess — and require it explicitly otherwise
-		followup <- infer_followup_column(x$mdl_tbl)
+		# identity, never a guess — and require it explicitly otherwise. The
+		# inference succeeds exactly when every outcome on the mesa parses to a
+		# `Surv()` call and they all name the same time argument.
+		outcomes <- unique(stats::na.omit(x$mdl_tbl$outcome))
+		surv <- lapply(outcomes, parse_surv_outcome)
+		followup <- NULL
+		if (length(outcomes) > 0 && !any(vapply(surv, is.null, logical(1)))) {
+			times <- unique(vapply(surv, `[[`, character(1), "time"))
+			if (length(times) == 1) {
+				followup <- times
+			}
+		}
 		if (is.null(followup)) {
 			stop(
 				"`add_events()` needs `followup`: the column of the attached data ",
@@ -472,7 +482,22 @@ compute_data_statistics <- function(dec, spec) {
 				call. = FALSE
 			)
 		}
-		event <- outcome_event_column(outcome, dat)
+		# The event-indicator column the outcome stands for: a plain outcome
+		# names its own event column; a `Surv()` outcome carries its event
+		# column as the `event` argument (or, unnamed, the last argument)
+		surv <- parse_surv_outcome(outcome)
+		event <-
+			if (outcome %in% names(dat)) {
+				outcome
+			} else if (!is.null(surv) && surv$event %in% names(dat)) {
+				surv$event
+			} else {
+				stop(
+					"The outcome `", outcome, "` does not resolve to an event column ",
+					"of the attached data, so `add_events()` cannot count its events.",
+					call. = FALSE
+				)
+			}
 		if (!is.factor(dat[[variable]]) || nlevels(dat[[variable]]) < 2) {
 			stop(
 				"`add_events()` counts events per term level, but `", variable,
@@ -541,52 +566,6 @@ parse_surv_outcome <- function(outcome) {
 	event <- if (!is.null(args[["event"]])) args[["event"]] else args[[length(args)]]
 	time <- if (!is.null(args[["time"]])) args[["time"]] else args[[1]]
 	list(time = deparse1(time), event = deparse1(event))
-}
-
-#' The event-indicator column an outcome stands for
-#'
-#' A plain outcome names its own event column; a `Surv()` outcome carries its
-#' event column as the `event` argument (or, unnamed, the last argument).
-#' @keywords internal
-#' @noRd
-outcome_event_column <- function(outcome, dat) {
-
-	if (outcome %in% names(dat)) {
-		return(outcome)
-	}
-
-	surv <- parse_surv_outcome(outcome)
-	if (!is.null(surv) && surv$event %in% names(dat)) {
-		return(surv$event)
-	}
-
-	stop(
-		"The outcome `", outcome, "` does not resolve to an event column of the ",
-		"attached data, so `add_events()` cannot count its events.",
-		call. = FALSE
-	)
-}
-
-#' Infer the follow-up column from the mesa's `Surv()` outcome(s)
-#'
-#' `add_events(followup =)` can be inferred exactly when every outcome on the
-#' mesa parses to a `Surv()` call (`parse_surv_outcome()`) and they all
-#' name the same time argument; a plain outcome, or outcomes disagreeing on
-#' the time column, return `NULL` so the caller requires an explicit
-#' `followup`.
-#' @keywords internal
-#' @noRd
-infer_followup_column <- function(mt) {
-	outcomes <- unique(stats::na.omit(mt$outcome))
-	surv <- lapply(outcomes, parse_surv_outcome)
-	if (length(outcomes) == 0 || any(vapply(surv, is.null, logical(1)))) {
-		return(NULL)
-	}
-	times <- unique(vapply(surv, `[[`, character(1), "time"))
-	if (length(times) != 1) {
-		return(NULL)
-	}
-	times
 }
 
 #' Record a column block, replacing an earlier block of the same type with a

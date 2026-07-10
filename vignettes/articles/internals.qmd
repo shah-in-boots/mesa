@@ -180,7 +180,8 @@ term_table(mt)
   (`data_<hash>`) at both `fit()` and `attach_data()`, so identical content
   meets itself; and a frame arriving under a different name is aliased —
   with a message — to the one referenced-but-detached `data_id` whose
-  models' variables it fully carries (`data_id_candidates()`). An explicit
+  models' variables it fully carries (the aliasing logic inside
+  `attach_data()`). An explicit
   `name = ` always wins.
 - ~~Attaching whole data frames makes a `mdl_tbl` heavy to serialize.~~
   *Decided 2026-07-09*: the frame attaches whole, deliberately — pruning to

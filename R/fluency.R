@@ -75,7 +75,21 @@ set_data.tm <- function(x, data, ...) {
 			values <- factor(values, ordered = transformation == "ordered")
 		}
 
-		tmTab$distribution[i] <- classify_distribution(values)
+		# Binary and categorical are different definitions: a numeric 0/1 column
+		# (e.g. a survival event indicator) is *binary* and models as one
+		# quantitative coefficient, while a two-level factor is *dichotomous*
+		# and models as level contrasts; only the latter is a categorical type
+		n <- length(stats::na.omit(unique(values)))
+		tmTab$distribution[i] <-
+			if (is.ordered(values)) {
+				"ordinal"
+			} else if (is.numeric(values)) {
+				if (n == 2) "binary" else "continuous"
+			} else if (n == 2) {
+				"dichotomous"
+			} else {
+				"nominal"
+			}
 		tmTab$type[i] <-
 			if (tmTab$distribution[i] %in% c("continuous", "binary")) {
 				"continuous"
@@ -103,29 +117,6 @@ set_data.fmls <- function(x, data, ...) {
 	attr(x, "termTable") <- vec_proxy(updated)
 
 	x
-}
-
-#' Classify how a data vector is distributed
-#'
-#' Binary and categorical are different definitions: a numeric 0/1 column
-#' (e.g. a survival event indicator) is *binary* and models as one
-#' quantitative coefficient, while a two-level factor is *dichotomous* and
-#' models as level contrasts. Only the latter is a categorical type.
-#' @keywords internal
-#' @noRd
-classify_distribution <- function(values) {
-
-	n <- length(stats::na.omit(unique(values)))
-
-	if (is.ordered(values)) {
-		"ordinal"
-	} else if (is.numeric(values)) {
-		if (n == 2) "binary" else "continuous"
-	} else if (n == 2) {
-		"dichotomous"
-	} else {
-		"nominal"
-	}
 }
 
 # Fluent verbs ---------------------------------------------------------------

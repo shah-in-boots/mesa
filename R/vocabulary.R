@@ -216,22 +216,3 @@ table_statistics <- function(verb = NULL) {
 	}
 	Filter(function(s) identical(s$verb, verb), .table_statistics)
 }
-
-#' The block-declaration names of a verb's statistics (or every statistic)
-#' @keywords internal
-#' @noRd
-table_statistic_names <- function(verb = NULL) {
-	names(table_statistics(verb))
-}
-
-#' The flattened accent-criterion vocabulary: every alias of every
-#' accentable statistic
-#' @keywords internal
-#' @noRd
-table_statistic_aliases <- function() {
-	unlist(
-		lapply(Filter(function(s) isTRUE(s$accentable), .table_statistics),
-					 `[[`, "aliases"),
-		use.names = FALSE
-	)
-}

@@ -32,23 +32,6 @@ selection_input <- function(x) {
 	labeled_formulas_to_named_list(x)
 }
 
-#' The datasets a model table's rows refer to, in reference order
-#'
-#' The attached data is the canonical source for a categorical term's levels.
-#' Datasets the rows reference come first (in row order), so the
-#' first-referenced dataset that carries a term's column speaks for that term;
-#' attached-but-unreferenced datasets follow as fallbacks.
-#' @keywords internal
-selection_data <- function(x) {
-	datLs <- attr(x, "dataList")
-	if (length(datLs) == 0) {
-		return(list())
-	}
-	referenced <- unique(stats::na.omit(x$data_id))
-	hit <- referenced[referenced %in% names(datLs)]
-	datLs[c(hit, setdiff(names(datLs), hit))]
-}
-
 #' The sequential adjustment index of every model row
 #'
 #' Within an outcome x exposure (x strata x level x subset x data x model)
@@ -78,22 +61,6 @@ family_adjustment_index <- function(x) {
 	idx
 }
 
-#' The tidy-term keys a term expands to
-#'
-#' A continuous term is its own key. A categorical term keeps its bare name
-#' *and* gains one key per non-reference level (`paste0(term, level)`, the
-#' treatment-contrast naming `broom::tidy()` produces). The bare name is always
-#' kept so a dichotomous variable modeled numerically (tidy term `am`) resolves
-#' as readily as one modeled as a factor (tidy term `am1`).
-#' @keywords internal
-expand_term_keys <- function(term, levels) {
-	if (length(levels) > 1) {
-		unique(c(term, paste0(term, levels[-1])))
-	} else {
-		term
-	}
-}
-
 #' Resolve requested terms to their metadata and exact keys
 #'
 #' @param x A `mdl_tbl` object.
@@ -109,10 +76,15 @@ resolve_term_metadata <- function(x, tmSel) {
 	# attached data so categorical levels are known (the fit pipeline leaves
 	# them empty). Each term takes its levels from the first dataset -- in
 	# reference order -- that carries its column, so models spanning several
-	# datasets each find their own terms stamped
+	# datasets each find their own terms stamped. Datasets the rows reference
+	# come first (in row order); attached-but-unreferenced datasets follow as
+	# fallbacks
+	datLs <- attr(x, "dataList")
+	referenced <- unique(stats::na.omit(x$data_id))
+	hit <- referenced[referenced %in% names(datLs)]
 	tmTab <- vec_restore(attr(x, "termTable"), to = tm())
 	seen <- character()
-	for (data in selection_data(x)) {
+	for (data in datLs[c(hit, setdiff(names(datLs), hit))]) {
 		newCols <- setdiff(names(data), seen)
 		if (length(newCols) > 0) {
 			tmTab <- set_data(tmTab, data[newCols])
@@ -164,6 +136,17 @@ resolve_term_metadata <- function(x, tmSel) {
 			} else {
 				v
 			}
+		# The tidy-term keys: a continuous term is its own key; a categorical
+		# term keeps its bare name *and* gains one key per non-reference level
+		# (`paste0(term, level)`, the treatment-contrast naming `broom::tidy()`
+		# produces). The bare name is always kept so a dichotomous variable
+		# modeled numerically (tidy term `am`) resolves as readily as one
+		# modeled as a factor (tidy term `am1`)
+		keys <- if (length(lvls) > 1) {
+			unique(c(v, paste0(v, lvls[-1])))
+		} else {
+			v
+		}
 		tibble::tibble(
 			variable = v,
 			role = as.character(row$role),
@@ -172,7 +155,7 @@ resolve_term_metadata <- function(x, tmSel) {
 			distribution = as.character(row$distribution),
 			levels = list(lvls),
 			reference = if (length(lvls) > 0) lvls[1] else NA_character_,
-			keys = list(expand_term_keys(v, lvls))
+			keys = list(keys)
 		)
 	})
 

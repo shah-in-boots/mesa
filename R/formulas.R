@@ -136,7 +136,11 @@ fmls <- function(x = unspecified(),
 		tmTab <- vec_proxy(x)
 		meta <- which(tmTab$side == "meta")
 		if (length(meta) > 0) {
-			message_meta_demotion(tmTab$term[meta])
+			message(
+				"Fundamental decomposition: meta term(s) `",
+				paste0(tmTab$term[meta], collapse = "`, `"),
+				"` will be treated as plain predictor(s)."
+			)
 			tmTab$role[meta] <- "predictor"
 			tmTab$side[meta] <- "right"
 			x <- vec_restore(tmTab, to = tm())
@@ -356,7 +360,11 @@ fmls_ptype2 <- function(x, y, ..., x_arg = "", y_arg = "") {
 
 	# The first (left-most) definition of a term wins; say so
 	if (any(dups)) {
-		message_term_collision(unique(tmTab$term[dups]))
+		message(
+			"Combining formulas with conflicting definitions for: `",
+			paste0(unique(tmTab$term[dups]), collapse = "`, `"),
+			"`. The first (left-most) definition of each term is kept."
+		)
 	}
 
 	# New terms that will be the key scalar attribute

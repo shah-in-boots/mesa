@@ -168,3 +168,33 @@ Items verified by execution are marked ✓.
   type/distribution/levels) and retains nothing, since formulas stay
   abstract and source data keeps evolving; the `mdl_tbl` — where formulas
   and data come together — is the one layer that retains data.
+
+## Parsimony pass (2026-07-10)
+
+- [x] **Single-use internal helpers inlined at their call sites.** A sweep
+  of every internal function's call count found ~30 helpers called exactly
+  once, most under 25 lines. Inlined (their doc comments kept as plain
+  comments): the `message_*()`/`warning_*()` wrappers (output.R is gone;
+  `has_cli()` moved to utils.R), `validate_classes()`, `new_mesa()` and its
+  four `default_*()` slot builders, `table_statistic_names()`/`_aliases()`,
+  `accent_style()`, `pe_or_na()`, `model_link_function()`,
+  `model_degrees_freedom()`, `validate_model_table()`,
+  `model_table_reconstructable()`, `data_expression_name()`,
+  `model_table_nobs()`, `infer_exponentiation()`, `data_id_candidates()`,
+  `infer_followup_column()`, `outcome_event_column()`,
+  `expand_term_keys()`, `selection_data()`, `key_to_level()`,
+  `row_qualifier()`, and `classify_distribution()`. Dead code removed:
+  `check_classes()`, `message_empty_models()`, `message_formula_to_fmls()`.
+  *Deliberately kept*: the named pipeline stages (`parse_formula_terms()` →
+  `demote_orphan_roles()` → `expand_shortcut_interactions()` → ... in
+  terms.R; the realize/lay-out/render stages), S3 methods, vctrs
+  cast/ptype2 boilerplate, and multi-use utilities — single-use but
+  load-bearing units like `draw_forest_cell()` and `apply_group_scoped()`
+  stay because inlining them would bloat their callers past reading.
+- [x] **Test suite trimmed of cosmetic and duplicated tests.** Removed the
+  ANSI-palette assertion test (the `format(color =)` behavior test stays),
+  a duplicate order-independence render test, a duplicate `print.mesa`
+  block-description test, an empty test, a trivial row-count test, the
+  internals-only `my_tidy()` smoke test, and merged the two overlapping
+  `fmls`-combination tests. The rest encode one grammar promise each and
+  stay.

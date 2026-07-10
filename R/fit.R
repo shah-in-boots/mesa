@@ -57,9 +57,22 @@ fit.fmls <- function(object,
 	# Resolve the modeling approach by name, not position
 	engine <- resolve_fit_engine(.fn, cl[[".fn"]])
 
-	# Check data
+	# Check data. A bare name is a usable dataset id as-is (the common
+	# `data = d` case); an inline expression (`data = subset(d, am == 1)`)
+	# would deparse into an unusable id, so it takes a stable content-derived
+	# one instead: `data_<hash>`, the same id the identical frame gets
+	# anywhere else (e.g. `attach_data()`), so the two meet without the user
+	# retyping anything
 	stopifnot(is.data.frame(data))
-	dataName <- data_expression_name(cl[["data"]], data)
+	if (is.symbol(cl[["data"]])) {
+		dataName <- deparse1(cl[["data"]])
+	} else {
+		dataName <- data_content_name(data)
+		message(
+			"The `data` argument is an expression, not a name; its models record ",
+			"the dataset as `", dataName, "`."
+		)
+	}
 
 	# Draw up the plan: formula x stratum x subset
 	plan <- fit_plan(object, data = data)
@@ -224,27 +237,6 @@ fit_plan <- function(object, data = NULL, ...) {
 	}
 
 	dplyr::bind_rows(rows)
-}
-
-#' A usable dataset id for any `data` argument
-#'
-#' A bare name is taken as-is (the common `data = d` case). An inline
-#' expression (`data = subset(d, am == 1)`) would deparse into an unusable
-#' id, so it takes a stable content-derived one instead: `data_<hash>`, the
-#' same id the identical frame gets anywhere else (e.g. [attach_data()]), so
-#' the two meet without the user retyping anything.
-#' @keywords internal
-#' @noRd
-data_expression_name <- function(expr, data) {
-	if (is.symbol(expr)) {
-		return(deparse1(expr))
-	}
-	name <- data_content_name(data)
-	message(
-		"The `data` argument is an expression, not a name; its models record ",
-		"the dataset as `", name, "`."
-	)
-	name
 }
 
 #' Resolve the modeling approach from a function, name, or parsnip spec

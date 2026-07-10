@@ -105,8 +105,18 @@ realize_mesa <- function(x) {
 		categorical = lengths(displayTerms$levels) > 1
 	)
 	dec <- dplyr::left_join(flat, meta, by = "variable")
+	# The factor level a tidy-term key stands for: continuous (and
+	# dichotomous-numeric) terms have no level; a categorical term's
+	# non-reference level keys are `paste0(variable, level)` (the reference
+	# level never appears as a fitted key)
 	dec$level <- vapply(seq_len(nrow(dec)), function(i) {
-		key_to_level(dec$variable[i], dec$term[i], dec$levels[[i]])
+		lvls <- dec$levels[[i]]
+		if (length(lvls) <= 1) {
+			return(NA_character_)
+		}
+		nonref <- lvls[-1]
+		hit <- nonref[paste0(dec$variable[i], nonref) == dec$term[i]]
+		if (length(hit) == 1) hit else NA_character_
 	}, character(1))
 	dec$is_reference <- FALSE
 
@@ -183,22 +193,6 @@ model_identity_key <- function(data_id, model_call, outcome, exposure,
 		naTo(strata), naTo(level), naTo(subset), naTo(formula_call),
 		sep = "\r"
 	)
-}
-
-#' The factor level a tidy-term key stands for
-#'
-#' Continuous (and dichotomous-numeric) terms have no level. A categorical
-#' term's non-reference level keys are `paste0(variable, level)`; the reference
-#' level never appears as a fitted key.
-#' @keywords internal
-#' @noRd
-key_to_level <- function(variable, key, levels) {
-	if (length(levels) <= 1) {
-		return(NA_character_)
-	}
-	nonref <- levels[-1]
-	hit <- nonref[paste0(variable, nonref) == key]
-	if (length(hit) == 1) hit else NA_character_
 }
 
 #' Reference rows for the categorical terms, one per model context

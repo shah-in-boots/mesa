@@ -182,61 +182,24 @@ mesa <- function(object, ...) {
 		)
 	}
 
-	new_mesa(fitted)
-}
-
-#' Construct a `<mesa>` specification with its default slots
-#' @keywords internal
-#' @noRd
-new_mesa <- function(mdl_tbl,
-										 selection = default_selection(),
-										 labels = default_labels(),
-										 columns = list(),
-										 layout = default_layout(),
-										 style = default_style()) {
-
+	# The spec starts with empty defaults: everything fitted is selected, the
+	# layout groups adjustment-set rows by outcome (`modify_layout()` swaps
+	# presets), and style is unset until `modify_style()` records instructions
+	# (the renderer resolves fallbacks -- digits 2, missing text "", padding
+	# from the blocks -- at render, after any column block's own `digits`)
 	structure(
 		list(
-			mdl_tbl = mdl_tbl,
-			selection = selection,
-			labels = labels,
-			columns = columns,
-			layout = layout,
-			style = style
+			mdl_tbl = fitted,
+			selection = list(outcomes = NULL, exposures = NULL, terms = NULL,
+											 adjustment = NULL, strata = NULL),
+			labels = list(relabels = list(), columns = list()),
+			columns = list(),
+			layout = list(preset = "adjustment", row_groups = "outcome"),
+			style = list(accents = list(), digits = NULL, missing_text = NULL,
+									 padding = NULL)
 		),
 		class = "mesa"
 	)
-}
-
-#' Empty defaults for the declarative spec slots
-#' @keywords internal
-#' @noRd
-default_selection <- function() {
-	list(outcomes = NULL, exposures = NULL, terms = NULL,
-			 adjustment = NULL, strata = NULL)
-}
-
-#' @keywords internal
-#' @noRd
-default_labels <- function() {
-	list(relabels = list(), columns = list())
-}
-
-#' @keywords internal
-#' @noRd
-default_layout <- function() {
-	# The bare default: adjustment-set rows grouped by outcome. `modify_layout()`
-	# (M6.6) will select the other presets and swap the row-group dimension.
-	list(preset = "adjustment", row_groups = "outcome")
-}
-
-#' @keywords internal
-#' @noRd
-default_style <- function() {
-	# Unset until `modify_style()` records instructions; the renderer resolves
-	# the fallbacks (digits 2, missing text "", padding from the blocks) at
-	# render, after any column block's own `digits`.
-	list(accents = list(), digits = NULL, missing_text = NULL, padding = NULL)
 }
 
 # Selection verbs -------------------------------------------------------------
@@ -574,7 +537,12 @@ validate_accent <- function(f) {
 	}
 
 	criterion <- f[[2]]
-	known <- table_statistic_aliases()
+	# The accent vocabulary: every alias of every accentable statistic
+	known <- unlist(
+		lapply(Filter(function(s) isTRUE(s$accentable), table_statistics()),
+					 `[[`, "aliases"),
+		use.names = FALSE
+	)
 	used <- all.vars(criterion)
 	unknown <- setdiff(used, known)
 	if (length(used) == 0 || length(unknown) > 0) {

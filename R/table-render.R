@@ -593,7 +593,13 @@ apply_accents <- function(gtbl, frame, rows, accents) {
 				error = function(e) FALSE
 			)
 			if (!hit) next
-			style <- accent_style(accent$instruction)
+			# Translate the instruction into a `gt::cell_text()` style
+			args <- list()
+			if ("bold" %in% accent$instruction) args$weight <- "bold"
+			if ("italic" %in% accent$instruction) args$style <- "italic"
+			color <- setdiff(accent$instruction, c("bold", "italic"))
+			if (length(color) > 0) args$color <- color[1]
+			style <- do.call(gt::cell_text, args)
 			for (i in idx) {
 				at <- match(
 					paste(naToBlank(cells$row_group[i]), cells$row_key[i],
@@ -612,18 +618,6 @@ apply_accents <- function(gtbl, frame, rows, accents) {
 		}
 	}
 	gtbl
-}
-
-#' Translate an accent instruction into a `gt::cell_text()` style
-#' @keywords internal
-#' @noRd
-accent_style <- function(instruction) {
-	args <- list()
-	if ("bold" %in% instruction) args$weight <- "bold"
-	if ("italic" %in% instruction) args$style <- "italic"
-	color <- setdiff(instruction, c("bold", "italic"))
-	if (length(color) > 0) args$color <- color[1]
-	do.call(gt::cell_text, args)
 }
 
 #' The first non-`NULL` argument (the renderer's fallback chains)

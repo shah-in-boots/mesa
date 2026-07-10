@@ -20,20 +20,6 @@ model_table_status <- function(x) {
 	}, character(1))
 }
 
-#' Number of observations per model, when the fit recorded one
-#' @keywords internal
-#' @noRd
-model_table_nobs <- function(x) {
-	vapply(x$model_summary, function(s) {
-		if (is.list(s) && !is.null(s$nobs) && length(s$nobs) == 1 &&
-				!is.na(s$nobs)) {
-			as.integer(s$nobs)
-		} else {
-			NA_integer_
-		}
-	}, integer(1))
-}
-
 #' Display symbols for model status, with ASCII fallbacks
 #' @keywords internal
 #' @noRd
@@ -189,7 +175,15 @@ format.mdl_tbl <- function(x, ..., n = 10) {
 	if (any(!is.na(x$subset))) {
 		body$subset <- naTo(x$subset[shown])
 	}
-	nObs <- model_table_nobs(x)
+	# Number of observations per model, when the fit recorded one
+	nObs <- vapply(x$model_summary, function(s) {
+		if (is.list(s) && !is.null(s$nobs) && length(s$nobs) == 1 &&
+				!is.na(s$nobs)) {
+			as.integer(s$nobs)
+		} else {
+			NA_integer_
+		}
+	}, integer(1))
 	if (any(!is.na(nObs))) {
 		body$n <- naTo(nObs[shown])
 	}
@@ -422,7 +416,24 @@ attach_data <- function(x, data, name = NULL, ...) {
 	# alias it to that id instead of stranding the models without data. An
 	# explicit `name` is always honored as given.
 	if (!explicit && nrow(x) > 0 && !name %in% x$data_id) {
-		candidates <- data_id_candidates(x, data)
+		detached <- setdiff(unique(stats::na.omit(x$data_id)), names(datLs))
+		fmMat <- attr(x, "formulaMatrix")
+		candidates <-
+			if (length(detached) == 0 || !is.data.frame(fmMat) ||
+					nrow(fmMat) != nrow(x)) {
+				character()
+			} else {
+				Filter(function(id) {
+					rows <- which(!is.na(x$data_id) & x$data_id == id)
+					tms <- names(fmMat)[
+						colSums(fmMat[rows, , drop = FALSE], na.rm = TRUE) > 0
+					]
+					vars <- unique(unlist(lapply(tms, function(t) {
+						tryCatch(all.vars(str2lang(t)), error = function(e) t)
+					})))
+					length(vars) > 0 && all(vars %in% names(data))
+				}, detached)
+			}
 		if (length(candidates) == 1) {
 			message(
 				"`", name, "` carries every variable of the models fit on `",
@@ -452,32 +463,6 @@ attach_data <- function(x, data, name = NULL, ...) {
 
 	# Return
 	x
-}
-
-#' Referenced-but-detached dataset ids whose models' variables all appear in
-#' a candidate frame's columns (the basis for [attach_data()]'s aliasing)
-#' @keywords internal
-#' @noRd
-data_id_candidates <- function(x, data) {
-
-	detached <- setdiff(
-		unique(stats::na.omit(x$data_id)),
-		names(attr(x, "dataList"))
-	)
-	fmMat <- attr(x, "formulaMatrix")
-	if (length(detached) == 0 || !is.data.frame(fmMat) ||
-			nrow(fmMat) != nrow(x)) {
-		return(character())
-	}
-
-	Filter(function(id) {
-		rows <- which(!is.na(x$data_id) & x$data_id == id)
-		tms <- names(fmMat)[colSums(fmMat[rows, , drop = FALSE], na.rm = TRUE) > 0]
-		vars <- unique(unlist(lapply(tms, function(t) {
-			tryCatch(all.vars(str2lang(t)), error = function(e) t)
-		})))
-		length(vars) > 0 && all(vars %in% names(data))
-	}, detached)
 }
 
 #' @rdname model_table_helpers
@@ -679,8 +664,14 @@ flatten_models <- function(x, exponentiate = NULL, which = NULL, ...) {
 		y$model_link <- NA_character_
 	}
 
-	# Which rows land on a ratio scale
-	inferred <- infer_exponentiation(y$model_call, y$model_link)
+	# Which rows land on a ratio scale: Cox-family models and generalized
+	# linear models on a multiplicative link report ratios when exponentiated;
+	# everything else stays linear
+	inferred <-
+		ifelse(is.na(y$model_call), "", y$model_call) %in%
+			c("coxph", "clogit", "coxme") |
+		ifelse(is.na(y$model_link), "", y$model_link) %in%
+			c("log", "logit", "cloglog")
 	if (is.null(exponentiate)) {
 		rows <-
 			if (is.null(which)) {
@@ -723,17 +714,4 @@ flatten_models <- function(x, exponentiate = NULL, which = NULL, ...) {
 	# Return
 	y
 
-}
-
-#' Should a model family's estimates be exponentiated?
-#'
-#' Cox-family models and generalized linear models on a multiplicative link
-#' report ratios when exponentiated; everything else stays linear.
-#' @keywords internal
-#' @noRd
-infer_exponentiation <- function(modelCall, modelLink) {
-	call <- ifelse(is.na(modelCall), "", modelCall)
-	link <- ifelse(is.na(modelLink), "", modelLink)
-	call %in% c("coxph", "clogit", "coxme") |
-		link %in% c("log", "logit", "cloglog")
 }

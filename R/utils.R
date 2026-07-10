@@ -101,6 +101,12 @@ lhs.formula <- function(x, ...) {
 }
 
 
+#' @keywords internal
+#' @noRd
+has_cli <- function() {
+  isTRUE(requireNamespace("cli", quietly = TRUE))
+}
+
 #' A stable content-derived dataset id for frames passed as inline
 #' expressions rather than names (`data_<hash>`); identical content gets the
 #' identical id at [fit()], [model_table()], and [attach_data()], so the

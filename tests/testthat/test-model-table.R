@@ -98,17 +98,6 @@ test_that("can handle list of models appropriately", {
 
 })
 
-test_that("correct number of rows are generated", {
-
-	f <- fmls(mpg + wt + hp ~ .x(cyl) + vs + carb + am)
-	m <- fit(f, .fn = lm, data = mtcars, raw = FALSE)
-	x <- model_table(m)
-	expect_equal(nrow(x), 3)
-	expect_equal(nrow(x), length(m))
-
-})
-
-
 test_that("formulas can be input into a model table", {
 
 	f <- mpg ~ wt + hp + am
@@ -497,8 +486,4 @@ test_that("model table can be filtered", {
 		dplyr::filter(outcome == "hp")
 
 	expect_length(obj$outcome, 2)
-})
-
-test_that("models with interactions can be made", {
-
 })

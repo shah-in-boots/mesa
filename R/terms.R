@@ -194,7 +194,12 @@ tm.formula <- function(x,
 		description = description,
 		transformation = transformation
 	)
-	validate_classes(namedArgs, what = c("list", "formula"))
+	for (nm in names(namedArgs)) {
+		if (!inherits(namedArgs[[nm]], c("list", "formula"))) {
+			stop("`", nm, "` needs to inherit from `c(list, formula)`.",
+					 call. = FALSE)
+		}
+	}
 	namedArgs <- lapply(namedArgs, labeled_formulas_to_named_list)
 
 	# Walk the formula tree into a table of term records, then finalize roles
@@ -407,22 +412,24 @@ demote_orphan_roles <- function(parsed) {
 	shortcutInt <- parsed$role == "interaction" & !grepl(":", parsed$term)
 	shortcutInt[is.na(shortcutInt)] <- FALSE
 	if (any(shortcutInt)) {
-		roleList <- as.list(stats::setNames(
-			rep(.roles$interaction, sum(shortcutInt)),
-			parsed$term[shortcutInt]
-		))
-		warning_interaction_roles(roleList)
+		warning(
+			"The interaction term(s) `",
+			paste0(parsed$term[shortcutInt], collapse = " + "),
+			"` was/were specified but an exposure variable was not found. ",
+			"The result will treat the term(s) as regular predictor variables."
+		)
 		parsed$role[shortcutInt] <- "predictor"
 	}
 
 	mediators <- parsed$role == "mediator"
 	mediators[is.na(mediators)] <- FALSE
 	if (any(mediators)) {
-		roleList <- as.list(stats::setNames(
-			rep(.roles$mediator, sum(mediators)),
-			parsed$term[mediators]
-		))
-		warning_mediation_roles(roleList)
+		warning(
+			"The mediator term(s) `",
+			paste0(parsed$term[mediators], collapse = " + "),
+			"` was/were specified but an exposure variable was not found. ",
+			"The result will treat these term(s) as regular predictor variables."
+		)
 		parsed$role[mediators] <- "predictor"
 	}
 
@@ -456,7 +463,10 @@ expand_shortcut_interactions <- function(parsed) {
 		tier <- parsed$group[i]
 
 		products <- lapply(exposures, function(e) {
-			message_interaction(parsed$term[i], e)
+			message(
+				"Interaction term `", parsed$term[i],
+				"` was applied to exposure term `", e, "`"
+			)
 			data.frame(
 				term = paste0(e, ":", parsed$term[i]),
 				side = parsed$side[i],

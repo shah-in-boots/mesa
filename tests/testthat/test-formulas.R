@@ -19,18 +19,23 @@ test_that("fmls-fmls can be combined", {
 	y <- fmls(f2)
 	expect_s3_class(vec_ptype2(x, y), "fmls")
 
-	# Should remove exposure variable from second term
-	f <- vec_c(x, y)
+	# Conflicting definitions of `input` resolve to the left-most, with a
+	# message; here the plain definition wins over the exposure rune
+	expect_message(f <- vec_c(x, y), regexp = "conflicting definitions")
 	expect_length(f, 3)
 	expect_equal(nrow(f), 2)
 	expect_equal(f[1, ], f[2, ], ignore_attr = TRUE)
 	expect_false("exposure" %in% vec_data(key_terms(f))$role)
 
 	# Flipped version should enrich the exposure term value
-	f <- vec_c(y, x)
+	expect_message(f <- vec_c(y, x), regexp = "conflicting definitions")
 	expect_equal(f[1, ], f[2, ], ignore_attr = TRUE)
 	expect_true("exposure" %in% vec_data(key_terms(f))$role)
 	expect_length(key_terms(f), 3)
+
+	# No conflict, no message
+	expect_no_message(f <- c(fmls(a ~ b), fmls(x ~ y)))
+	expect_equal(nrow(f), 2)
 
 	# More complex version
 	x <- fmls(f1)
@@ -80,27 +85,6 @@ test_that("fmls and formulas can be interchanged", {
 		sort(sapply(fl4, deparse1)),
 		c("mpg ~ hp", "mpg ~ wt")
 	)
-
-})
-
-test_that("fmls combine through c() with collision messaging", {
-
-	x <- fmls(output ~ input + modifier)
-	y <- fmls(output ~ .x(input) + modifier)
-
-	# Conflicting definitions of `input` resolve to the left-most, with a message
-	expect_message(f <- c(x, y), regexp = "conflicting definitions")
-	expect_s3_class(f, "fmls")
-	expect_equal(nrow(f), 2)
-	expect_false("exposure" %in% vec_data(key_terms(f))$role)
-
-	# Flipped order keeps the richer definition
-	expect_message(f <- c(y, x), regexp = "conflicting definitions")
-	expect_true("exposure" %in% vec_data(key_terms(f))$role)
-
-	# No conflict, no message
-	expect_no_message(f <- c(fmls(a ~ b), fmls(x ~ y)))
-	expect_equal(nrow(f), 2)
 
 })
 

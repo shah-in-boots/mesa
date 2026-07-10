@@ -202,7 +202,12 @@ interaction_term <- function(termList) {
 			return(NA_character_)
 		}
 		if (length(tms) > 1) {
-			message_multiple_interactions(tms)
+			message(
+				"A model carries multiple interaction terms (`",
+				paste0(tms, collapse = "`, `"),
+				"`); only the first is recorded in the `interaction` column. ",
+				"Tables can display one interaction term per model at this time."
+			)
 		}
 		tms[1]
 	}, character(1))
@@ -443,18 +448,10 @@ new_model_table <- function(x = list(),
 		class = "mdl_tbl"
 	)
 
-	validate_model_table(out)
-}
-
-#' Model table object validation
-#'
-#' Runs on every construction: the invariant columns must be present with
-#' their expected types (see the Invariant columns section of [model_table]).
-#' @keywords internal
-#' @param x data frame that will have invariants checked
-validate_model_table <- function(x) {
-
-	missingCols <- setdiff(model_table_columns(), names(x))
+	# Validate on every construction: the invariant columns must be present
+	# with their expected types (see the Invariant columns section of
+	# [model_table])
+	missingCols <- setdiff(model_table_columns(), names(out))
 	if (length(missingCols) > 0) {
 		stop(
 			"A `mdl_tbl` requires the invariant column(s) `",
@@ -463,12 +460,11 @@ validate_model_table <- function(x) {
 			call. = FALSE
 		)
 	}
-
-	if (!is.logical(x$fit_status)) {
+	if (!is.logical(out$fit_status)) {
 		stop("The `fit_status` column of a `mdl_tbl` must be logical.",
 				 call. = FALSE)
 	}
-	if (!is.list(x$model_parameters) || !is.list(x$model_summary)) {
+	if (!is.list(out$model_parameters) || !is.list(out$model_summary)) {
 		stop(
 			"The `model_parameters` and `model_summary` columns of a `mdl_tbl` ",
 			"must be list columns.",
@@ -476,8 +472,7 @@ validate_model_table <- function(x) {
 		)
 	}
 
-	invisible(x)
-
+	out
 }
 
 # Attribute reconciliation -----------------------------------------------------
@@ -548,7 +543,8 @@ dplyr_row_slice.mdl_tbl <- function(data, i, ...) {
 
 #' @keywords internal
 model_table_reconstruct <- function(x, to) {
-	if (model_table_reconstructable(x, to)) {
+	# All invariant columns must survive the operation; added columns are fine
+	if (all(model_table_columns() %in% names(x))) {
 		df_reconstruct(x, to)
 	} else {
 		lost <- setdiff(model_table_columns(), names(x))
@@ -645,17 +641,6 @@ df_reconstruct <- function(x, to) {
 	attributes(x) <- attrs
 
 	x
-
-}
-
-#' Can `mdl_tbl` be reconstructed based on invariants?
-#' @keywords internal
-#' @param x data frame that will have invariants checked
-#' @param to the tibble subclass of `mdl_tbl` that would be reconstructed
-model_table_reconstructable <- function(x, to) {
-
-	# All invariant columns must survive the operation; added columns are fine
-	all(model_table_columns() %in% names(x))
 
 }
 
