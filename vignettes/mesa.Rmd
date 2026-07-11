@@ -19,10 +19,10 @@ library(mesa)
 ```
 
 The destination of the grammar is the fifth layer: laying a collection of
-fitted models out for a paper. This is the package's namesake act — `mesa()`
-lays models on the *mesa*, the table upon which they are displayed — and it
-is built as a small composable grammar on top of `{gt}`, grown the way a
-`{ggplot2}` plot is grown: one verb, one decision, in any order.
+fitted models out for a paper. This is where the package earns its name —
+`mdl_gt()` lays the models out on the *mesa*, the table upon which they are
+displayed — and it is built as a small composable grammar on top of `{gt}`,
+grown the way a `{ggplot2}` plot is grown: one verb, one decision, in any order.
 
 ```{r}
 d <- mtcars
@@ -39,20 +39,20 @@ mt <-
 
 ## A bare mesa is already a table
 
-`mesa()` is deliberately bare — it takes no selection arguments — and puts
+`mdl_gt()` is deliberately bare — it takes no selection arguments — and puts
 everything fitted on the mesa with default labels:
 
 ```{r}
-mt |> mesa()
+mt |> mdl_gt()
 ```
 
-Printing a `<mesa>` specification shows what's on it without rendering
+Printing a `<mdl_gt>` specification shows what's on it without rendering
 anything: the layout, the current selection, the column blocks so far.
 `as_gt()` renders it — and a bare specification already produces a minimal
 table, estimate and interval for every displayed term:
 
 ```{r}
-mt |> mesa() |> as_gt()
+mt |> mdl_gt() |> as_gt()
 ```
 
 ## Growing the table, one verb at a time
@@ -81,14 +81,14 @@ thing, and verbs compose in any order:
 
 ```{r}
 mt |>
-  mesa() |>
+  mdl_gt() |>
   select_adjustment(1 ~ "Unadjusted", 3 ~ "Fully adjusted") |>
   add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI")) |>
   modify_labels(wt ~ "Weight (1000 lbs)") |>
   as_gt()
 ```
 
-Because a `<mesa>` specification is *declarative* — verbs record instructions,
+Because a `<mdl_gt>` specification is *declarative* — verbs record instructions,
 and resolution happens only at `as_gt()` — repeating a verb replaces just that
 instruction, with a message, rather than compounding silently. Rethinking a
 label, or narrowing the selection further, is always cheap.
@@ -118,7 +118,7 @@ mtSurv <-
   model_table(data = lung)
 
 mtSurv |>
-  mesa() |>
+  mdl_gt() |>
   modify_layout(preset = "levels") |>
   select_adjustment(1 ~ "Unadjusted", 2 ~ "Age-adjusted") |>
   add_events(followup = time) |>
@@ -147,7 +147,7 @@ mtInt <-
   model_table(data = d)
 
 mtInt |>
-  mesa() |>
+  mdl_gt() |>
   add_interaction() |>
   add_n(label = "No.") |>
   add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI",
@@ -168,7 +168,7 @@ or dropping it never changes any other cell:
 
 ```{r}
 mtInt |>
-  mesa() |>
+  mdl_gt() |>
   add_interaction() |>
   add_estimates() |>
   add_forest() |>
@@ -182,7 +182,7 @@ statistic, not just a p-value — and controls formatting table-wide:
 
 ```{r}
 mt |>
-  mesa() |>
+  mdl_gt() |>
   add_estimates() |>
   modify_style(accents = list(p < 0.05 ~ "bold"), digits = 3) |>
   as_gt()
@@ -190,7 +190,7 @@ mt |>
 
 ## What's next
 
-That is the whole grammar: `mesa()` to start, `select_*()` to narrow,
+That is the whole grammar: `mdl_gt()` to start, `select_*()` to narrow,
 `add_*()` to add statistics, `modify_*()` to lay out and style, `as_gt()` to
 render. To step back from the mechanics to the reasoning the roles are for —
 how variable roles map onto estimands like the total effect, direct effect,

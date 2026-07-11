@@ -1,6 +1,6 @@
-# The <mesa> specification (M6.3) ---------------------------------------------
+# The <mdl_gt> specification (M6.3) ---------------------------------------------
 #
-# The table grammar is composition-first: `mesa()` lifts a fitted `mdl_tbl`
+# The table grammar is composition-first: `mdl_gt()` lifts a fitted `mdl_tbl`
 # onto a declarative specification, small pipeable verbs refine it, and
 # `as_gt()` (in table-render.R) realizes it. The spec carries *instructions*,
 # not results — selection, labels, column blocks, layout, and style — so verbs
@@ -13,13 +13,13 @@
 # verbs live in table-columns.R (M6.4/6.5); the cell-frame renderer lives in
 # table-render.R (M6.6).
 
-#' The `<mesa>` table specification
+#' The `<mdl_gt>` table specification
 #'
 #' @description
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' `mesa()` lays a collection of fitted models out on the *mesa* — the table
+#' `mdl_gt()` lays a collection of fitted models out on the *mesa* — the table
 #' upon which the models are displayed — as a declarative specification. It is
 #' deliberately bare: it takes no selection arguments and puts everything
 #' fitted on the mesa with default labels drawn from the term table and the
@@ -39,7 +39,7 @@
 #' everything else recorded on the specification standing (the `{ggplot2}`
 #' `labs()` merge behavior); calling a `select_*()` verb with no arguments
 #' clears that dimension, which is the way to undo an earlier selection. A
-#' bare `mesa(mt) |> as_gt()` already renders a minimal estimate-and-interval
+#' bare `mdl_gt(mt) |> as_gt()` already renders a minimal estimate-and-interval
 #' table, so the grammar is usable from the first verb.
 #'
 #' @details
@@ -53,7 +53,7 @@
 #' cells wide (levels on columns) or long (levels on rows) without
 #' recomputing anything.
 #'
-#' `mesa()` validates before it builds. The object must be a `mdl_tbl`; only
+#' `mdl_gt()` validates before it builds. The object must be a `mdl_tbl`; only
 #' its fitted rows are laid out (failed and unfit rows are set aside); the
 #' table must hold a single model family (one fitting function) or it errors;
 #' and more than one attached dataset is reported with a message. See
@@ -63,15 +63,15 @@
 #'
 #' @param object A `mdl_tbl` object holding at least one fitted model
 #'
-#' @param x A `<mesa>` specification (for the verbs and `print()`)
+#' @param x A `<mdl_gt>` specification (for the verbs and `print()`)
 #'
-#' @param ... For `mesa()`, unused — it deliberately takes no selection
+#' @param ... For `mdl_gt()`, unused — it deliberately takes no selection
 #'   arguments, and an unused argument errors; for the selection verbs,
 #'   labeled-formula selection input (a `formula`, a `list` of formulas, or a
 #'   `character` vector — see [labeled_formulas_to_named_list()]), or nothing
 #'   at all to clear that dimension's selection; for `print()`, unused
 #'
-#' @return `mesa()` and the verbs return a `<mesa>` specification object.
+#' @return `mdl_gt()` and the verbs return a `<mdl_gt>` specification object.
 #'
 #' @examples
 #' # The "adjustment" chain — adjustment sets on rows, outcomes as row
@@ -83,7 +83,7 @@
 #'   fit(.fn = lm, data = d, raw = FALSE) |>
 #'   model_table(data = d)
 #' mt |>
-#'   mesa() |>
+#'   mdl_gt() |>
 #'   select_adjustment(1 ~ "Unadjusted", 3 ~ "Fully adjusted") |>
 #'   add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI")) |>
 #'   modify_labels(wt ~ "Weight (1000 lbs)") |>
@@ -99,7 +99,7 @@
 #'   fit(.fn = survival::coxph, data = lung, raw = FALSE) |>
 #'   model_table(data = lung)
 #' mt |>
-#'   mesa() |>
+#'   mdl_gt() |>
 #'   modify_layout(preset = "levels") |>
 #'   select_adjustment(1 ~ "Unadjusted", 2 ~ "Age-adjusted") |>
 #'   add_events(followup = time) |>
@@ -109,9 +109,9 @@
 #'
 #' @seealso [as_gt()] to render, [model_table()] for the model collection
 #'
-#' @name mesa
+#' @name mdl_gt
 #' @export
-mesa <- function(object, ...) {
+mdl_gt <- function(object, ...) {
 
 	validate_class(object, "mdl_tbl")
 
@@ -120,7 +120,7 @@ mesa <- function(object, ...) {
 		nms <- names(dots)
 		unnamed <- is.null(nms) || !any(nzchar(nms))
 		stop(
-			"`mesa()` takes no selection arguments; it lays out everything ",
+			"`mdl_gt()` takes no selection arguments; it lays out everything ",
 			"fitted with default labels, and the `select_*()` verbs narrow it ",
 			"afterward.",
 			if (!unnamed) {
@@ -138,7 +138,7 @@ mesa <- function(object, ...) {
 	fitted <- object[status == "fitted", , drop = FALSE]
 	if (nrow(fitted) == 0) {
 		stop(
-			"A `mesa` needs fitted models, but none of the ", nrow(object),
+			"A `mdl_gt` needs fitted models, but none of the ", nrow(object),
 			" row(s) are fitted. Fit formulas with ",
 			"`fit(..., raw = FALSE)` first",
 			if (any(status == "failed")) " (`model_failures()` shows why some failed)",
@@ -163,7 +163,7 @@ mesa <- function(object, ...) {
 	))
 	if (length(families) > 1) {
 		stop(
-			"A `mesa` holds a single model family, but this table mixes ",
+			"A `mdl_gt` holds a single model family, but this table mixes ",
 			paste0("`", families, "`", collapse = ", "),
 			". Subset to one family (e.g. with `dplyr::filter(model_call == ...)`) ",
 			"before laying it out.",
@@ -198,7 +198,7 @@ mesa <- function(object, ...) {
 			style = list(accents = list(), digits = NULL, missing_text = NULL,
 									 padding = NULL)
 		),
-		class = "mesa"
+		class = "mdl_gt"
 	)
 }
 
@@ -238,38 +238,38 @@ record_selection <- function(x, dimension, input, verb) {
 	x
 }
 
-#' @rdname mesa
+#' @rdname mdl_gt
 #' @export
 select_outcomes <- function(x, ...) {
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 	record_selection(x, "outcomes", collect_labeled(...), "select_outcomes")
 }
 
-#' @rdname mesa
+#' @rdname mdl_gt
 #' @export
 select_exposures <- function(x, ...) {
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 	record_selection(x, "exposures", collect_labeled(...), "select_exposures")
 }
 
-#' @rdname mesa
+#' @rdname mdl_gt
 #' @export
 select_terms <- function(x, ...) {
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 	record_selection(x, "terms", collect_labeled(...), "select_terms")
 }
 
-#' @rdname mesa
+#' @rdname mdl_gt
 #' @export
 select_adjustment <- function(x, ...) {
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 	record_selection(x, "adjustment", collect_labeled(...), "select_adjustment")
 }
 
-#' @rdname mesa
+#' @rdname mdl_gt
 #' @export
 select_strata <- function(x, ...) {
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 	record_selection(x, "strata", collect_labeled(...), "select_strata")
 }
 
@@ -297,17 +297,17 @@ select_strata <- function(x, ...) {
 #' earlier one — stands (the `{ggplot2}` `labs()` merge behavior). So
 #' rethinking one label late never forces restating the rest.
 #'
-#' @param x A `<mesa>` specification
+#' @param x A `<mdl_gt>` specification
 #' @param ... Labeled formulas relabeling terms or levels (see Description)
 #' @param columns A labeled-formula input relabeling statistic columns
 #'
-#' @return The modified `<mesa>` specification.
+#' @return The modified `<mdl_gt>` specification.
 #'
-#' @seealso [mesa()]
+#' @seealso [mdl_gt()]
 #' @export
 modify_labels <- function(x, ..., columns = NULL) {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 
 	relabels <- collect_labeled(...)
 	if (is.null(relabels) && is.null(columns)) {
@@ -341,7 +341,7 @@ modify_labels <- function(x, ..., columns = NULL) {
 	x
 }
 
-#' Choose a layout preset for a `<mesa>`
+#' Choose a layout preset for a `<mdl_gt>`
 #'
 #' @description
 #'
@@ -366,17 +366,17 @@ modify_labels <- function(x, ..., columns = NULL) {
 #' default) and `"strata"`. Like every verb, a repeated `modify_layout()`
 #' replaces the earlier instruction with a message.
 #'
-#' @param x A `<mesa>` specification
+#' @param x A `<mdl_gt>` specification
 #' @param preset One of `"adjustment"`, `"levels"`, or `"interaction"`
 #' @param row_groups The row-group dimension: `"outcome"` or `"strata"`
 #'
-#' @return The modified `<mesa>` specification.
+#' @return The modified `<mdl_gt>` specification.
 #'
-#' @seealso [mesa()], [as_gt()]
+#' @seealso [mdl_gt()], [as_gt()]
 #' @export
 modify_layout <- function(x, preset = NULL, row_groups = NULL) {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 
 	if (is.null(preset) && is.null(row_groups)) {
 		return(x)
@@ -419,7 +419,7 @@ modify_layout <- function(x, preset = NULL, row_groups = NULL) {
 	x
 }
 
-#' Style a `<mesa>` at render
+#' Style a `<mdl_gt>` at render
 #'
 #' @description
 #'
@@ -454,21 +454,21 @@ modify_layout <- function(x, preset = NULL, row_groups = NULL) {
 #' the accents already recorded stand. Each of `accents`, `digits`,
 #' `missing_text`, and `padding` replaces only itself.
 #'
-#' @param x A `<mesa>` specification
+#' @param x A `<mdl_gt>` specification
 #' @param accents A formula or list of formulas: `criterion ~ instruction`
 #'   (see Description)
 #' @param digits Number of digits estimates are formatted to
 #' @param missing_text Text shown in cells with nothing to display
 #' @param padding Vertical padding scale, `0` (dense) upward
 #'
-#' @return The modified `<mesa>` specification.
+#' @return The modified `<mdl_gt>` specification.
 #'
-#' @seealso [mesa()], [as_gt()]
+#' @seealso [mdl_gt()], [as_gt()]
 #' @export
 modify_style <- function(x, accents = NULL, digits = NULL,
 												 missing_text = NULL, padding = NULL) {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 
 	if (is.null(accents) && is.null(digits) && is.null(missing_text) &&
 			is.null(padding)) {
@@ -577,23 +577,23 @@ validate_accent <- function(f) {
 
 # Printing --------------------------------------------------------------------
 
-#' @rdname mesa
+#' @rdname mdl_gt
 #' @export
-print.mesa <- function(x, ...) {
+print.mdl_gt <- function(x, ...) {
 	cat(format(x, ...), sep = "\n")
 	invisible(x)
 }
 
-#' @rdname mesa
+#' @rdname mdl_gt
 #' @export
-format.mesa <- function(x, ...) {
+format.mdl_gt <- function(x, ...) {
 
 	mt <- x$mdl_tbl
 	family <- unique(stats::na.omit(mt$model_call))
 	datasets <- unique(stats::na.omit(mt$data_id))
 
 	header <- paste0(
-		"<mesa> specification: ", nrow(mt),
+		"<mdl_gt> specification: ", nrow(mt),
 		if (nrow(mt) == 1) " fitted model" else " fitted models",
 		if (length(family) > 0) paste0(" \u00d7 ", paste(family, collapse = ", "))
 	)

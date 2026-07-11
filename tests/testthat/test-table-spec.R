@@ -1,4 +1,4 @@
-# The <mesa> specification (M6.3) is the declarative object the grammar grows.
+# The <mdl_gt> specification (M6.3) is the declarative object the grammar grows.
 # These tests pin down its three contracts: the constructor validates before it
 # builds, the verbs record instructions that compose in any order (a repeat
 # replaces with a message), and realization decorates the selected rows —
@@ -20,16 +20,16 @@ spec_table <- function(d = spec_data()) {
 		model_table(data = d)
 }
 
-test_that("mesa() rejects anything but a fitted mdl_tbl", {
+test_that("mdl_gt() rejects anything but a fitted mdl_tbl", {
 
-	expect_error(mesa(mtcars), "inherit from")
+	expect_error(mdl_gt(mtcars), "inherit from")
 
 	# A table of unfit formulas has nothing to lay out
 	unfit <- model_table(fmls(mpg ~ .x(wt) + hp))
-	expect_error(mesa(unfit), "needs fitted models")
+	expect_error(mdl_gt(unfit), "needs fitted models")
 })
 
-test_that("mesa() holds a single model family, erroring when mixed", {
+test_that("mdl_gt() holds a single model family, erroring when mixed", {
 
 	d <- spec_data()
 	m_lm <- fmls(mpg ~ .x(hp)) |> fit(.fn = lm, data = d, raw = FALSE)
@@ -40,13 +40,13 @@ test_that("mesa() holds a single model family, erroring when mixed", {
 		fit(.fn = glm, family = stats::gaussian, data = d, raw = FALSE)
 	mixed <- model_table(m_lm, m_glm, data = d)
 
-	expect_error(mesa(mixed), "single model family")
+	expect_error(mdl_gt(mixed), "single model family")
 
 	# One family builds cleanly
-	expect_s3_class(mesa(spec_table(d)), "mesa")
+	expect_s3_class(mdl_gt(spec_table(d)), "mdl_gt")
 })
 
-test_that("mesa() messages, but does not error, on more than one dataset", {
+test_that("mdl_gt() messages, but does not error, on more than one dataset", {
 
 	d <- spec_data()
 	d2 <- d[1:20, ]
@@ -54,15 +54,15 @@ test_that("mesa() messages, but does not error, on more than one dataset", {
 	m2 <- fmls(mpg ~ .x(hp)) |> fit(.fn = lm, data = d2, raw = FALSE)
 	mt <- model_table(m1, m2, data = d) |> attach_data(d2)
 
-	expect_message(mesa(mt), "more than one dataset")
+	expect_message(mdl_gt(mt), "more than one dataset")
 })
 
 test_that("a bare mesa lays out the exposures and realizes to estimates", {
 
-	m <- mesa(spec_table())
-	expect_s3_class(m, "mesa")
+	m <- mdl_gt(spec_table())
+	expect_s3_class(m, "mdl_gt")
 
-	dec <- realize_mesa(m)
+	dec <- realize_mdl_gt(m)
 	# The two exposures are shown; the adjusted-only covariates are not
 	expect_setequal(unique(dec$variable), c("am", "cyl"))
 	expect_false(any(dec$variable %in% c("hp", "disp")))
@@ -74,7 +74,7 @@ test_that("a bare mesa lays out the exposures and realizes to estimates", {
 
 test_that("realization injects a reference row for each categorical term", {
 
-	dec <- realize_mesa(mesa(spec_table()))
+	dec <- realize_mdl_gt(mdl_gt(spec_table()))
 
 	# `am` (Manual/Automatic) and `cyl` (4/6/8) each contribute a reference row
 	# per adjustment set, carrying the reference level and no estimate
@@ -89,21 +89,21 @@ test_that("realization injects a reference row for each categorical term", {
 	expect_equal(nrow(amRef), length(unique(dec$adj_index)))
 })
 
-test_that("mesa() errors on unused arguments", {
+test_that("mdl_gt() errors on unused arguments", {
 
-	expect_error(mesa(spec_table(), foo = "bar"), "Unused argument")
-	expect_error(mesa(spec_table(), 1), "no selection arguments")
+	expect_error(mdl_gt(spec_table(), foo = "bar"), "Unused argument")
+	expect_error(mdl_gt(spec_table(), 1), "no selection arguments")
 })
 
 test_that("select_*() with no arguments clears the dimension", {
 
-	m <- mesa(spec_table()) |> select_terms(~ am)
-	expect_equal(unique(realize_mesa(m)$variable), "am")
+	m <- mdl_gt(spec_table()) |> select_terms(~ am)
+	expect_equal(unique(realize_mdl_gt(m)$variable), "am")
 
 	# Calling the verb again with nothing clears the earlier selection, with a
 	# message, and the mesa falls back to its default (both exposures)
 	expect_message(cleared <- select_terms(m), "replaces the earlier terms")
-	expect_setequal(unique(realize_mesa(cleared)$variable), c("am", "cyl"))
+	expect_setequal(unique(realize_mdl_gt(cleared)$variable), c("am", "cyl"))
 })
 
 test_that("selection verbs record instructions and compose in any order", {
@@ -111,32 +111,32 @@ test_that("selection verbs record instructions and compose in any order", {
 	mt <- spec_table()
 
 	a <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		select_outcomes(mpg ~ "MPG") |>
 		select_adjustment(1 ~ "Crude", 3 ~ "Adjusted") |>
 		select_terms(cyl ~ "Cylinders")
 	b <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		select_terms(cyl ~ "Cylinders") |>
 		select_adjustment(1 ~ "Crude", 3 ~ "Adjusted") |>
 		select_outcomes(mpg ~ "MPG")
 
 	# Any permutation of the same verbs realizes to the same table
-	expect_equal(realize_mesa(a), realize_mesa(b))
+	expect_equal(realize_mdl_gt(a), realize_mdl_gt(b))
 
 	# The recorded labels flow through to the decorated frame
-	dec <- realize_mesa(a)
+	dec <- realize_mdl_gt(a)
 	expect_equal(unique(dec$term_label), "Cylinders")
 	expect_setequal(unique(dec$adj_label), c("Crude", "Adjusted"))
 })
 
 test_that("repeating a verb replaces its instruction with a message", {
 
-	m <- mesa(spec_table()) |> select_terms(~ am)
+	m <- mdl_gt(spec_table()) |> select_terms(~ am)
 	expect_message(m2 <- select_terms(m, ~ cyl), "replaces the earlier terms")
 
 	# The replacement wins; the earlier selection is gone
-	expect_equal(unique(realize_mesa(m2)$variable), "cyl")
+	expect_equal(unique(realize_mdl_gt(m2)$variable), "cyl")
 })
 
 test_that("modify_labels relabels terms and levels late", {
@@ -144,12 +144,12 @@ test_that("modify_labels relabels terms and levels late", {
 	mt <- spec_table()
 
 	# Term relabel
-	g <- mt |> mesa() |> select_terms(~ am) |> modify_labels(am ~ "Transmission")
-	expect_equal(unique(realize_mesa(g)$term_label), "Transmission")
+	g <- mt |> mdl_gt() |> select_terms(~ am) |> modify_labels(am ~ "Transmission")
+	expect_equal(unique(realize_mdl_gt(g)$term_label), "Transmission")
 
 	# Level relabel by a bare level value, wherever it appears
-	h <- mt |> mesa() |> select_terms(~ cyl) |> modify_labels(6 ~ "Six")
-	dec <- realize_mesa(h)
+	h <- mt |> mdl_gt() |> select_terms(~ cyl) |> modify_labels(6 ~ "Six")
+	dec <- realize_mdl_gt(h)
 	expect_equal(unique(dec$level_label[!is.na(dec$level) & dec$level == "6"]), "Six")
 
 	# A repeated modify_labels replaces the earlier instruction
@@ -165,10 +165,10 @@ test_that("modify_labels() merges per name (M6.11)", {
 
 	# Relabeling `cyl` after `am` keeps both -- no restating the first
 	m <-
-		mt |> mesa() |> select_terms(~ am, ~ cyl) |>
+		mt |> mdl_gt() |> select_terms(~ am, ~ cyl) |>
 		modify_labels(am ~ "Transmission") |>
 		modify_labels(cyl ~ "Cylinders")
-	dec <- realize_mesa(m)
+	dec <- realize_mdl_gt(m)
 	expect_equal(unique(dec$term_label[dec$variable == "am"]), "Transmission")
 	expect_equal(unique(dec$term_label[dec$variable == "cyl"]), "Cylinders")
 
@@ -178,23 +178,23 @@ test_that("modify_labels() merges per name (M6.11)", {
 		m2 <- modify_labels(m, am ~ "Gearbox"),
 		"replaces the earlier label for `am`"
 	)
-	dec2 <- realize_mesa(m2)
+	dec2 <- realize_mdl_gt(m2)
 	expect_equal(unique(dec2$term_label[dec2$variable == "am"]), "Gearbox")
 	expect_equal(unique(dec2$term_label[dec2$variable == "cyl"]), "Cylinders")
 
 	# The same merge rule applies order-independently
 	m3 <-
-		mt |> mesa() |> select_terms(~ am, ~ cyl) |>
+		mt |> mdl_gt() |> select_terms(~ am, ~ cyl) |>
 		modify_labels(cyl ~ "Cylinders") |>
 		modify_labels(am ~ "Transmission")
-	expect_equal(realize_mesa(m), realize_mesa(m3))
+	expect_equal(realize_mdl_gt(m), realize_mdl_gt(m3))
 })
 
 test_that("selection is resolved lazily — bad selections error at realization", {
 
 	# Recording a nonexistent term does not error at verb time
-	s <- mesa(spec_table()) |> select_terms(~ nonexistent)
-	expect_s3_class(s, "mesa")
+	s <- mdl_gt(spec_table()) |> select_terms(~ nonexistent)
+	expect_s3_class(s, "mdl_gt")
 
 	# It surfaces only when the spec is realized
 	expect_error(as_gt(s), "No term matches")
@@ -202,13 +202,13 @@ test_that("selection is resolved lazily — bad selections error at realization"
 
 test_that("as_gt() renders a minimal estimate + CI table from a bare spec", {
 
-	g <- as_gt(mesa(spec_table()))
+	g <- as_gt(mdl_gt(spec_table()))
 	expect_s3_class(g, "gt_tbl")
 
 	# It renders, and a chosen term label reaches the output as a spanner
 	html <-
 		spec_table() |>
-		mesa() |>
+		mdl_gt() |>
 		select_terms(cyl ~ "Cylinders") |>
 		as_gt() |>
 		gt::as_raw_html()
@@ -217,16 +217,16 @@ test_that("as_gt() renders a minimal estimate + CI table from a bare spec", {
 	expect_true(grepl(">4<", html))
 })
 
-test_that("print.mesa shows the models, layout, and selection", {
+test_that("print.mdl_gt shows the models, layout, and selection", {
 
-	out <- utils::capture.output(print(mesa(spec_table())))
-	expect_true(any(grepl("<mesa> specification", out)))
+	out <- utils::capture.output(print(mdl_gt(spec_table())))
+	expect_true(any(grepl("<mdl_gt> specification", out)))
 	expect_true(any(grepl("6 fitted models", out)))
 	expect_true(any(grepl("layout: adjustment", out)))
 	expect_true(any(grepl("everything fitted", out)))
 })
 
-test_that("mesa() rejects one fitting function on two different links", {
+test_that("mdl_gt() rejects one fitting function on two different links", {
 
 	d <- mtcars
 	logit <- fit(
@@ -237,6 +237,6 @@ test_that("mesa() rejects one fitting function on two different links", {
 	)
 	mt <- model_table(logit, identity)
 
-	expect_error(mesa(mt), "glm \\(logit\\).*glm \\(identity\\)")
+	expect_error(mdl_gt(mt), "glm \\(logit\\).*glm \\(identity\\)")
 
 })

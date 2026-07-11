@@ -2,19 +2,19 @@
 % Please edit documentation in R/table-spec.R
 \name{modify_layout}
 \alias{modify_layout}
-\title{Choose a layout preset for a \verb{<mesa>}}
+\title{Choose a layout preset for a \verb{<mdl_gt>}}
 \usage{
 modify_layout(x, preset = NULL, row_groups = NULL)
 }
 \arguments{
-\item{x}{A \verb{<mesa>} specification}
+\item{x}{A \verb{<mdl_gt>} specification}
 
 \item{preset}{One of \code{"adjustment"}, \code{"levels"}, or \code{"interaction"}}
 
 \item{row_groups}{The row-group dimension: \code{"outcome"} or \code{"strata"}}
 }
 \value{
-The modified \verb{<mesa>} specification.
+The modified \verb{<mdl_gt>} specification.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -40,5 +40,5 @@ default) and \code{"strata"}. Like every verb, a repeated \code{modify_layout()}
 replaces the earlier instruction with a message.
 }
 \seealso{
-\code{\link[=mesa]{mesa()}}, \code{\link[=as_gt]{as_gt()}}
+\code{\link[=mdl_gt]{mdl_gt()}}, \code{\link[=as_gt]{as_gt()}}
 }

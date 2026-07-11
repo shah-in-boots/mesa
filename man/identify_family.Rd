@@ -50,7 +50,7 @@ pattern)
 
 Families that share structure relate across their boundaries, and the
 relation is what decides whether they can sit side by side on one
-\code{\link[=mesa]{mesa()}}:
+\code{\link[=mdl_gt]{mdl_gt()}}:
 \itemize{
 \item \verb{varied exposures} — same outcome, same adjustment ladder, different
 exposures: the wide-table shape, exposures as columns over shared

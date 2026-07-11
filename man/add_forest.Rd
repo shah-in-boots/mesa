@@ -2,12 +2,12 @@
 % Please edit documentation in R/table-columns.R
 \name{add_forest}
 \alias{add_forest}
-\title{Add a forest column to a \verb{<mesa>}}
+\title{Add a forest column to a \verb{<mdl_gt>}}
 \usage{
 add_forest(x, axis = list(), width = 100, invert = FALSE)
 }
 \arguments{
-\item{x}{A \verb{<mesa>} specification (from \code{\link[=mesa]{mesa()}})}
+\item{x}{A \verb{<mdl_gt>} specification (from \code{\link[=mdl_gt]{mdl_gt()}})}
 
 \item{axis}{Options overriding the guessed x-scale, as a named list:
 \code{limits} (length-2 numeric), \code{breaks} (numeric), \code{intercept} (the
@@ -22,12 +22,12 @@ reads as risk (and vice versa). The axis mirrors with the cells, since
 the shared scale is resolved from the drawn values.}
 }
 \value{
-The modified \verb{<mesa>} specification.
+The modified \verb{<mdl_gt>} specification.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-\code{add_forest()} appends a forest-plot column block to a \code{\link[=mesa]{mesa()}}
+\code{add_forest()} appends a forest-plot column block to a \code{\link[=mdl_gt]{mdl_gt()}}
 specification — available to any table, not just interaction tables. Its
 cells \emph{read} the estimate and interval already on the specification and
 compute nothing new, so the block requires \code{estimate} + \code{conf} statistics
@@ -46,5 +46,5 @@ inside) enters as \emph{defaults} to the style layer; \code{\link[=modify_style]
 \code{padding} overrides the padding.
 }
 \seealso{
-\code{\link[=mesa]{mesa()}}, \code{\link[=as_gt]{as_gt()}}, \code{\link[=add_estimates]{add_estimates()}}
+\code{\link[=mdl_gt]{mdl_gt()}}, \code{\link[=as_gt]{as_gt()}}, \code{\link[=add_estimates]{add_estimates()}}
 }

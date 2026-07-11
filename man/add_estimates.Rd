@@ -3,7 +3,7 @@
 \name{add_estimates}
 \alias{add_estimates}
 \alias{add_n}
-\title{Add model-statistic columns to a \verb{<mesa>}}
+\title{Add model-statistic columns to a \verb{<mdl_gt>}}
 \usage{
 add_estimates(
   x,
@@ -15,7 +15,7 @@ add_estimates(
 add_n(x, label = "N")
 }
 \arguments{
-\item{x}{A \verb{<mesa>} specification (from \code{\link[=mesa]{mesa()}})}
+\item{x}{A \verb{<mdl_gt>} specification (from \code{\link[=mdl_gt]{mdl_gt()}})}
 
 \item{columns}{Which estimate statistics to show, as labeled formulas (see
 \code{\link[=labeled_formulas_to_named_list]{labeled_formulas_to_named_list()}}). The recognized statistics are \code{beta}
@@ -31,12 +31,12 @@ unset, the table-wide default applies (see \code{\link[=modify_style]{modify_sty
 \item{label}{The column header for the \code{n} column}
 }
 \value{
-The modified \verb{<mesa>} specification.
+The modified \verb{<mdl_gt>} specification.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-These verbs append a \emph{column block} to a \code{\link[=mesa]{mesa()}} specification — an
+These verbs append a \emph{column block} to a \code{\link[=mdl_gt]{mdl_gt()}} specification — an
 instruction for a set of statistic columns, computed and formatted only when
 the table is realized by \code{\link[=as_gt]{as_gt()}}.
 \itemize{
@@ -73,5 +73,5 @@ with three decimals, with values below shown as \verb{<0.001}.
 }
 }
 \seealso{
-\code{\link[=mesa]{mesa()}}, \code{\link[=as_gt]{as_gt()}}
+\code{\link[=mdl_gt]{mdl_gt()}}, \code{\link[=as_gt]{as_gt()}}
 }

@@ -22,7 +22,7 @@ columns_table <- function(d = columns_data()) {
 
 test_that("add_estimates() validates its inputs at verb time", {
 
-	m <- mesa(columns_table())
+	m <- mdl_gt(columns_table())
 
 	expect_error(add_estimates(mtcars), "inherit from")
 	expect_error(add_estimates(m, columns = list(se ~ "SE")), "does not know")
@@ -34,7 +34,7 @@ test_that("add_estimates() validates its inputs at verb time", {
 
 test_that("column verbs append blocks; a repeat replaces with a message", {
 
-	m <- mesa(columns_table())
+	m <- mdl_gt(columns_table())
 
 	m2 <- m |> add_estimates(columns = list(beta ~ "B")) |> add_n()
 	types <- vapply(m2$columns, function(b) b$type, character(1))
@@ -64,7 +64,7 @@ test_that("exponentiation defers to the family inference by default", {
 	# The bare mesa and the default block both infer: a logit link comes back
 	# exponentiated (odds ratios) — the correction of the old hazard-scale
 	# defect, where log-scale values were labeled as ratios
-	dec <- realize_mesa(mesa(mt) |> add_estimates())
+	dec <- realize_mdl_gt(mdl_gt(mt) |> add_estimates())
 	expect_true(all(dec$exponentiated))
 	expect_equal(
 		dec$estimate[dec$term == "wt"],
@@ -73,7 +73,7 @@ test_that("exponentiation defers to the family inference by default", {
 	)
 
 	# An explicit override pins the linear scale
-	decLinear <- realize_mesa(mesa(mt) |> add_estimates(exponentiate = FALSE))
+	decLinear <- realize_mdl_gt(mdl_gt(mt) |> add_estimates(exponentiate = FALSE))
 	expect_true(all(!decLinear$exponentiated))
 	expect_equal(
 		decLinear$estimate[decLinear$term == "wt"],
@@ -86,7 +86,7 @@ test_that("statistic choice and labels reach the rendered table", {
 
 	html <-
 		columns_table() |>
-		mesa() |>
+		mdl_gt() |>
 		add_estimates(columns = list(beta ~ "Beta", conf ~ "95% CI", p ~ "P value")) |>
 		as_gt() |>
 		gt::as_raw_html()
@@ -98,7 +98,7 @@ test_that("statistic choice and labels reach the rendered table", {
 	# Dropping p drops its column
 	htmlNoP <-
 		columns_table() |>
-		mesa() |>
+		mdl_gt() |>
 		add_estimates(columns = list(beta ~ "Beta", conf ~ "95% CI")) |>
 		as_gt() |>
 		gt::as_raw_html()
@@ -114,7 +114,7 @@ test_that("add_n() shows the recorded nobs without attached data", {
 		model_table() # deliberately no data attached
 
 	html <-
-		mt |> mesa() |> add_n(label = "No. observed") |> as_gt() |>
+		mt |> mdl_gt() |> add_n(label = "No. observed") |> as_gt() |>
 		gt::as_raw_html()
 	expect_true(grepl("No. observed", html, fixed = TRUE))
 	expect_true(grepl(paste0(">", nrow(d), "<"), html))
@@ -130,7 +130,7 @@ test_that("digits are honored per estimates block", {
 	beta <- unname(stats::coef(stats::lm(mpg ~ wt, data = d))["wt"])
 
 	html <-
-		mt |> mesa() |> add_estimates(columns = list(beta ~ "B"), digits = 4) |>
+		mt |> mdl_gt() |> add_estimates(columns = list(beta ~ "B"), digits = 4) |>
 		as_gt() |>
 		gt::as_raw_html()
 	expect_true(grepl(formatC(beta, format = "f", digits = 4), html, fixed = TRUE))
@@ -140,7 +140,7 @@ test_that("modify_labels(columns=) overrides block headers late", {
 
 	html <-
 		columns_table() |>
-		mesa() |>
+		mdl_gt() |>
 		add_estimates(columns = list(beta ~ "Beta", conf ~ "CI")) |>
 		add_n() |>
 		modify_labels(columns = list(beta ~ "OR", n ~ "Obs")) |>
@@ -157,14 +157,14 @@ test_that("modify_labels(columns=) errors at realization on an unknown column", 
 	# Recording the label does not error at verb time -- only at realization,
 	# matching every other selection input (M6.11)
 	m <-
-		columns_table() |> mesa() |>
+		columns_table() |> mdl_gt() |>
 		modify_labels(columns = list(betaa ~ "HR"))
-	expect_s3_class(m, "mesa")
+	expect_s3_class(m, "mdl_gt")
 	expect_error(as_gt(m), "not on the mesa")
 
 	# Naming a real statistic that simply is not on this mesa also errors
 	m2 <-
-		columns_table() |> mesa() |>
+		columns_table() |> mdl_gt() |>
 		modify_labels(columns = list(events ~ "No. events"))
 	expect_error(as_gt(m2), "not on the mesa")
 })
@@ -174,17 +174,17 @@ test_that("column verbs keep the grammar order-independent", {
 	mt <- columns_table()
 
 	a <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		add_estimates(columns = list(beta ~ "B", p ~ "P")) |>
 		select_adjustment(1 ~ "Crude") |>
 		add_n()
 	b <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		add_n() |>
 		add_estimates(columns = list(beta ~ "B", p ~ "P")) |>
 		select_adjustment(1 ~ "Crude")
 
-	expect_equal(realize_mesa(a), realize_mesa(b))
+	expect_equal(realize_mdl_gt(a), realize_mdl_gt(b))
 
 	# The rendered tables agree on their data, headers, and spanners (the raw
 	# html differs only by gt's per-build random table id)
@@ -204,7 +204,7 @@ test_that("categorical terms nest level spanners over statistic columns", {
 		model_table(data = d)
 
 	html <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		add_estimates(columns = list(beta ~ "B", conf ~ "CI", p ~ "P")) |>
 		as_gt() |>
 		gt::as_raw_html()
@@ -216,10 +216,10 @@ test_that("categorical terms nest level spanners over statistic columns", {
 	expect_true(grepl(">P<", html))
 })
 
-test_that("print.mesa describes the recorded column blocks", {
+test_that("print.mdl_gt describes the recorded column blocks", {
 
 	m <-
-		mesa(columns_table()) |>
+		mdl_gt(columns_table()) |>
 		add_estimates(columns = list(beta ~ "B", p ~ "P")) |>
 		add_n()
 	out <- utils::capture.output(print(m))
@@ -244,7 +244,7 @@ events_table <- function(d = events_data(), rhs = "sex") {
 test_that("add_events() and add_rate_difference() validate at verb time", {
 
 	skip_if_not_installed("survival")
-	m <- mesa(events_table())
+	m <- mdl_gt(events_table())
 
 	expect_error(add_events(m, followup = c("a", "b")), "single column name")
 	expect_error(add_events(m, followup = time, person_years = 0),
@@ -255,7 +255,7 @@ test_that("add_events() and add_rate_difference() validate at verb time", {
 	expect_error(add_rate_difference(m, conf_level = 0), "`conf_level`")
 
 	# A plain (non-Surv()) outcome cannot infer a follow-up column (M6.12)
-	expect_error(add_events(mesa(columns_table())), "`followup`")
+	expect_error(add_events(mdl_gt(columns_table())), "`followup`")
 
 	# Blocks record and a repeat replaces with a message, like every verb
 	m2 <- m |> add_events(followup = time) |> add_rate_difference()
@@ -272,9 +272,9 @@ test_that("add_events() infers `followup` from a Surv() outcome (M6.12)", {
 	skip_if_not_installed("survival")
 	d <- events_data()
 
-	inferred <- events_table(d) |> mesa() |> add_events() |> realize_mesa()
+	inferred <- events_table(d) |> mdl_gt() |> add_events() |> realize_mdl_gt()
 	explicit <-
-		events_table(d) |> mesa() |> add_events(followup = time) |> realize_mesa()
+		events_table(d) |> mdl_gt() |> add_events(followup = time) |> realize_mdl_gt()
 	expect_equal(inferred$events, explicit$events)
 	expect_equal(inferred$rate, explicit$rate)
 
@@ -283,7 +283,7 @@ test_that("add_events() infers `followup` from a Surv() outcome (M6.12)", {
 	# attaches whole, so any column is reachable)
 	d$time2 <- d$time
 	overridden <-
-		events_table(d) |> mesa() |> add_events(followup = time2) |> realize_mesa()
+		events_table(d) |> mdl_gt() |> add_events(followup = time2) |> realize_mdl_gt()
 	expect_equal(overridden$events, explicit$events)
 })
 
@@ -295,14 +295,14 @@ test_that("events and rates match survival::pyears() per level", {
 	# `followup` composes as a bare name or a string
 	dec <-
 		events_table(d) |>
-		mesa() |>
+		mdl_gt() |>
 		add_events(followup = time) |>
-		realize_mesa()
+		realize_mdl_gt()
 	decChr <-
 		events_table(d) |>
-		mesa() |>
+		mdl_gt() |>
 		add_events(followup = "time") |>
-		realize_mesa()
+		realize_mdl_gt()
 	expect_equal(dec$events, decChr$events)
 
 	py <- survival::pyears(
@@ -329,10 +329,10 @@ test_that("the rate difference is corrected: qnorm(0.975), person-years
 
 	dec <-
 		events_table(d) |>
-		mesa() |>
+		mdl_gt() |>
 		add_events(followup = time) |>
 		add_rate_difference() |>
-		realize_mesa()
+		realize_mdl_gt()
 
 	py <- survival::pyears(
 		survival::Surv(time, status) ~ sex, data = d, scale = 365.25
@@ -354,10 +354,10 @@ test_that("the rate difference is corrected: qnorm(0.975), person-years
 	# A different confidence level moves the critical value with it
 	dec90 <-
 		events_table(d) |>
-		mesa() |>
+		mdl_gt() |>
 		add_events(followup = time) |>
 		add_rate_difference(conf_level = 0.90) |>
-		realize_mesa()
+		realize_mdl_gt()
 	expect_equal(unique(dec90$rate_diff_low), est - stats::qnorm(0.95) * se,
 							 tolerance = 1e-8)
 
@@ -365,10 +365,10 @@ test_that("the rate difference is corrected: qnorm(0.975), person-years
 	# difference scale linearly with it
 	dec1000 <-
 		events_table(d) |>
-		mesa() |>
+		mdl_gt() |>
 		add_events(followup = time, person_years = 1000) |>
 		add_rate_difference() |>
-		realize_mesa()
+		realize_mdl_gt()
 	expect_equal(dec1000$rate, dec$rate * 10, tolerance = 1e-8)
 	expect_equal(unique(dec1000$rate_diff), est * 10, tolerance = 1e-8)
 	expect_equal(unique(dec1000$rate_diff_low),
@@ -385,14 +385,14 @@ test_that("the rate difference needs exactly 2 levels, by an actual count", {
 
 	# Events per level still compute for a many-level term...
 	dec <-
-		mt |> mesa() |> add_events(followup = time) |> realize_mesa()
+		mt |> mdl_gt() |> add_events(followup = time) |> realize_mdl_gt()
 	expect_true(all(!is.na(dec$events)))
 
 	# ...but the two-level comparison errors on the real level count (the old
 	# gate, `length(levels(x) == 2)`, was truthy for any count)
 	expect_error(
-		mt |> mesa() |> add_events(followup = time) |> add_rate_difference() |>
-			realize_mesa(),
+		mt |> mdl_gt() |> add_events(followup = time) |> add_rate_difference() |>
+			realize_mdl_gt(),
 		"exactly 2 levels.*4 levels"
 	)
 })
@@ -410,27 +410,27 @@ test_that("the data-statistic errors are clear and point to attach_data()", {
 		fit(.fn = survival::coxph, data = d, raw = FALSE) |>
 		model_table()
 	expect_error(
-		unattached |> mesa() |> add_events(followup = time) |> realize_mesa(),
+		unattached |> mdl_gt() |> add_events(followup = time) |> realize_mdl_gt(),
 		"attach_data"
 	)
 
 	# A rate difference without an events block names the missing verb
 	expect_error(
-		events_table(d) |> mesa() |> add_rate_difference() |> realize_mesa(),
+		events_table(d) |> mdl_gt() |> add_rate_difference() |> realize_mdl_gt(),
 		"add_events"
 	)
 
 	# A continuous term has no levels to count events over
 	expect_error(
-		events_table(d, rhs = "ph.karno") |> mesa() |>
-			add_events(followup = time) |> realize_mesa(),
+		events_table(d, rhs = "ph.karno") |> mdl_gt() |>
+			add_events(followup = time) |> realize_mdl_gt(),
 		"not a categorical"
 	)
 
 	# A follow-up column the data does not carry
 	expect_error(
-		events_table(d) |> mesa() |> add_events(followup = followup_days) |>
-			realize_mesa(),
+		events_table(d) |> mdl_gt() |> add_events(followup = followup_days) |>
+			realize_mdl_gt(),
 		"follow-up column"
 	)
 })
@@ -441,7 +441,7 @@ test_that("events, rates, and the rate difference reach the rendered table", {
 
 	m <-
 		events_table() |>
-		mesa() |>
+		mdl_gt() |>
 		add_events(followup = time) |>
 		add_rate_difference()
 	html <- gt::as_raw_html(as_gt(m))
@@ -501,7 +501,7 @@ interaction_chain <- function(mt = interaction_table()) {
 	# `modify_layout()` gesture needed for the common case
 	suppressMessages(
 		mt |>
-			mesa() |>
+			mdl_gt() |>
 			add_interaction() |>
 			add_n(label = "No.") |>
 			add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI",
@@ -511,7 +511,7 @@ interaction_chain <- function(mt = interaction_table()) {
 
 test_that("add_interaction() validates and records like every verb", {
 
-	m <- mesa(interaction_table())
+	m <- mdl_gt(interaction_table())
 
 	expect_error(add_interaction(mtcars), "inherit from")
 	expect_error(add_interaction(m, conf_level = 0), "`conf_level`")
@@ -531,7 +531,7 @@ test_that("add_interaction() implies the interaction layout (M6.12)", {
 
 	# Declaring the block alone is enough -- no modify_layout() gesture needed
 	expect_message(
-		implied <- mt |> mesa() |> add_interaction(),
+		implied <- mt |> mdl_gt() |> add_interaction(),
 		"sets the layout to the `interaction` preset"
 	)
 	expect_equal(implied$layout$preset, "interaction")
@@ -539,14 +539,14 @@ test_that("add_interaction() implies the interaction layout (M6.12)", {
 
 	# Calling it again (layout already `interaction`) is silent about the layout
 	# -- only the column-block replacement message fires
-	once <- suppressMessages(mt |> mesa() |> add_interaction())
+	once <- suppressMessages(mt |> mdl_gt() |> add_interaction())
 	msgs <- testthat::capture_messages(add_interaction(once))
 	expect_false(any(grepl("sets the layout", msgs)))
 	expect_true(any(grepl("replaces the earlier interaction", msgs)))
 
 	# An explicitly conflicting preset errors rather than silently overriding
 	expect_error(
-		mt |> mesa() |> modify_layout(preset = "levels") |> add_interaction(),
+		mt |> mdl_gt() |> modify_layout(preset = "levels") |> add_interaction(),
 		"already selected the `levels` preset"
 	)
 })
@@ -557,7 +557,7 @@ test_that("the block and the layout come as a pair, erroring apart", {
 
 	# The layout has no rows without the block, even when declared explicitly
 	expect_error(
-		mt |> mesa() |> modify_layout(preset = "interaction") |> as_gt(),
+		mt |> mdl_gt() |> modify_layout(preset = "interaction") |> as_gt(),
 		"defined by `add_interaction\\(\\)`"
 	)
 
@@ -568,7 +568,7 @@ test_that("the block and the layout come as a pair, erroring apart", {
 		fit(.fn = lm, data = d, raw = FALSE) |>
 		model_table(data = d)
 	expect_error(
-		plain |> mesa() |> add_interaction() |> as_gt(),
+		plain |> mdl_gt() |> add_interaction() |> as_gt(),
 		"models fitted with an interaction term"
 	)
 })
@@ -591,13 +591,13 @@ test_that("one model per interaction term: shared terms error instead of
 	mt <- suppressMessages(model_table(m1, m2, data = d))
 
 	spec <- suppressMessages(
-		mt |> mesa() |> add_interaction() |> add_estimates()
+		mt |> mdl_gt() |> add_interaction() |> add_estimates()
 	)
 	expect_error(as_gt(spec), "one model per interaction term")
 
 	# Narrowed to a single adjustment set, the same chain lays out fine
 	narrowed <- suppressMessages(
-		mt |> mesa() |> select_adjustment(2 ~ "Adjusted") |>
+		mt |> mdl_gt() |> select_adjustment(2 ~ "Adjusted") |>
 			add_interaction() |> add_estimates()
 	)
 	expect_no_error(as_gt(narrowed))
@@ -608,7 +608,7 @@ test_that("the interaction frame: level rows per band, per-level statistics,
 					 the p-value group-scoped", {
 
 	m <- interaction_chain()
-	frame <- mesa_interaction_frame(m)
+	frame <- mdl_gt_interaction_frame(m)
 
 	# One band per interaction term, one row per level of its variable
 	expect_setequal(unique(stats::na.omit(frame$row_group)), c("am", "cyl"))
@@ -718,7 +718,7 @@ test_that("the interaction layout narrows to one outcome × exposure", {
 	mt <- suppressMessages(model_table(m1, m2, data = d))
 
 	spec <-
-		mt |> mesa() |> modify_layout(preset = "interaction") |>
+		mt |> mdl_gt() |> modify_layout(preset = "interaction") |>
 		add_interaction()
 	expect_error(as_gt(spec), "single outcome")
 
@@ -751,7 +751,7 @@ forest_table <- function() {
 
 test_that("add_forest() validates at verb time and records like every verb", {
 
-	m <- mesa(forest_table())
+	m <- mdl_gt(forest_table())
 
 	expect_error(add_forest(mtcars), "inherit from")
 	expect_error(add_forest(m, axis = list(1, 2)), "named list")
@@ -777,14 +777,14 @@ test_that("a forest block requires estimate and conf on the specification", {
 	# realization, keeping the verbs order-independent
 	m <-
 		forest_table() |>
-		mesa() |>
+		mdl_gt() |>
 		add_estimates(columns = list(p ~ "P")) |>
 		add_forest()
 	expect_error(as_gt(m), "keep `beta` and `conf`")
 
 	# The bare default carries both, so a bare mesa takes a forest column
-	bare <- forest_table() |> mesa() |> add_forest()
-	frame <- mesa_cell_frame(realize_mesa(bare), bare)
+	bare <- forest_table() |> mdl_gt() |> add_forest()
+	frame <- mdl_gt_cell_frame(realize_mdl_gt(bare), bare)
 	expect_true(any(frame$type == "plot"))
 })
 
@@ -792,12 +792,12 @@ test_that("adding or dropping add_forest() changes no other cell", {
 
 	base <-
 		forest_table() |>
-		mesa() |>
+		mdl_gt() |>
 		add_estimates(columns = list(beta ~ "B", conf ~ "CI", p ~ "P"))
 	withForest <- base |> add_forest()
 
-	f0 <- mesa_cell_frame(realize_mesa(base), base)
-	f1 <- mesa_cell_frame(realize_mesa(withForest), withForest)
+	f0 <- mdl_gt_cell_frame(realize_mdl_gt(base), base)
+	f1 <- mdl_gt_cell_frame(realize_mdl_gt(withForest), withForest)
 
 	# Only the forest columns and the reserved .axis row appear
 	extra <- f1[grepl("::forest$", f1$column_key) | f1$row_key == ".axis", ]
@@ -822,16 +822,16 @@ test_that("adding or dropping add_forest() changes no other cell", {
 test_that("forest cells read the estimate cells' numbers; invert draws
 					 reciprocals with swapped bounds", {
 
-	m <- forest_table() |> mesa() |> add_forest()
-	frame <- mesa_cell_frame(realize_mesa(m), m)
+	m <- forest_table() |> mdl_gt() |> add_forest()
+	frame <- mdl_gt_cell_frame(realize_mdl_gt(m), m)
 
 	fcells <- frame[frame$column_key == "wt::forest" &
 										frame$row_key != ".axis", ]
 	ecells <- frame[frame$column_key == "wt::est", ]
 	expect_equal(fcells$value, ecells$value)
 
-	minv <- forest_table() |> mesa() |> add_forest(invert = TRUE)
-	finv <- mesa_cell_frame(realize_mesa(minv), minv)
+	minv <- forest_table() |> mdl_gt() |> add_forest(invert = TRUE)
+	finv <- mdl_gt_cell_frame(realize_mdl_gt(minv), minv)
 	icells <- finv[finv$column_key == "wt::forest" & finv$row_key != ".axis", ]
 	for (i in seq_len(nrow(icells))) {
 		expect_equal(icells$value[[i]]$estimate,
@@ -849,7 +849,7 @@ test_that("the axis options flow to the shared scale; the block renders", {
 
 	m <-
 		forest_table() |>
-		mesa() |>
+		mdl_gt() |>
 		add_forest(axis = list(limits = c(-10, 2), intercept = 0))
 	g <- as_gt(m)
 	dat <- g[["_data"]]
@@ -877,7 +877,7 @@ test_that("the axis title rides the shared scale and heightens the strip", {
 	skip_if_not(capabilities("png"), "no png device")
 	skip_if_not(isTRUE(capabilities("cairo")[[1]]), "no cairo (em sizing)")
 
-	m <- forest_table() |> mesa() |> add_forest(axis = list(title = "Estimate"))
+	m <- forest_table() |> mdl_gt() |> add_forest(axis = list(title = "Estimate"))
 	html <- gt::as_raw_html(as_gt(m))
 	# Cells stay 30px (1.875em) tall; the titled strip takes 34px (2.125em)
 	expect_true(grepl("height:1.875em", html, fixed = TRUE))
@@ -895,20 +895,20 @@ test_that("a plot column turns the whole body borderless, evenly", {
 
 	# The per-cell hidden border punched gaps in the header and bottom rules
 	# under border-collapse; the native look is a body-wide default instead
-	withForest <- as_gt(forest_table() |> mesa() |> add_forest())
+	withForest <- as_gt(forest_table() |> mdl_gt() |> add_forest())
 	expect_equal(optOf(withForest, "table_body_hlines_style"), "none")
 	expect_equal(optOf(withForest, "row_group_border_top_style"), "none")
 
-	plain <- as_gt(mesa(forest_table()))
+	plain <- as_gt(mdl_gt(forest_table()))
 	expect_false(identical(optOf(plain, "table_body_hlines_style"), "none"))
 })
 
 test_that("the dense padding is a default the style layer can override", {
 
-	m <- forest_table() |> mesa() |> add_forest()
+	m <- forest_table() |> mdl_gt() |> add_forest()
 	dense <- as_gt(m)
 	spacious <- as_gt(modify_style(m, padding = 1))
-	plain <- as_gt(mesa(forest_table()))
+	plain <- as_gt(mdl_gt(forest_table()))
 
 	padOf <- function(g) {
 		opts <- g[["_options"]]
@@ -925,7 +925,7 @@ test_that("the levels layout defers the forest column, clearly", {
 
 	m <-
 		forest_table() |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "levels") |>
 		add_forest()
 	expect_error(as_gt(m), "deferred past launch")

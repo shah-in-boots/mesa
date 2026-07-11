@@ -197,7 +197,7 @@ validate_selection_present <- function(requested, available, what) {
 #'   unfiltered. `adjustment` selects by the sequential adjustment index (see
 #'   [family_adjustment_index()]), so its left-hand sides are integers.
 #'
-#' @return A `mesa_selection` object (a list) with: `models`, the filtered
+#' @return A `mdl_gt_selection` object (a list) with: `models`, the filtered
 #'   `mdl_tbl`; `adjustment_index`, the sequential index aligned to those rows;
 #'   `terms`, the resolved-term metadata tibble; `term_keys`, the union of
 #'   exact tidy-term keys (or `NULL` when no terms were requested); and
@@ -281,7 +281,7 @@ resolve_selection <- function(x,
 				strata = staSel
 			)
 		),
-		class = "mesa_selection"
+		class = "mdl_gt_selection"
 	)
 }
 

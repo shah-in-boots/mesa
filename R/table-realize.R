@@ -1,7 +1,7 @@
-# Realizing the <mesa> (M6.3-M6.5, split out in M6.14) ------------------------
+# Realizing the <mdl_gt> (M6.3-M6.5, split out in M6.14) ------------------------
 #
-# A `<mesa>` specification carries instructions; realization runs them against
-# the `mdl_tbl`. `realize_mesa()` performs *select* (the M6.2 resolver),
+# A `<mdl_gt>` specification carries instructions; realization runs them against
+# the `mdl_tbl`. `realize_mdl_gt()` performs *select* (the M6.2 resolver),
 # *decorate* (term metadata plus injected reference rows), and *compute* (the
 # data-derived statistics) for the `"adjustment"` and `"levels"` presets;
 # `realize_interaction()` (in table-presets.R, alongside the interaction
@@ -11,7 +11,7 @@
 # table-render.R.
 
 
-#' Realize a `<mesa>` to its decorated estimate rows
+#' Realize a `<mdl_gt>` to its decorated estimate rows
 #'
 #' Runs the *select*, *decorate*, and *compute* stages of the grammar. Returns
 #' a long tibble with one row per displayed estimate, plus an injected
@@ -21,9 +21,9 @@
 #' and any data-derived statistics the column blocks request.
 #' @keywords internal
 #' @noRd
-realize_mesa <- function(x) {
+realize_mdl_gt <- function(x) {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 	mt <- x$mdl_tbl
 
 	# Stage 1 -- select: filter the models and resolve the requested terms
@@ -42,7 +42,7 @@ realize_mesa <- function(x) {
 
 	# The terms whose estimates become columns: an explicit `select_terms()`,
 	# else the exposures, else every non-outcome term the models carry
-	displayTerms <- mesa_display_terms(mt, x$selection, sel)
+	displayTerms <- mdl_gt_display_terms(mt, x$selection, sel)
 	if (nrow(displayTerms) == 0) {
 		stop(
 			"Nothing to display: no terms were selected and the models declare ",
@@ -54,7 +54,7 @@ realize_mesa <- function(x) {
 	# Estimates on the inferred scale (Cox / logit families exponentiate) unless
 	# an `add_estimates()` block overrides it; the decision is carried in
 	# `exponentiated`, so the message is redundant here
-	estBlock <- mesa_column_block(x, "estimates")
+	estBlock <- mdl_gt_column_block(x, "estimates")
 	flat <- suppressMessages(
 		flatten_models(models, exponentiate = estBlock$exponentiate)
 	)
@@ -156,7 +156,7 @@ realize_mesa <- function(x) {
 #' non-meta term in the term table.
 #' @keywords internal
 #' @noRd
-mesa_display_terms <- function(mt, selection, sel) {
+mdl_gt_display_terms <- function(mt, selection, sel) {
 
 	if (!is.null(selection$terms)) {
 		return(sel$terms)

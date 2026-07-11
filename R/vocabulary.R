@@ -72,7 +72,7 @@
 #' Color term labels by role with cli's named ANSI colors
 #' @keywords internal
 #' @noRd
-mesa_color_roles <- function(text,
+mdl_gt_color_roles <- function(text,
 														 role,
 														 color = getOption("mesa.color", TRUE)) {
 	if (!isTRUE(color) || !has_cli()) {

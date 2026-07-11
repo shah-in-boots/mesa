@@ -1,7 +1,7 @@
 # Column blocks (M6.4 model statistics, M6.5 data statistics) -----------------
 #
 # The `add_*` verbs append *column blocks* — ordered instructions on the
-# `columns` slot of a `<mesa>` specification. Like every verb, they record and
+# `columns` slot of a `<mdl_gt>` specification. Like every verb, they record and
 # defer: computation and formatting happen at realization, and re-calling a
 # verb replaces its earlier block with a message. `add_estimates()` and
 # `add_n()` read the models alone (the tidy estimates and the recorded
@@ -21,13 +21,13 @@
 # identity (`term::level::effect`, built in table-presets.R), and the accent
 # machinery judges each term x level context's effects together.
 
-#' Add model-statistic columns to a `<mesa>`
+#' Add model-statistic columns to a `<mdl_gt>`
 #'
 #' @description
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' These verbs append a *column block* to a [mesa()] specification — an
+#' These verbs append a *column block* to a [mdl_gt()] specification — an
 #' instruction for a set of statistic columns, computed and formatted only when
 #' the table is realized by [as_gt()].
 #'
@@ -61,7 +61,7 @@
 #' the table-wide default ([modify_style()]'s `digits`, or 2). P-values render
 #' with three decimals, with values below shown as `<0.001`.
 #'
-#' @param x A `<mesa>` specification (from [mesa()])
+#' @param x A `<mdl_gt>` specification (from [mdl_gt()])
 #'
 #' @param columns Which estimate statistics to show, as labeled formulas (see
 #'   [labeled_formulas_to_named_list()]). The recognized statistics are `beta`
@@ -76,9 +76,9 @@
 #'
 #' @param label The column header for the `n` column
 #'
-#' @return The modified `<mesa>` specification.
+#' @return The modified `<mdl_gt>` specification.
 #'
-#' @seealso [mesa()], [as_gt()]
+#' @seealso [mdl_gt()], [as_gt()]
 #'
 #' @name add_estimates
 #' @export
@@ -89,7 +89,7 @@ add_estimates <- function(x,
 													exponentiate = NULL,
 													digits = NULL) {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 
 	statistics <- labeled_formulas_to_named_list(columns)
 	if (length(statistics) == 0) {
@@ -133,14 +133,14 @@ add_estimates <- function(x,
 #' @export
 add_n <- function(x, label = "N") {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 	validate_scalar(label, "label", type = "string")
 
 	block <- list(type = "n", label = label)
 	record_column_block(x, block, "add_n")
 }
 
-#' Add data-statistic columns to a `<mesa>`
+#' Add data-statistic columns to a `<mdl_gt>`
 #'
 #' @description
 #'
@@ -149,7 +149,7 @@ add_n <- function(x, label = "N") {
 #' These verbs append *column blocks* whose statistics come from the models'
 #' **attached data** (see [attach_data()]), not from the fitted coefficients —
 #' the M6.1 statistics vocabulary's load-bearing distinction. Like every
-#' `<mesa>` verb they only record instructions; the statistics are computed
+#' `<mdl_gt>` verb they only record instructions; the statistics are computed
 #' when the table is realized by [as_gt()], against the dataset each model's
 #' `data_id` resolves to.
 #'
@@ -180,7 +180,7 @@ add_n <- function(x, label = "N") {
 #' `add_rate_difference()` errors on any displayed term whose attached-data
 #' factor does not have exactly two levels.
 #'
-#' @param x A `<mesa>` specification (from [mesa()])
+#' @param x A `<mdl_gt>` specification (from [mdl_gt()])
 #'
 #' @param followup The column of the attached data holding each subject's
 #'   follow-up time, as a bare name or a string. When the mesa's outcome is a
@@ -202,9 +202,9 @@ add_n <- function(x, label = "N") {
 #'
 #' @param conf_level Confidence level of the rate-difference interval
 #'
-#' @return The modified `<mesa>` specification.
+#' @return The modified `<mdl_gt>` specification.
 #'
-#' @seealso [mesa()], [as_gt()], [attach_data()]
+#' @seealso [mdl_gt()], [as_gt()], [attach_data()]
 #'
 #' @name add_events
 #' @export
@@ -214,7 +214,7 @@ add_events <- function(x,
 											 scale = 365.25,
 											 digits = 1) {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 
 	if (missing(followup)) {
 		# Not supplied: infer from a Surv() outcome's time argument (M6.12) —
@@ -264,7 +264,7 @@ add_events <- function(x,
 	record_column_block(x, block, "add_events")
 }
 
-#' Add interaction rows to a `<mesa>`
+#' Add interaction rows to a `<mdl_gt>`
 #'
 #' @description
 #'
@@ -288,17 +288,17 @@ add_events <- function(x,
 #' renderer floats over the level rows. A forest column ([add_forest()]) reads
 #' the same per-level estimates.
 #'
-#' @param x A `<mesa>` specification (from [mesa()])
+#' @param x A `<mdl_gt>` specification (from [mdl_gt()])
 #'
 #' @param conf_level Confidence level of the within-level intervals
 #'
-#' @return The modified `<mesa>` specification.
+#' @return The modified `<mdl_gt>` specification.
 #'
-#' @seealso [mesa()], [modify_layout()], [estimate_interaction()]
+#' @seealso [mdl_gt()], [modify_layout()], [estimate_interaction()]
 #' @export
 add_interaction <- function(x, conf_level = 0.95) {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 	validate_scalar(conf_level, "conf_level", min = 0, max = 1, inclusive = FALSE)
 
 	# The block defines the interaction layout's rows, so declaring it implies
@@ -324,13 +324,13 @@ add_interaction <- function(x, conf_level = 0.95) {
 	record_column_block(x, block, "add_interaction")
 }
 
-#' Add a forest column to a `<mesa>`
+#' Add a forest column to a `<mdl_gt>`
 #'
 #' @description
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' `add_forest()` appends a forest-plot column block to a [mesa()]
+#' `add_forest()` appends a forest-plot column block to a [mdl_gt()]
 #' specification — available to any table, not just interaction tables. Its
 #' cells *read* the estimate and interval already on the specification and
 #' compute nothing new, so the block requires `estimate` + `conf` statistics
@@ -348,7 +348,7 @@ add_interaction <- function(x, conf_level = 0.95) {
 #' inside) enters as *defaults* to the style layer; [modify_style()]'s
 #' `padding` overrides the padding.
 #'
-#' @param x A `<mesa>` specification (from [mesa()])
+#' @param x A `<mdl_gt>` specification (from [mdl_gt()])
 #'
 #' @param axis Options overriding the guessed x-scale, as a named list:
 #'   `limits` (length-2 numeric), `breaks` (numeric), `intercept` (the
@@ -362,13 +362,13 @@ add_interaction <- function(x, conf_level = 0.95) {
 #'   reads as risk (and vice versa). The axis mirrors with the cells, since
 #'   the shared scale is resolved from the drawn values.
 #'
-#' @return The modified `<mesa>` specification.
+#' @return The modified `<mdl_gt>` specification.
 #'
-#' @seealso [mesa()], [as_gt()], [add_estimates()]
+#' @seealso [mdl_gt()], [as_gt()], [add_estimates()]
 #' @export
 add_forest <- function(x, axis = list(), width = 100, invert = FALSE) {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 
 	if (!is.list(axis) ||
 			(length(axis) > 0 && is.null(names(axis)))) {
@@ -412,7 +412,7 @@ add_forest <- function(x, axis = list(), width = 100, invert = FALSE) {
 #' @export
 add_rate_difference <- function(x, conf_level = 0.95) {
 
-	validate_class(x, "mesa")
+	validate_class(x, "mdl_gt")
 	validate_scalar(conf_level, "conf_level", min = 0, max = 1, inclusive = FALSE)
 
 	block <- list(type = "rate_difference", conf_level = as.numeric(conf_level))
@@ -435,8 +435,8 @@ add_rate_difference <- function(x, conf_level = 0.95) {
 #' @noRd
 compute_data_statistics <- function(dec, spec) {
 
-	evBlock <- mesa_column_block(spec, "events")
-	rdBlock <- mesa_column_block(spec, "rate_difference")
+	evBlock <- mdl_gt_column_block(spec, "events")
+	rdBlock <- mdl_gt_column_block(spec, "rate_difference")
 	if (is.null(evBlock) && is.null(rdBlock)) {
 		return(dec)
 	}
@@ -576,7 +576,7 @@ parse_surv_outcome <- function(outcome) {
 }
 
 #' Record a column block, replacing an earlier block of the same type with a
-#' message (the verb-replacement behavior every `<mesa>` verb shares)
+#' message (the verb-replacement behavior every `<mdl_gt>` verb shares)
 #' @keywords internal
 #' @noRd
 record_column_block <- function(x, block, verb) {
@@ -595,7 +595,7 @@ record_column_block <- function(x, block, verb) {
 #' Retrieve a spec's column block by type
 #' @keywords internal
 #' @noRd
-mesa_column_block <- function(x, type) {
+mdl_gt_column_block <- function(x, type) {
 	for (b in x$columns) {
 		if (identical(b$type, type)) {
 			return(b)
@@ -604,7 +604,7 @@ mesa_column_block <- function(x, type) {
 	NULL
 }
 
-#' A one-word-per-block description for the `<mesa>` print
+#' A one-word-per-block description for the `<mdl_gt>` print
 #' @keywords internal
 #' @noRd
 describe_column_block <- function(b) {

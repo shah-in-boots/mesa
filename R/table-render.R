@@ -1,8 +1,8 @@
-# Rendering the <mesa> cell frame (M6.6, split out in M6.14) ------------------
+# Rendering the <mdl_gt> cell frame (M6.6, split out in M6.14) ------------------
 #
-# `as_gt()` is the public entry point: it realizes a `<mesa>` specification
+# `as_gt()` is the public entry point: it realizes a `<mdl_gt>` specification
 # (table-realize.R), lays it out as the cell frame (table-presets.R, via the
-# single `mesa_frame()` dispatch point), and renders it here --
+# single `mdl_gt_frame()` dispatch point), and renders it here --
 # `render_cell_frame()` is the one place in the package that emits `{gt}`
 # layout calls (pivot, merges by pattern, spanners, labels, stub indentation,
 # alignment, missing text, accents), plus the two mechanisms that live only
@@ -10,24 +10,24 @@
 # `type = "plot"` cells with their shared column x-scale and reserved `.axis`
 # row.
 
-#' Render a `<mesa>` specification to a `{gt}` table
+#' Render a `<mdl_gt>` specification to a `{gt}` table
 #'
 #' @description
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' `as_gt()` realizes a [mesa()] specification: it resolves the recorded
+#' `as_gt()` realizes a [mdl_gt()] specification: it resolves the recorded
 #' selection against the model table, decorates each estimate with its term
 #' metadata, and emits a `{gt}` table. On a bare specification it renders a
 #' minimal default -- each displayed term's point estimate and 95% confidence
 #' interval, with adjustment sets on rows and outcomes as row groups.
 #'
-#' @param x A `<mesa>` specification (from [mesa()])
+#' @param x A `<mdl_gt>` specification (from [mdl_gt()])
 #' @param ... Passed to methods
 #'
 #' @return A `gt_tbl` object.
 #'
-#' @seealso [mesa()]
+#' @seealso [mdl_gt()]
 #' @export
 as_gt <- function(x, ...) {
 	UseMethod("as_gt")
@@ -35,8 +35,8 @@ as_gt <- function(x, ...) {
 
 #' @rdname as_gt
 #' @export
-as_gt.mesa <- function(x, ...) {
-	render_cell_frame(mesa_frame(x), x)
+as_gt.mdl_gt <- function(x, ...) {
+	render_cell_frame(mdl_gt_frame(x), x)
 }
 
 # The render stage -------------------------------------------------------------

@@ -29,7 +29,7 @@ test_that("complex test from AFEQT dataset works (the adjustment chain)", {
 	gtbl <-
 		object |>
 		attach_data(afeqt_dataset) |>
-		mesa() |>
+		mdl_gt() |>
 		select_outcomes(list(
 			afeqt_total_delta ~ "Change in Total AFEQT Score",
 			afeqt_activities_delta ~ "Change in Activities AFEQT Score",
@@ -62,7 +62,7 @@ test_that("complex test from AFEQT dataset works (the adjustment chain)", {
 	gtbl <-
 		object |>
 		attach_data(afeqt_dataset) |>
-		mesa() |>
+		mdl_gt() |>
 		add_estimates(columns = list(beta ~ "beta", conf ~ "95% CI")) |>
 		as_gt()
 
@@ -77,7 +77,7 @@ test_that("carrs data works (the interaction chain)", {
 
 	gtbl <-
 		obj |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "interaction") |>
 		add_interaction() |>
 		select_outcomes(qrs_tang ~ "QRS-T Angle") |>
@@ -118,7 +118,7 @@ test_that("for dichotomous variables (the levels chain)", {
 	gtbl <-
 		object |>
 		attach_data(data) |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "levels") |>
 		select_outcomes(list('death_cv_yn' ~ 'Cardiovascular mortality',
 												 'death_any_yn' ~ 'All-cause mortality')) |>
@@ -161,7 +161,7 @@ test_that("for categorical variables (the levels chain)", {
 	gtbl <-
 		object |>
 		attach_data(data) |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "levels") |>
 		select_outcomes(list(death_cv_yn ~ 'Cardiovascular mortality',
 												 death_any_yn ~ 'All-cause mortality')) |>

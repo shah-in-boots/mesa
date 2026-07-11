@@ -3,14 +3,14 @@
 \name{add_events}
 \alias{add_events}
 \alias{add_rate_difference}
-\title{Add data-statistic columns to a \verb{<mesa>}}
+\title{Add data-statistic columns to a \verb{<mdl_gt>}}
 \usage{
 add_events(x, followup, person_years = 100, scale = 365.25, digits = 1)
 
 add_rate_difference(x, conf_level = 0.95)
 }
 \arguments{
-\item{x}{A \verb{<mesa>} specification (from \code{\link[=mesa]{mesa()}})}
+\item{x}{A \verb{<mdl_gt>} specification (from \code{\link[=mdl_gt]{mdl_gt()}})}
 
 \item{followup}{The column of the attached data holding each subject's
 follow-up time, as a bare name or a string. When the mesa's outcome is a
@@ -33,7 +33,7 @@ formatted to}
 \item{conf_level}{Confidence level of the rate-difference interval}
 }
 \value{
-The modified \verb{<mesa>} specification.
+The modified \verb{<mdl_gt>} specification.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -41,7 +41,7 @@ The modified \verb{<mesa>} specification.
 These verbs append \emph{column blocks} whose statistics come from the models'
 \strong{attached data} (see \code{\link[=attach_data]{attach_data()}}), not from the fitted coefficients —
 the M6.1 statistics vocabulary's load-bearing distinction. Like every
-\verb{<mesa>} verb they only record instructions; the statistics are computed
+\verb{<mdl_gt>} verb they only record instructions; the statistics are computed
 when the table is realized by \code{\link[=as_gt]{as_gt()}}, against the dataset each model's
 \code{data_id} resolves to.
 \itemize{
@@ -72,5 +72,5 @@ factor does not have exactly two levels.
 }
 }
 \seealso{
-\code{\link[=mesa]{mesa()}}, \code{\link[=as_gt]{as_gt()}}, \code{\link[=attach_data]{attach_data()}}
+\code{\link[=mdl_gt]{mdl_gt()}}, \code{\link[=as_gt]{as_gt()}}, \code{\link[=attach_data]{attach_data()}}
 }

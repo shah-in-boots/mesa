@@ -1,31 +1,31 @@
-# Laying out the <mesa> cell frame (M6.6, split out in M6.14) -----------------
+# Laying out the <mdl_gt> cell frame (M6.6, split out in M6.14) -----------------
 #
 # The *layout* stage: the decorated frame (or, for the interaction preset, its
 # own realization), the recorded column blocks, and the layout preset reduce
 # to the **cell frame** -- the long tibble of the M6.1 spec, one row per
 # rendered cell, which `render_cell_frame()` (table-render.R) consumes and
-# nothing else. `mesa_frame()` is the one dispatch point between the
-# `"adjustment"`/`"levels"` path (`realize_mesa()` + `mesa_cell_frame()`) and
+# nothing else. `mdl_gt_frame()` is the one dispatch point between the
+# `"adjustment"`/`"levels"` path (`realize_mdl_gt()` + `mdl_gt_cell_frame()`) and
 # the `"interaction"` path (`realize_interaction()` + `cell_frame_interaction()`,
-# bundled in `mesa_interaction_frame()` because the interaction preset's rows
+# bundled in `mdl_gt_interaction_frame()` because the interaction preset's rows
 # don't pass through the standard flatten-and-decorate frame) -- replacing the
-# fork that used to live separately in `as_gt.mesa()`, `mesa_cell_frame()`'s
-# switch, and `mesa_interaction_frame()`'s own guards.
+# fork that used to live separately in `as_gt.mdl_gt()`, `mdl_gt_cell_frame()`'s
+# switch, and `mdl_gt_interaction_frame()`'s own guards.
 
 #' The single fork between the standard and interaction layout paths
 #'
 #' Every other choice point in the file used to re-derive this same condition
-#' (`as_gt.mesa()`'s branch, a redundant guard inside `mesa_cell_frame()`'s
-#' preset switch, `mesa_interaction_frame()`'s own checks); this is the one
+#' (`as_gt.mdl_gt()`'s branch, a redundant guard inside `mdl_gt_cell_frame()`'s
+#' preset switch, `mdl_gt_interaction_frame()`'s own checks); this is the one
 #' place it is decided.
 #' @keywords internal
 #' @noRd
-mesa_frame <- function(x) {
+mdl_gt_frame <- function(x) {
 	if (identical(x$layout$preset, "interaction") ||
-			!is.null(mesa_column_block(x, "interaction"))) {
-		mesa_interaction_frame(x)
+			!is.null(mdl_gt_column_block(x, "interaction"))) {
+		mdl_gt_interaction_frame(x)
 	} else {
-		mesa_cell_frame(realize_mesa(x), x)
+		mdl_gt_cell_frame(realize_mdl_gt(x), x)
 	}
 }
 
@@ -45,7 +45,7 @@ frame_fields <- c(
 #' @noRd
 spanner_sep <- "///"
 
-#' Reduce a realized `<mesa>` to its cell frame
+#' Reduce a realized `<mdl_gt>` to its cell frame
 #'
 #' The *layout* stage of the grammar: the decorated frame, the recorded column
 #' blocks, and the layout preset reduce to one long tibble with a row per
@@ -54,7 +54,7 @@ spanner_sep <- "///"
 #' formatting is a recipe on the cell, applied at render.
 #' @keywords internal
 #' @noRd
-mesa_cell_frame <- function(dec, spec) {
+mdl_gt_cell_frame <- function(dec, spec) {
 
 	ctx <- frame_context(spec)
 
@@ -79,11 +79,11 @@ mesa_cell_frame <- function(dec, spec) {
 #' @noRd
 frame_context <- function(spec) {
 
-	estBlock <- mesa_column_block(spec, "estimates")
-	nBlock <- mesa_column_block(spec, "n")
-	evBlock <- mesa_column_block(spec, "events")
-	rdBlock <- mesa_column_block(spec, "rate_difference")
-	forestBlock <- mesa_column_block(spec, "forest")
+	estBlock <- mdl_gt_column_block(spec, "estimates")
+	nBlock <- mdl_gt_column_block(spec, "n")
+	evBlock <- mdl_gt_column_block(spec, "events")
+	rdBlock <- mdl_gt_column_block(spec, "rate_difference")
+	forestBlock <- mdl_gt_column_block(spec, "forest")
 
 	digits <- first_of(
 		if (!is.null(estBlock)) estBlock$digits,
@@ -621,7 +621,7 @@ cell_frame_levels <- function(dec, spec, ctx) {
 	assemble_cell_frame(cells, rows, cols)
 }
 
-#' The `<mesa>` realization of the `"interaction"` layout
+#' The `<mdl_gt>` realization of the `"interaction"` layout
 #'
 #' The interaction preset and `add_interaction()` come as a pair -- the block
 #' *defines* the preset's rows -- so both mismatches error here, and the frame
@@ -629,9 +629,9 @@ cell_frame_levels <- function(dec, spec, ctx) {
 #' the standard flatten-and-decorate path.
 #' @keywords internal
 #' @noRd
-mesa_interaction_frame <- function(x) {
+mdl_gt_interaction_frame <- function(x) {
 
-	block <- mesa_column_block(x, "interaction")
+	block <- mdl_gt_column_block(x, "interaction")
 	if (identical(x$layout$preset, "interaction") && is.null(block)) {
 		stop(
 			"The `interaction` layout's rows are defined by `add_interaction()`; ",
@@ -713,7 +713,7 @@ realize_interaction <- function(x, block) {
 
 	# The scale decision is the estimates block's, deferring to the M5 family
 	# inference by default -- the same contract as every other table
-	estBlock <- mesa_column_block(x, "estimates")
+	estBlock <- mdl_gt_column_block(x, "estimates")
 	flat <- suppressMessages(flatten_models(
 		models, exponentiate = if (is.null(estBlock)) NULL else estBlock$exponentiate
 	))

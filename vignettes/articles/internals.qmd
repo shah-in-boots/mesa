@@ -273,11 +273,11 @@ class(dplyr::select(mt, -fit_status))
 
 ## 7. The mesa: five stages from spec to `{gt}`
 
-A `<mesa>` is a plain list of *instructions* — nothing is computed until
+A `<mdl_gt>` is a plain list of *instructions* — nothing is computed until
 render:
 
 ```{r}
-spec <- mt |> mesa() |> add_estimates()
+spec <- mt |> mdl_gt() |> add_estimates()
 spec$selection
 spec$columns
 spec$layout
@@ -288,16 +288,16 @@ Realization runs in fixed stages, each file owning one:
 | stage | function | file |
 |---|---|---|
 | select | `resolve_selection()` | table-selection.R |
-| decorate | `realize_mesa()` | table-realize.R |
+| decorate | `realize_mdl_gt()` | table-realize.R |
 | compute | `compute_data_statistics()` | table-columns.R |
-| layout | `mesa_frame()` → cell frame | table-presets.R |
+| layout | `mdl_gt_frame()` → cell frame | table-presets.R |
 | render | `render_cell_frame()` | table-render.R |
 
 The decorated frame — one row per displayed estimate, reference rows
 injected for categorical terms:
 
 ```{r}
-mesa:::realize_mesa(spec)[, c("outcome", "adj_index", "variable", "level",
+mesa:::realize_mdl_gt(spec)[, c("outcome", "adj_index", "variable", "level",
                               "estimate", "is_reference", "adj_label")]
 ```
 
@@ -306,7 +306,7 @@ per rendered cell; `render_cell_frame()` is the only place `{gt}` calls are
 emitted:
 
 ```{r}
-mesa:::mesa_frame(spec)
+mesa:::mdl_gt_frame(spec)
 ```
 
 Two mechanisms live only in the renderer:

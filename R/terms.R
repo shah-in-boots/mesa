@@ -625,7 +625,7 @@ format.tm <- function(x,
 	}
 
 	tms <- vec_data(x)
-	mesa_color_roles(tms$term, tms$role, color = color)
+	mdl_gt_color_roles(tms$term, tms$role, color = color)
 }
 
 #' @export

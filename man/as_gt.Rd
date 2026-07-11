@@ -2,15 +2,15 @@
 % Please edit documentation in R/table-render.R
 \name{as_gt}
 \alias{as_gt}
-\alias{as_gt.mesa}
-\title{Render a \verb{<mesa>} specification to a \code{{gt}} table}
+\alias{as_gt.mdl_gt}
+\title{Render a \verb{<mdl_gt>} specification to a \code{{gt}} table}
 \usage{
 as_gt(x, ...)
 
-\method{as_gt}{mesa}(x, ...)
+\method{as_gt}{mdl_gt}(x, ...)
 }
 \arguments{
-\item{x}{A \verb{<mesa>} specification (from \code{\link[=mesa]{mesa()}})}
+\item{x}{A \verb{<mdl_gt>} specification (from \code{\link[=mdl_gt]{mdl_gt()}})}
 
 \item{...}{Passed to methods}
 }
@@ -20,12 +20,12 @@ A \code{gt_tbl} object.
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-\code{as_gt()} realizes a \code{\link[=mesa]{mesa()}} specification: it resolves the recorded
+\code{as_gt()} realizes a \code{\link[=mdl_gt]{mdl_gt()}} specification: it resolves the recorded
 selection against the model table, decorates each estimate with its term
 metadata, and emits a \code{{gt}} table. On a bare specification it renders a
 minimal default -- each displayed term's point estimate and 95\% confidence
 interval, with adjustment sets on rows and outcomes as row groups.
 }
 \seealso{
-\code{\link[=mesa]{mesa()}}
+\code{\link[=mdl_gt]{mdl_gt()}}
 }

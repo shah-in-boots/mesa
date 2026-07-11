@@ -172,19 +172,19 @@ mt2 <-
   model_table(data = d)
 ```
 
-A bare `mesa()` is already a table; printing shows the specification without
+A bare `mdl_gt()` is already a table; printing shows the specification without
 rendering:
 
 ```{r}
-mt2 |> mesa()
-mt2 |> mesa() |> as_gt()
+mt2 |> mdl_gt()
+mt2 |> mdl_gt() |> as_gt()
 ```
 
 Grown one verb at a time — select, add, modify, in any order:
 
 ```{r}
 mt2 |>
-  mesa() |>
+  mdl_gt() |>
   select_adjustment(1 ~ "Unadjusted", 3 ~ "Fully adjusted") |>
   add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI")) |>
   modify_labels(wt ~ "Weight (1000 lbs)") |>
@@ -204,7 +204,7 @@ mtSurv <-
   model_table(data = lung)
 
 mtSurv |>
-  mesa() |>
+  mdl_gt() |>
   modify_layout(preset = "levels") |>
   select_adjustment(1 ~ "Unadjusted", 2 ~ "Age-adjusted") |>
   add_events(followup = time) |>
@@ -222,7 +222,7 @@ mtInt <-
   model_table(data = d)
 
 mtInt |>
-  mesa() |>
+  mdl_gt() |>
   add_interaction() |>
   add_n(label = "No.") |>
   add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI",
@@ -249,7 +249,7 @@ mtInt |>
 
 ```{r}
 mt2 |>
-  mesa() |>
+  mdl_gt() |>
   add_estimates() |>
   modify_style(accents = list(p < 0.05 ~ "bold"), digits = 3) |>
   as_gt()

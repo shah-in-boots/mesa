@@ -55,9 +55,9 @@ test_that("cell frame snapshot: the bare default (adjustment preset)", {
 		fmls(mpg ~ .x(cyl) + hp, pattern = "sequential") |>
 		fit(.fn = lm, data = d, raw = FALSE) |>
 		model_table(data = d) |>
-		mesa()
+		mdl_gt()
 
-	frame <- mesa_cell_frame(realize_mesa(m), m)
+	frame <- mdl_gt_cell_frame(realize_mdl_gt(m), m)
 	expect_snapshot(cat(frame_lines(frame), sep = "\n"))
 })
 
@@ -68,13 +68,13 @@ test_that("cell frame snapshot: the adjustment preset with column blocks", {
 		fmls(mpg ~ .x(cyl) + hp, pattern = "sequential") |>
 		fit(.fn = lm, data = d, raw = FALSE) |>
 		model_table(data = d) |>
-		mesa() |>
+		mdl_gt() |>
 		select_adjustment(1 ~ "Crude", 2 ~ "Adjusted") |>
 		add_n(label = "No.") |>
 		add_estimates(columns = list(beta ~ "B", conf ~ "CI", p ~ "P")) |>
 		modify_labels(cyl ~ "Cylinders")
 
-	frame <- mesa_cell_frame(realize_mesa(m), m)
+	frame <- mdl_gt_cell_frame(realize_mdl_gt(m), m)
 	expect_snapshot(cat(frame_lines(frame), sep = "\n"))
 })
 
@@ -88,13 +88,13 @@ test_that("cell frame snapshot: the levels preset", {
 		fmls(Surv(time, status) ~ .x(sex)) |>
 		fit(.fn = survival::coxph, data = d, raw = FALSE) |>
 		model_table(data = d) |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "levels") |>
 		add_events(followup = time) |>
 		add_rate_difference() |>
 		add_estimates(columns = list(beta ~ "HR", conf ~ "95% CI"))
 
-	frame <- mesa_cell_frame(realize_mesa(m), m)
+	frame <- mdl_gt_cell_frame(realize_mdl_gt(m), m)
 	expect_snapshot(cat(frame_lines(frame), sep = "\n"))
 })
 
@@ -108,13 +108,13 @@ test_that("cell frame snapshot: the interaction preset (with forest)", {
 
 	m <-
 		mt |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "interaction") |>
 		add_interaction() |>
 		add_n(label = "No.") |>
 		add_estimates(columns = list(beta ~ "B", conf ~ "CI", p ~ "P")) |>
 		add_forest()
 
-	frame <- mesa_interaction_frame(m)
+	frame <- mdl_gt_interaction_frame(m)
 	expect_snapshot(cat(frame_lines(frame), sep = "\n"))
 })

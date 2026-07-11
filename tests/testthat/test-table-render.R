@@ -41,7 +41,7 @@ render_spec <- function(preset = "adjustment") {
 			layout = list(preset = preset, row_groups = "outcome"),
 			style = list(accents = list(), digits = NULL, missing_text = NULL)
 		),
-		class = "mesa"
+		class = "mdl_gt"
 	)
 }
 
@@ -64,8 +64,8 @@ frame_row <- function(row_group, row_key, row_index, column_key, column_index,
 
 test_that("the cell frame carries the M6.1 fields, in order, as plain data", {
 
-	m <- mesa(render_table())
-	frame <- mesa_cell_frame(realize_mesa(m), m)
+	m <- mdl_gt(render_table())
+	frame <- mdl_gt_cell_frame(realize_mdl_gt(m), m)
 
 	expect_equal(names(frame), frame_fields)
 	expect_s3_class(frame, "tbl_df")
@@ -94,9 +94,9 @@ test_that("reference cells are typed and categorical spanners nest by path", {
 		model_table(data = d)
 
 	m <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		add_estimates(columns = list(beta ~ "B", conf ~ "CI", p ~ "P"))
-	frame <- mesa_cell_frame(realize_mesa(m), m)
+	frame <- mdl_gt_cell_frame(realize_mdl_gt(m), m)
 
 	# The reference level's estimate and p cells are `reference` cells
 	ref <- frame[grepl("cyl::4", frame$column_key, fixed = TRUE), ]
@@ -119,7 +119,7 @@ test_that("reference cells are typed and categorical spanners nest by path", {
 
 test_that("modify_layout() validates its preset and row groups at verb time", {
 
-	m <- mesa(render_table())
+	m <- mdl_gt(render_table())
 
 	expect_error(modify_layout(mtcars), "inherit from")
 	expect_error(modify_layout(m, preset = "banana"), "launch layout presets")
@@ -138,7 +138,7 @@ test_that("modify_layout() validates its preset and row groups at verb time", {
 
 test_that("the interaction preset defers to add_interaction() (M6.9)", {
 
-	m <- mesa(render_table()) |> modify_layout(preset = "interaction")
+	m <- mdl_gt(render_table()) |> modify_layout(preset = "interaction")
 	expect_error(as_gt(m), "add_interaction")
 })
 
@@ -148,7 +148,7 @@ test_that("the levels preset lays statistics on rows and levels on columns", {
 
 	m <-
 		surv_table() |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "levels") |>
 		add_events(followup = time) |>
 		add_rate_difference()
@@ -191,7 +191,7 @@ test_that("the levels preset has no place for a p column, and says so", {
 
 	m <-
 		surv_table() |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "levels") |>
 		add_estimates(columns = list(beta ~ "HR", conf ~ "95% CI", p ~ "P"))
 	expect_error(as_gt(m), "no place for a separate `p`")
@@ -201,7 +201,7 @@ test_that("the levels preset has no place for a p column, and says so", {
 
 test_that("modify_style() validates its accents at verb time", {
 
-	m <- mesa(render_table())
+	m <- mdl_gt(render_table())
 
 	expect_error(modify_style(mtcars), "inherit from")
 	expect_error(modify_style(m, accents = list(~"bold")), "two-sided")
@@ -225,7 +225,7 @@ test_that("modify_style() validates its accents at verb time", {
 
 test_that("modify_style() fields merge order-independently and survive a later single-field call (M6.11)", {
 
-	m <- mesa(render_table())
+	m <- mdl_gt(render_table())
 
 	a <-
 		m |>
@@ -251,7 +251,7 @@ test_that("modify_style() fields merge order-independently and survive a later s
 		fit(.fn = lm, data = d, raw = FALSE) |>
 		model_table(data = d)
 	rendered <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		add_estimates(columns = list(beta ~ "B", conf ~ "CI", p ~ "P")) |>
 		modify_style(accents = list(p < 0.05 ~ "bold")) |>
 		modify_style(digits = 4) |>
@@ -276,7 +276,7 @@ test_that("accents take criteria on any statistic and instructions beyond
 	# wt: strongly significant, negative estimate — so a p criterion and an
 	# estimate criterion (which the old machinery could not express) both hit
 	m <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		add_estimates(columns = list(beta ~ "B", conf ~ "CI", p ~ "P")) |>
 		modify_style(accents = list(
 			p < 0.05 ~ "bold",
@@ -299,7 +299,7 @@ test_that("accents take criteria on any statistic and instructions beyond
 
 	# A criterion nothing meets accents nothing
 	quiet <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		modify_style(accents = list(p < 1e-30 ~ "bold")) |>
 		as_gt()
 	quietStyles <- quiet[["_styles"]]
@@ -316,14 +316,14 @@ test_that("modify_style() digits and missing text reach the render", {
 	beta <- unname(stats::coef(stats::lm(mpg ~ wt, data = d))["wt"])
 
 	html <-
-		mt |> mesa() |> modify_style(digits = 4) |> as_gt() |>
+		mt |> mdl_gt() |> modify_style(digits = 4) |> as_gt() |>
 		gt::as_raw_html()
 	expect_true(grepl(formatC(beta, format = "f", digits = 4), html,
 										fixed = TRUE))
 
 	# A block's own digits still win for its columns
 	html2 <-
-		mt |> mesa() |>
+		mt |> mdl_gt() |>
 		add_estimates(columns = list(beta ~ "B"), digits = 1) |>
 		modify_style(digits = 4) |>
 		as_gt() |>
@@ -338,7 +338,7 @@ test_that("modify_style() digits and missing text reach the render", {
 		fit(.fn = lm, data = dcat, raw = FALSE) |>
 		model_table(data = dcat)
 	g <-
-		mcat |> mesa() |> modify_style(missing_text = "—") |> as_gt()
+		mcat |> mdl_gt() |> modify_style(missing_text = "—") |> as_gt()
 	expect_true(any(g[["_data"]][["cyl::4::est"]] == "—"))
 })
 
@@ -509,7 +509,7 @@ test_that("the shared plot scale resolves across cells, and axis options
 
 test_that("theme_gt_compact() remains compatible with the renderer", {
 
-	g <- as_gt(mesa(render_table()))
+	g <- as_gt(mdl_gt(render_table()))
 	themed <- theme_gt_compact(g)
 	expect_s3_class(themed, "gt_tbl")
 })

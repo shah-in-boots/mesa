@@ -18,7 +18,7 @@ test_that("the adjustment chain reproduces the tbl_beta() table", {
 
 	g <-
 		mt |>
-		mesa() |>
+		mdl_gt() |>
 		select_adjustment(1 ~ "Unadjusted", 3 ~ "Fully adjusted") |>
 		add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI",
 																 p ~ "P value")) |>
@@ -68,7 +68,7 @@ test_that("the levels chain reproduces the dichotomous hazard table, on the
 
 	g <-
 		mt |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "levels") |>
 		select_adjustment(1 ~ "Unadjusted", 2 ~ "Age-adjusted") |>
 		add_events(followup = time) |>
@@ -149,7 +149,7 @@ test_that("the levels chain covers the categorical hazard table too", {
 
 	g <-
 		mt |>
-		mesa() |>
+		mdl_gt() |>
 		modify_layout(preset = "levels") |>
 		add_events(followup = time) |>
 		add_estimates(columns = list(beta ~ "HR", conf ~ "95% CI")) |>

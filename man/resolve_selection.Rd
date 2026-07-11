@@ -23,7 +23,7 @@ unfiltered. \code{adjustment} selects by the sequential adjustment index (see
 \code{\link[=family_adjustment_index]{family_adjustment_index()}}), so its left-hand sides are integers.}
 }
 \value{
-A \code{mesa_selection} object (a list) with: \code{models}, the filtered
+A \code{mdl_gt_selection} object (a list) with: \code{models}, the filtered
 \code{mdl_tbl}; \code{adjustment_index}, the sequential index aligned to those rows;
 \code{terms}, the resolved-term metadata tibble; \code{term_keys}, the union of
 exact tidy-term keys (or \code{NULL} when no terms were requested); and

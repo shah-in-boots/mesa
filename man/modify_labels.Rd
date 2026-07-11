@@ -7,14 +7,14 @@
 modify_labels(x, ..., columns = NULL)
 }
 \arguments{
-\item{x}{A \verb{<mesa>} specification}
+\item{x}{A \verb{<mdl_gt>} specification}
 
 \item{...}{Labeled formulas relabeling terms or levels (see Description)}
 
 \item{columns}{A labeled-formula input relabeling statistic columns}
 }
 \value{
-The modified \verb{<mesa>} specification.
+The modified \verb{<mdl_gt>} specification.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -39,5 +39,5 @@ earlier one — stands (the \code{{ggplot2}} \code{labs()} merge behavior). So
 rethinking one label late never forces restating the rest.
 }
 \seealso{
-\code{\link[=mesa]{mesa()}}
+\code{\link[=mdl_gt]{mdl_gt()}}
 }

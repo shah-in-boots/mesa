@@ -2,7 +2,7 @@
 % Please edit documentation in R/table-spec.R
 \name{modify_style}
 \alias{modify_style}
-\title{Style a \verb{<mesa>} at render}
+\title{Style a \verb{<mdl_gt>} at render}
 \usage{
 modify_style(
   x,
@@ -13,7 +13,7 @@ modify_style(
 )
 }
 \arguments{
-\item{x}{A \verb{<mesa>} specification}
+\item{x}{A \verb{<mdl_gt>} specification}
 
 \item{accents}{A formula or list of formulas: \code{criterion ~ instruction}
 (see Description)}
@@ -25,7 +25,7 @@ modify_style(
 \item{padding}{Vertical padding scale, \code{0} (dense) upward}
 }
 \value{
-The modified \verb{<mesa>} specification.
+The modified \verb{<mdl_gt>} specification.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -61,5 +61,5 @@ the accents already recorded stand. Each of \code{accents}, \code{digits},
 \code{missing_text}, and \code{padding} replaces only itself.
 }
 \seealso{
-\code{\link[=mesa]{mesa()}}, \code{\link[=as_gt]{as_gt()}}
+\code{\link[=mdl_gt]{mdl_gt()}}, \code{\link[=as_gt]{as_gt()}}
 }

@@ -2,17 +2,17 @@
 % Please edit documentation in R/table-columns.R
 \name{add_interaction}
 \alias{add_interaction}
-\title{Add interaction rows to a \verb{<mesa>}}
+\title{Add interaction rows to a \verb{<mdl_gt>}}
 \usage{
 add_interaction(x, conf_level = 0.95)
 }
 \arguments{
-\item{x}{A \verb{<mesa>} specification (from \code{\link[=mesa]{mesa()}})}
+\item{x}{A \verb{<mdl_gt>} specification (from \code{\link[=mdl_gt]{mdl_gt()}})}
 
 \item{conf_level}{Confidence level of the within-level intervals}
 }
 \value{
-The modified \verb{<mesa>} specification.
+The modified \verb{<mdl_gt>} specification.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -36,5 +36,5 @@ renderer floats over the level rows. A forest column (\code{\link[=add_forest]{a
 the same per-level estimates.
 }
 \seealso{
-\code{\link[=mesa]{mesa()}}, \code{\link[=modify_layout]{modify_layout()}}, \code{\link[=estimate_interaction]{estimate_interaction()}}
+\code{\link[=mdl_gt]{mdl_gt()}}, \code{\link[=modify_layout]{modify_layout()}}, \code{\link[=estimate_interaction]{estimate_interaction()}}
 }

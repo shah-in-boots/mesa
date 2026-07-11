@@ -49,7 +49,7 @@ left-hand side).
 Roles are causal, and they are first-class: a term's role is knowable,
 updatable, and visibly changes what happens downstream — how formulas expand
 ([fmls()]), how models are fit ([fit()]), and how results are labeled once
-they reach a table ([mesa()]).
+they reach a table ([mdl_gt()]).
 
 ```{r}
 term_roles()
@@ -124,7 +124,7 @@ vctrs::vec_proxy(t4)[c("term", "role", "type", "level")]
 ```
 
 `cyl` is now known to be categorical with three observed levels — information
-the table layer ([mesa()]) later needs to decide how many columns a
+the table layer ([mdl_gt()]) later needs to decide how many columns a
 categorical term needs and which level is the reference. A transformed term
 classifies from its *underlying* variable: `set_data()` looks through
 `log(wt)` to `wt` itself when deciding whether it is continuous.
