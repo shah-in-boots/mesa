@@ -93,6 +93,7 @@ reference:
   contents:
   - fmls
   - fluent_verbs
+  - identify_family
   - patterns
   - register_pattern
   - vocabulary
@@ -102,7 +103,7 @@ reference:
     fitting approach, and wrapped with its causal context intact.
   contents:
   - fit.fmls
-  - fit_plan
+  - plan_fit
   - models
   - reexports
 - title: "Collections: the notebook of models"

@@ -47,6 +47,32 @@ Items verified by execution are marked ✓.
 
 ## Medium — design friction and visible quality
 
+- [x] **Forest column reads as pasted-on, not native**
+  ([table-render.R:376](R/table-render.R#L376)). Three render defects,
+  each verified against the usage-vignette interaction example
+  (2026-07-10). (1) *Uneven row and rule lines*: the plot cells' `gt::
+  cell_borders(style = "hidden")` meets `border-collapse: collapse`, where
+  CSS gives `hidden` top priority on a shared edge — so the forest column
+  punches gaps in the header rule and the table's bottom rule while every
+  other column keeps its 1px row hlines. (2) *Axis strip width drifts off
+  the cells' scale*: `plot_image()` pins only `height:` in em and lets the
+  width follow the SVG's intrinsic aspect ratio, but `grDevices::svg()`
+  rounds the canvas to whole points (cells 22.5 → 22pt, axis 16.5 → 16pt),
+  distorting the two aspect ratios differently, so the axis renders a
+  different width than the cells above it. (3) *The reference line dies at
+  the last row*: `draw_forest_axis()` draws no intercept line, so the
+  dashed vline stops instead of running down into the axis. *Fixed
+  2026-07-10*: `plot_image()` pins both `width:` and `height:` in em from
+  the requested pixel size; the hidden-border style is gone — a plot
+  column now defaults the *whole body* borderless
+  (`table_body.hlines.style = "none"`, quiet `row_group.border.*` and
+  `stub.border.*`), the booktabs look journals use, so every column is
+  even and the outer rules run continuously across the forest column; the
+  dashed intercept carries into the axis strip; and the block grew
+  `axis = list(title = )`, an axis title drawn beneath the tick labels
+  (the titled strip takes 34px against the untitled 22). Remaining
+  follow-on polish: "favors left/right" annotations via the block's
+  `axis` options.
 - [x] ✓ **Strata is invisible in every formula representation**
   ([terms.R:719](R/terms.R#L719)). *Fixed 2026-07-09*: the printed family
   (`format.fmls`) now annotates meta terms in their declared rune form —
@@ -168,6 +194,44 @@ Items verified by execution are marked ✓.
   type/distribution/levels) and retains nothing, since formulas stay
   abstract and source data keeps evolving; the `mdl_tbl` — where formulas
   and data come together — is the one layer that retains data.
+
+## Family identity (2026-07-10)
+
+- [x] ✓ **A stratum missing from the data silently erased its models**
+  ([fit.R:204](R/fit.R#L204)). `data[[strataVar]]` on a missing column
+  returned `NULL`, the stratum table expanded to zero rows, and
+  `expand_grid()` dropped the formula's every model from the plan —
+  `fit()` returned `<model[0]>` with no message. *Fixed 2026-07-10*:
+  `plan_fit()` errors when a stratifying term is not a column of `data`,
+  pointing at `remove_strata()`; without `data` the plan still forms with
+  unresolved levels. Regression test in test-fit.R.
+- [x] **`fit_plan()` renamed `plan_fit()`** (2026-07-10). The old name read
+  as a fitting function; the new one says what it does — plan the fit.
+  Pre-release, so renamed without a deprecation cycle.
+- [x] **`identify_family()` recovers family structure from causal roles**
+  ([family.R](R/family.R), 2026-07-10). A `fmls` is born as one family but
+  `c()` records no lineage; downstream, `family_adjustment_index()` derives
+  families as outcome × exposure groups — which misfiles a mediation triad
+  (its `mediator ~ exposure` member has a different left-hand side).
+  `identify_family()` reads the roles directly: formulas group by outcome ×
+  exposure, a mediator binds its triad across that boundary, adjustment
+  sets decide the pattern (`sequential` when nested, `parallel` when not,
+  `direct` for a lone formula, `mediation`), and families sharing an
+  adjustment-ladder signature relate as `varied exposures` (same outcome —
+  the wide-table shape) or `varied outcomes` (same exposure). Strata ride
+  along without splitting the family; `data` stamps their observed levels.
+- [ ] **Wire family identity into the table layer.** `identify_family()`
+  is the intended lynchpin for deciding how a set of models can sit on one
+  `mesa`: a `varied exposures` relation *is* the wide table (exposures as
+  column blocks over shared adjustment rows — which the `"adjustment"`
+  preset already renders, but aligned positionally by sequential index,
+  not by verified adjustment-set identity); a `mediation` family wants its
+  own preset; a stratified family wants estimates-by-level or a forest.
+  The likely steps: an `identify_family()` method for `mdl_tbl` (reading
+  the same roles off the formula matrix), a family id carried from `fmls`
+  through `fit()` into the `mdl_tbl` so lineage survives `c()`, and
+  `family_adjustment_index()` / row alignment keyed by the actual
+  adjustment set rather than position, warning when ladders do not match.
 
 ## Parsimony pass (2026-07-10)
 

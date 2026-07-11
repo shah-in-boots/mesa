@@ -16,7 +16,15 @@ This development cycle works through Milestones 0–7 of [blueprint.md](https://
 
 * One gesture per decision: `add_interaction()` now implies the `"interaction"` layout instead of requiring a separate `modify_layout(preset = "interaction")` call, and `add_events()` infers `followup` from a `Surv()` outcome's time argument, needed explicitly only for a plain outcome or an outcome an explicit `followup` still overrides
 
+* The forest column now renders native to its table: a plot column turns the whole body borderless (the journal booktabs look — top rule, header rule, bottom rule, nothing inside) instead of hiding its own cell borders, which punched gaps in the header and bottom rules under CSS border collapsing; the axis strip is pinned to exactly the cells' width; the dashed reference line continues down into the axis; and `add_forest(axis = list(title = ))` draws an axis title beneath the tick labels
+
 * Internal cleanup ahead of release, with no behavior change: the statistics vocabulary (known names, aliases, default headers) now lives in one registry instead of five hand-kept lists; `table-render.R` split along its own stage seams into `table-realize.R` / `table-presets.R` / `table-render.R`, with the interaction-vs-standard layout fork unified into one dispatch function — the cell-frame snapshot tests are the proof
+
+* `identify_family()` recovers the family structure of a `fmls` object from its causal roles — one row per formula, with the family id, its *pattern* (`sequential`, `parallel`, `mediation`, `direct`), and the *relation* between families that share an adjustment ladder (`varied exposures`, the wide-table shape; `varied outcomes`); a mediation triad binds into one family across its outcome boundaries, and supplying `data` stamps stratifying terms with their observed levels
+
+* **Breaking**: `fit_plan()` is renamed `plan_fit()` — the old name read as a fitting function; the new one says what it does, plan the fit (pre-release, so no deprecation cycle)
+
+* A stratifying term missing from the fitting data is now an error at `plan_fit()` time; the zero-level expansion used to erase every model of its formula from the plan silently, so `fit()` returned an empty `mdl` vector with no warning
 
 ## The table grammar (Milestone 6)
 
@@ -68,7 +76,7 @@ This development cycle works through Milestones 0–7 of [blueprint.md](https://
 
 * `fit()` accepts a fitting function, its name, or a `{parsnip}` model specification, resolved by name rather than position; the hard-coded model whitelist is retired
 
-* `fit_plan()` exposes the fitting plan — formula x stratum x subset — as an inspectable table before anything runs
+* `plan_fit()` exposes the fitting plan — formula x stratum x subset — as an inspectable table before anything runs
 
 * Fitting fails softly: one failed model records its error (`fit_status = FALSE` in a `mdl_tbl`) instead of sinking the batch
 

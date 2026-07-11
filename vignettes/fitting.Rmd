@@ -34,11 +34,11 @@ d$am <- factor(d$am, labels = c("Automatic", "Manual"))
 
 `fit()` accepts a family, a fitting function (`.fn`), and the data. It first
 builds an inspectable plan — every formula crossed with every stratum level
-and every subset — with `fit_plan()`, then executes it row by row:
+and every subset — with `plan_fit()`, then executes it row by row:
 
 ```{r}
 f <- fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential")
-fit_plan(f, data = d)
+plan_fit(f, data = d)
 ```
 
 `.fn` resolves **by name**, so argument order never matters, and it accepts

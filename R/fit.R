@@ -12,7 +12,7 @@ generics::fit
 #' crosses every formula in the family with every stratum level (from `.s()`
 #' terms) and every subset instruction (from [subset_data()]), so one `fmls`
 #' object can quietly describe dozens of models. The plan itself can be
-#' inspected before anything is fit through [fit_plan()] — this is the "play"
+#' inspected before anything is fit through [plan_fit()] — this is the "play"
 #' step, where the shape of the analysis is visible before it runs.
 #'
 #' Failures are soft: if one model in a batch cannot be fit, it is recorded
@@ -75,7 +75,7 @@ fit.fmls <- function(object,
 	}
 
 	# Draw up the plan: formula x stratum x subset
-	plan <- fit_plan(object, data = data)
+	plan <- plan_fit(object, data = data)
 
 	# Models to be returned
 	if (raw) {
@@ -154,6 +154,11 @@ fit.fmls <- function(object,
 #' plan lets the shape of an analysis be inspected — and played with — before
 #' any model is run.
 #'
+#' A stratifying term must exist in `data` when data is supplied: a stratum
+#' with no column would otherwise expand to zero levels and silently erase
+#' every model of its formula from the plan, so the mismatch is an error
+#' instead.
+#'
 #' @param object A `fmls` object
 #'
 #' @param data An optional `data.frame`; when supplied, stratum levels are
@@ -167,7 +172,7 @@ fit.fmls <- function(object,
 #'   `subset`, and `subset_expr`
 #'
 #' @export
-fit_plan <- function(object, data = NULL, ...) {
+plan_fit <- function(object, data = NULL, ...) {
 
 	# Global variables
 	role <- NULL
@@ -201,6 +206,16 @@ fit_plan <- function(object, data = NULL, ...) {
 						strata_level = list(NA)
 					)
 				} else {
+					# A stratum without a column would expand to zero levels and
+					# silently drop every model of this formula from the plan
+					if (!strataVar %in% names(data)) {
+						stop(
+							"The stratifying term `", strataVar, "` is not a column of ",
+							"`data`, so its models cannot be planned. Remove it with ",
+							"`remove_strata()` or supply data that carries it.",
+							call. = FALSE
+						)
+					}
 					lvls <- unique(stats::na.omit(data[[strataVar]]))
 					strataRows[[j]] <- tibble::tibble(
 						strata_variable = strataVar,

@@ -39,7 +39,7 @@ Fitting happens in two steps: a \emph{plan} is drawn up, then executed. The plan
 crosses every formula in the family with every stratum level (from \code{.s()}
 terms) and every subset instruction (from \code{\link[=subset_data]{subset_data()}}), so one \code{fmls}
 object can quietly describe dozens of models. The plan itself can be
-inspected before anything is fit through \code{\link[=fit_plan]{fit_plan()}} — this is the "play"
+inspected before anything is fit through \code{\link[=plan_fit]{plan_fit()}} — this is the "play"
 step, where the shape of the analysis is visible before it runs.
 
 Failures are soft: if one model in a batch cannot be fit, it is recorded

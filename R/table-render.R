@@ -346,6 +346,8 @@ render_plot_columns <- function(gtbl, frame, rows, reserved) {
 		)
 
 		if (length(axisAt) > 0) {
+			# A titled strip needs room for the title line under the tick labels
+			axisHeight <- if (is.null(scale$title)) 22 else 34
 			gtbl <- gt::text_transform(
 				gtbl,
 				locations = gt::cells_body(
@@ -353,7 +355,7 @@ render_plot_columns <- function(gtbl, frame, rows, reserved) {
 				),
 				fn = function(x) {
 					vapply(seq_along(x), function(i) {
-						plot_image(draw_forest_axis(scale), width, 22)
+						plot_image(draw_forest_axis(scale), width, axisHeight)
 					}, character(1))
 				}
 			)
@@ -372,11 +374,18 @@ render_plot_columns <- function(gtbl, frame, rows, reserved) {
 
 	# The dense look the plots need to read as one continuous canvas enters as
 	# *defaults* to the style layer: zero vertical padding unless
-	# `modify_style(padding =)` says otherwise, and borderless plot cells
-	gtbl <- gt::tab_style(
+	# `modify_style(padding =)` says otherwise (set by the caller), and a
+	# borderless body. The body goes borderless as a whole — the journal
+	# booktabs look: top rule, header rule, bottom rule, nothing inside —
+	# rather than per plot cell: under `border-collapse: collapse` a hidden
+	# border wins every shared edge, so per-cell hiding punched gaps in the
+	# header and bottom rules while the other columns kept their row lines
+	gtbl <- gt::tab_options(
 		gtbl,
-		style = gt::cell_borders(sides = c("top", "bottom"), style = "hidden"),
-		locations = gt::cells_body(columns = dplyr::all_of(plotKeys))
+		table_body.hlines.style = "none",
+		row_group.border.top.style = "none",
+		row_group.border.bottom.style = "none",
+		stub.border.style = "none"
 	)
 	gtbl
 }
@@ -385,7 +394,9 @@ render_plot_columns <- function(gtbl, frame, rows, reserved) {
 #'
 #' The guesses -- limits padded past the widest interval, the intercept at the
 #' log/linear null, breaks from the limits -- each yield to the block's `axis`
-#' options (`limits`, `intercept`, `breaks`, `log`).
+#' options (`limits`, `intercept`, `breaks`, `log`). The optional `title`
+#' rides along untouched: it is a property of the column's shared axis, so
+#' this resolved scale is where the axis strip finds it.
 #' @keywords internal
 #' @noRd
 resolve_plot_scale <- function(values, options = NULL) {
@@ -416,7 +427,10 @@ resolve_plot_scale <- function(values, options = NULL) {
 		breaks <- breaks[breaks >= limits[1] & breaks <= limits[2]]
 	}
 
-	list(limits = limits, intercept = intercept, breaks = breaks, log = log)
+	list(
+		limits = limits, intercept = intercept, breaks = breaks, log = log,
+		title = options$title
+	)
 }
 
 #' Render a plot cell at its displayed size, as an inline image
@@ -444,11 +458,17 @@ plot_image <- function(plot, width, height) {
 			width = width / 96, height = height / 96
 		)
 		tag <- as.character(gt::local_image(file, height = height))
-		# The fixed pixel height becomes em units (16 px = 1 em, the CSS root
-		# default); the width follows from the SVG's intrinsic aspect ratio
+		# The fixed pixel size becomes em units (16 px = 1 em, the CSS root
+		# default). Both dimensions are pinned: the svg device rounds its canvas
+		# to whole points, which skews each image's intrinsic aspect ratio by a
+		# different amount — left to the browser, the axis strip would render a
+		# different width than the cells above it
 		return(sub(
 			"height:[0-9.]+px;",
-			sprintf("height:%sem;", format(round(height / 16, 3))),
+			sprintf(
+				"width:%sem;height:%sem;",
+				format(round(width / 16, 3)), format(round(height / 16, 3))
+			),
 			tag
 		))
 	}
@@ -495,21 +515,38 @@ draw_forest_cell <- function(value, scale) {
 }
 
 #' The bottom axis strip of a forest column (the reserved `.axis` row)
+#'
+#' The strip continues the cells' reference line down to the axis, so the
+#' column reads as one panel rather than rows with a ruler pasted under
+#' them; an axis `title` draws beneath the tick labels.
 #' @keywords internal
 #' @noRd
 draw_forest_axis <- function(scale) {
 
+	showIntercept <- scale$intercept >= scale$limits[1] &&
+		scale$intercept <= scale$limits[2]
 	ggplot2::ggplot(
 		data.frame(x = scale$limits, y = 0), ggplot2::aes(x = x, y = y)
 	) +
 		ggplot2::geom_blank() +
+		(if (showIntercept) {
+			ggplot2::geom_vline(
+				xintercept = scale$intercept, linetype = "dashed", linewidth = 0.3
+			)
+		}) +
 		forest_x_scale(scale, breaks = scale$breaks) +
+		(if (!is.null(scale$title)) ggplot2::labs(x = scale$title)) +
 		ggplot2::theme_void() +
 		ggplot2::theme(
 			axis.line.x = ggplot2::element_line(linewidth = 0.3),
 			axis.ticks.x = ggplot2::element_line(linewidth = 0.3),
 			axis.ticks.length.x = ggplot2::unit(2, "pt"),
 			axis.text.x = ggplot2::element_text(size = 7),
+			axis.title.x = if (is.null(scale$title)) {
+				ggplot2::element_blank()
+			} else {
+				ggplot2::element_text(size = 7, margin = ggplot2::margin(t = 2))
+			},
 			plot.margin = ggplot2::margin(0, 0, 0, 0)
 		)
 }

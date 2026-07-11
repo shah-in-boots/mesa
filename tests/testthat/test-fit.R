@@ -65,7 +65,7 @@ test_that("the fitting plan is inspectable before anything runs", {
 		subset_data(cyl > 4)
 
 	# Two outcomes x two strata levels x one subset
-	p <- fit_plan(f, data = mtcars)
+	p <- plan_fit(f, data = mtcars)
 	expect_s3_class(p, "tbl_df")
 	expect_equal(nrow(p), 4)
 	expect_named(
@@ -75,9 +75,22 @@ test_that("the fitting plan is inspectable before anything runs", {
 	)
 
 	# Without data, stratum levels stay unresolved
-	p2 <- fit_plan(f)
+	p2 <- plan_fit(f)
 	expect_equal(nrow(p2), 2)
 	expect_true(all(is.na(unlist(p2$strata_level))))
+
+})
+
+test_that("a stratum missing from the data is an error, not a silent empty plan", {
+
+	f <- fmls(mpg ~ .x(wt) + hp) |> add_strata(not_a_column)
+
+	# The zero-level expansion used to erase the formula's models silently
+	expect_error(plan_fit(f, data = mtcars), "not_a_column")
+	expect_error(fit(f, .fn = lm, data = mtcars, raw = FALSE), "not_a_column")
+
+	# Without data the plan still forms, levels unresolved
+	expect_equal(nrow(plan_fit(f)), 1)
 
 })
 

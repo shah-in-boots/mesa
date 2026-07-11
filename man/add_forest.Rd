@@ -11,7 +11,8 @@ add_forest(x, axis = list(), width = 100, invert = FALSE)
 
 \item{axis}{Options overriding the guessed x-scale, as a named list:
 \code{limits} (length-2 numeric), \code{breaks} (numeric), \code{intercept} (the
-reference line), and \code{log} (\code{TRUE} for a log scale)}
+reference line), \code{log} (\code{TRUE} for a log scale), and \code{title} (a string
+drawn beneath the axis strip's tick labels, e.g. \code{"Hazard ratio"})}
 
 \item{width}{Width of the drawn cells, in pixels}
 
@@ -39,9 +40,10 @@ the whole column (limits, intercept, breaks, log versus linear — with
 strip as a reserved row after every row group. Adding or dropping the
 block never changes any other cell.
 
-The block's dense look (zero vertical padding, borderless plot cells)
-enters as \emph{defaults} to the style layer; \code{\link[=modify_style]{modify_style()}}'s \code{padding}
-overrides it.
+The block's dense look (zero vertical padding, a borderless table body —
+the journal convention of top rule, header rule, bottom rule, and nothing
+inside) enters as \emph{defaults} to the style layer; \code{\link[=modify_style]{modify_style()}}'s
+\code{padding} overrides the padding.
 }
 \seealso{
 \code{\link[=mesa]{mesa()}}, \code{\link[=as_gt]{as_gt()}}, \code{\link[=add_estimates]{add_estimates()}}

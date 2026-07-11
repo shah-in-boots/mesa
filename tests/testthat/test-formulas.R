@@ -187,7 +187,7 @@ test_that("strata stay scoped to the family that declared them", {
 	expect_length(strataOf[[2]], 0)
 
 	# And the fitting plan agrees: only the mpg formula expands by stratum
-	plan <- fit_plan(f, data = mtcars)
+	plan <- plan_fit(f, data = mtcars)
 	expect_equal(
 		plan$strata_variable[plan$formula_index == 1],
 		c("am", "am")

@@ -102,13 +102,36 @@ fmls(mpg ~ .x(wt) + hp) |>
   subset_data(disp > 100)
 ```
 
+And whether formulas are *related* — one family or several, and how — is
+readable from the causal roles themselves. `identify_family()` sorts a
+`fmls` into families, names each family's pattern, and names the relation
+between families that share an adjustment ladder:
+
+```{r}
+c(
+  fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential"),
+  fmls(mpg ~ .x(disp) + hp + cyl, pattern = "sequential")
+) |>
+  identify_family()
+```
+
+Same outcome, same ladder, different exposures: the `varied exposures`
+relation is the wide-table shape — exposures as column blocks over shared
+adjustment rows. A mediation triad binds into a single family even though
+its `mediator ~ exposure` member has a different left-hand side:
+
+```{r}
+fmls(mpg ~ .x(wt) + .m(hp) + qsec) |>
+  identify_family()
+```
+
 ## 3. Models
 
 The plan comes before the fit — formula × stratum × subset, inspectable:
 
 ```{r}
 fs <- fmls(mpg ~ .x(wt) + hp, pattern = "sequential") |> add_strata(am)
-fit_plan(fs, data = d)
+plan_fit(fs, data = d)
 ```
 
 `fit()` keeps the causal context attached by default (a `mdl` vector;
@@ -204,7 +227,7 @@ mtInt |>
   add_n(label = "No.") |>
   add_estimates(columns = list(beta ~ "Estimate", conf ~ "95% CI",
                                p ~ "P for interaction")) |>
-  add_forest() |>
+  add_forest(axis = list(title = "Estimate")) |>
   as_gt()
 ```
 
@@ -212,6 +235,15 @@ mtInt |>
 > sized in `em` units, so they scale with the text they sit beside (a build
 > without cairo falls back to the old fixed-size PNG). See
 > `vignette("internals")` §7.
+>
+> ✓ **Resolved (2026-07-10).** The forest column now reads as native to the
+> table: with a plot column present the whole body renders borderless (the
+> journal booktabs look) instead of the plot cells hiding their own borders
+> — which, under CSS border collapsing, punched gaps in the header and
+> bottom rules; the axis strip is pinned to exactly the cells' width (the
+> svg device's whole-point rounding used to skew it); the dashed reference
+> line runs down into the axis; and `add_forest(axis = list(title = ))`
+> draws an axis title beneath the tick labels, as above.
 
 ### Style
 

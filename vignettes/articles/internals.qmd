@@ -108,12 +108,12 @@ f <- fmls(mpg ~ .x(wt) + .s(am))
 formula(f)
 ```
 
-The stratum re-enters at `fit_plan()` — not as formula syntax but as *data
+The stratum re-enters at `plan_fit()` — not as formula syntax but as *data
 splitting*: one plan row per stratum level, the level's rows subset before
 the engine sees anything.
 
 ```{r}
-fit_plan(f, data = d)
+plan_fit(f, data = d)
 ```
 
 Meta terms are members of the formula matrix like any other term, and
@@ -122,8 +122,31 @@ the family that declared it, and combining families cannot leak it:
 
 ```{r}
 combined <- suppressMessages(c(f, fmls(qsec ~ .x(hp))))
-fit_plan(combined, data = d)[, c("formula_call", "strata_variable")]
+plan_fit(combined, data = d)[, c("formula_call", "strata_variable")]
 ```
+
+A stratifying term must actually exist in the fitting data: a missing
+column would enumerate zero levels, and the crossing would erase every
+model of that formula from the plan without a trace (`fit()` returned
+`<model[0]>` silently). Since 2026-07-10 `plan_fit()` errors on the
+mismatch instead:
+
+```{r}
+#| error: true
+f |> add_strata(not_a_column) |> plan_fit(data = d)
+```
+
+Family identity works the same way as the stratum: *derived from roles,
+not recorded as lineage*. A `fmls` is born as one family — one expansion
+pattern generated its rows — but `c()` just stacks rows and merges term
+tables; nothing marks where each row came from. Downstream,
+`family_adjustment_index()` re-derives families as outcome × exposure
+groups, which is right for adjustment ladders but misfiles a mediation
+triad (its `mediator ~ exposure` member has a different left-hand side).
+`identify_family()` is the role-reading recovery: mediators bind their
+triads back together, and adjustment-ladder signatures relate families
+across exposures or outcomes (see the usage vignette; wiring this into the
+`mesa` layer as the layout gate is the open item in `issues.md`).
 
 **Review questions**
 
@@ -296,8 +319,16 @@ Two mechanisms live only in the renderer:
   did not).
 - **Plot cells** (the forest column): each cell is a ggplot drawn as vector
   SVG and inlined as its own base64 `data:` document, sized in `em` units
-  so it scales with the text beside it (`plot_image()`; a build without
-  cairo falls back to the fixed-size PNG).
+  so it scales with the text beside it (`plot_image()`, which pins both
+  dimensions — the svg device rounds its canvas to whole points, and the
+  rounding would otherwise skew the axis strip's width off the cells'; a
+  build without cairo falls back to the fixed-size PNG). The column's
+  native look is a *whole-body* default, not per-cell styling: with a plot
+  column present the body renders borderless (the journal booktabs
+  convention), because under `border-collapse: collapse` a per-cell hidden
+  border wins every shared edge and punched gaps in the header and bottom
+  rules. The axis strip continues the cells' dashed reference line and
+  takes an optional `title` beneath its tick labels.
 
 The unit everything above resolves to is the **term × effect cell**: one
 term (or term level) crossed with one effect — the estimate, its interval, a

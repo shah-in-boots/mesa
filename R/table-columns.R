@@ -343,15 +343,17 @@ add_interaction <- function(x, conf_level = 0.95) {
 #' strip as a reserved row after every row group. Adding or dropping the
 #' block never changes any other cell.
 #'
-#' The block's dense look (zero vertical padding, borderless plot cells)
-#' enters as *defaults* to the style layer; [modify_style()]'s `padding`
-#' overrides it.
+#' The block's dense look (zero vertical padding, a borderless table body —
+#' the journal convention of top rule, header rule, bottom rule, and nothing
+#' inside) enters as *defaults* to the style layer; [modify_style()]'s
+#' `padding` overrides the padding.
 #'
 #' @param x A `<mesa>` specification (from [mesa()])
 #'
 #' @param axis Options overriding the guessed x-scale, as a named list:
 #'   `limits` (length-2 numeric), `breaks` (numeric), `intercept` (the
-#'   reference line), and `log` (`TRUE` for a log scale)
+#'   reference line), `log` (`TRUE` for a log scale), and `title` (a string
+#'   drawn beneath the axis strip's tick labels, e.g. `"Hazard ratio"`)
 #'
 #' @param width Width of the drawn cells, in pixels
 #'
@@ -372,7 +374,7 @@ add_forest <- function(x, axis = list(), width = 100, invert = FALSE) {
 			(length(axis) > 0 && is.null(names(axis)))) {
 		stop("`axis` must be a named list of axis options.", call. = FALSE)
 	}
-	known <- c("limits", "breaks", "intercept", "log")
+	known <- c("limits", "breaks", "intercept", "log", "title")
 	unknown <- setdiff(names(axis), known)
 	if (length(unknown) > 0) {
 		stop(
@@ -386,6 +388,11 @@ add_forest <- function(x, axis = list(), width = 100, invert = FALSE) {
 	if (!is.null(axis$limits) &&
 			(!is.numeric(axis$limits) || length(axis$limits) != 2)) {
 		stop("`axis$limits` must be a length-2 numeric.", call. = FALSE)
+	}
+	if (!is.null(axis$title) &&
+			(!is.character(axis$title) || length(axis$title) != 1 ||
+			 is.na(axis$title))) {
+		stop("`axis$title` must be a single string.", call. = FALSE)
 	}
 	validate_scalar(width, "width", min = 0, inclusive = FALSE)
 	if (!is.logical(invert) || length(invert) != 1 || is.na(invert)) {
