@@ -30,12 +30,12 @@ test_that("complex test from AFEQT dataset works (the adjustment chain)", {
 		object |>
 		attach_data(afeqt_dataset) |>
 		mdl_gt() |>
-		select_outcomes(list(
+		modify_labels(
 			afeqt_total_delta ~ "Change in Total AFEQT Score",
 			afeqt_activities_delta ~ "Change in Activities AFEQT Score",
 			afeqt_symptoms_delta ~ "Change in Symptoms AFEQT Score",
 			afeqt_treatment_delta ~ "Change in Treatment AFEQT Score"
-		)) |>
+		) |>
 		select_terms(list(
 			ndi_quartile ~ "NDI Quartile",
 			ancestry ~ "Race-Ethnicity",
@@ -77,11 +77,10 @@ test_that("carrs data works (the interaction chain)", {
 
 	gtbl <-
 		obj |>
+		dplyr::filter(outcome == "qrs_tang", exposure == "lab_hba1c") |>
 		mdl_gt() |>
 		modify_layout(preset = "interaction") |>
 		add_interaction() |>
-		select_outcomes(qrs_tang ~ "QRS-T Angle") |>
-		select_exposures(lab_hba1c ~ "Hemoglobin A1c") |>
 		add_n(label = "No.") |>
 		add_estimates(
 			columns = list(beta ~ "Estimate", conf ~ "95% CI",
@@ -120,8 +119,8 @@ test_that("for dichotomous variables (the levels chain)", {
 		attach_data(data) |>
 		mdl_gt() |>
 		modify_layout(preset = "levels") |>
-		select_outcomes(list('death_cv_yn' ~ 'Cardiovascular mortality',
-												 'death_any_yn' ~ 'All-cause mortality')) |>
+		modify_labels('death_cv_yn' ~ 'Cardiovascular mortality',
+									'death_any_yn' ~ 'All-cause mortality') |>
 		select_terms(list(lf_delta_bin ~ 'Mental stress-induced HRV decrease',
 											lf_rest_quartile ~ 'Low rest HRV')) |>
 		select_adjustment(list(
@@ -163,8 +162,8 @@ test_that("for categorical variables (the levels chain)", {
 		attach_data(data) |>
 		mdl_gt() |>
 		modify_layout(preset = "levels") |>
-		select_outcomes(list(death_cv_yn ~ 'Cardiovascular mortality',
-												 death_any_yn ~ 'All-cause mortality')) |>
+		modify_labels(death_cv_yn ~ 'Cardiovascular mortality',
+									death_any_yn ~ 'All-cause mortality') |>
 		select_terms(lf_grps ~ 'HRV response category v. reference') |>
 		select_adjustment(list(2 ~ 'Unadjusted',
 													 5 ~ 'Adjusted for demo',

@@ -63,11 +63,14 @@
 #'
 #' # Combining
 #'
-#' Families of formulas combine with [c()] or [vctrs::vec_c()]. The term
-#' tables of each family are merged; when the same term arrives with
-#' conflicting definitions (e.g. a plain predictor in one family and an
-#' exposure in another), the first (left-most) definition wins and a message
-#' reports the resolution.
+#' Families of formulas combine with [c()] or [vctrs::vec_c()]. Each family
+#' keeps its own definition of every term: `hp` may adjust one family as a
+#' plain predictor and mediate another (`.m(hp)`), and after combining, each
+#' formula still reads its own family's definition — definitions are told
+#' apart by their role, and the merged term table holds one row per
+#' definition. Only when the same term arrives twice in the *same* role but
+#' with different decoration (a conflicting label, say) does the first
+#' (left-most) definition win, with a message.
 #'
 #' @inheritSection tm Roles
 #' @inheritSection tm Pluralized Labeling Arguments
@@ -175,8 +178,12 @@ fmls <- function(x = unspecified(),
 		tbl[[paste0("meta_", i)]] <- metaTerms[i]
 	}
 
-	# The formula matrix: one row per precursor row, one column per term,
-	# recording membership (0/1) — a term repeated within one precursor row
+	# The formula matrix: one row per precursor row, one column per term. A
+	# cell records membership as a definition ordinal — cell `k` means the
+	# formula uses the k-th definition of that term in the term table (see
+	# `remap_definition_ordinals()`). Within one family every term has a
+	# single definition, so every membership cell is 1; higher ordinals only
+	# appear after families combine. A term repeated within one precursor row
 	# still counts once
 	rowTerms <- apply(tbl, MARGIN = 1, function(.x) {
 		unique(as.character(stats::na.omit(unname(.x))))
@@ -224,20 +231,24 @@ is_fmls <- function(x) {
 #' @export
 key_terms <- function(x) {
 
-	# Global variables
-	term <- NULL
-
 	# If a formula object, must pull only terms that are available
 	if (is_fmls(x)) {
 		# Formula matrix records every member, meta terms included, so
-		# membership alone decides which terms belong to these formulas
+		# membership alone decides which terms belong to these formulas. The
+		# cell ordinal names which *definition* of the term a formula uses, so
+		# a combined object keeps e.g. `hp` the predictor and `hp` the
+		# mediator as separate key terms
 		fm <- vec_data(x)
 		fm[is.na(fm)] <- 0
-		tms <- names(fm)[colSums(fm) >= 1]
-
 		tmTab <- attr(x, 'termTable')
 
-		subset(tmTab, term %in% tms) |>
+		idx <- integer()
+		for (t in names(fm)) {
+			used <- sort(unique(fm[[t]][fm[[t]] >= 1]))
+			idx <- c(idx, which(tmTab$term == t)[used])
+		}
+
+		tmTab[sort(idx), , drop = FALSE] |>
 			vec_restore(to = tm())
 	} else {
 		NULL
@@ -258,7 +269,7 @@ format.fmls <- function(x,
 			fmMat,
 			MARGIN = 1,
 			FUN = function(.x) {
-				.y <- tmTab[tmTab$term %in% names(.x[which(.x >= 1)]), ]
+				.y <- resolve_formula_row(.x, tmTab)
 
 				if ("mediator" %in% .y$role & !("outcome" %in% .y$role)) {
 					# Handle mediation formula
@@ -348,18 +359,44 @@ fmls_ptype2 <- function(x, y, ..., x_arg = "", y_arg = "") {
 	# Creates a "empty" data frame with appropraite fields
 	newMatrix <- df_ptype2(x, y, ..., x_arg = x_arg, y_arg = y_arg)
 
-	# Handle scalar term attribute
-	xTm <- attr(x, "termTable")
-	yTm <- attr(y, "termTable")
+	# One row per definition: a term serving different roles in different
+	# families keeps every one of those definitions
+	newTmTab <- combine_term_tables(attr(x, "termTable"), attr(y, "termTable"))
+
+	new_fmls(newMatrix,
+					 termTable = newTmTab,
+					 instructions = combine_instructions(x, y))
+}
+
+#' The identity of a term definition
+#'
+#' A term may serve different causal roles in different families (`hp` as a
+#' plain predictor in one, the mediator of another), so the atom a term table
+#' holds is not the term name but the *definition*: the (term, side, role)
+#' triple. Decorations (label, group, ...) hang off a definition rather than
+#' extending its identity.
+#' @keywords internal
+#' @noRd
+term_definition_key <- function(tmTab) {
+	paste(tmTab$term, tmTab$side, tmTab$role, sep = "\r")
+}
+
+#' Merge term tables, keeping every distinct definition
+#'
+#' Rows that agree on (term, side, role) but differ in decoration are the
+#' only true conflicts left; there the first (left-most) wins, with a message
+#' unless `quiet` (casting re-treads ground the ptype2 already reported).
+#' @keywords internal
+#' @noRd
+combine_term_tables <- function(xTm, yTm, quiet = FALSE) {
 
 	tmTab <-
 		rbind(xTm, yTm) |>
 		unique()
 
-	dups <- duplicated(tmTab$term)
+	dups <- duplicated(term_definition_key(tmTab))
 
-	# The first (left-most) definition of a term wins; say so
-	if (any(dups)) {
+	if (any(dups) && !quiet) {
 		message(
 			"Combining formulas with conflicting definitions for: `",
 			paste0(unique(tmTab$term[dups]), collapse = "`, `"),
@@ -367,12 +404,55 @@ fmls_ptype2 <- function(x, y, ..., x_arg = "", y_arg = "") {
 		)
 	}
 
-	# New terms that will be the key scalar attribute
-	newTmTab <- tmTab[!dups, ]
+	tmTab[!dups, , drop = FALSE]
+}
 
-	new_fmls(newMatrix,
-					 termTable = newTmTab,
-					 instructions = combine_instructions(x, y))
+#' Re-point formula matrix cells at a combined term table
+#'
+#' A membership cell holds a definition ordinal: cell `k` in column `t` means
+#' the formula uses the k-th definition of term `t` in its term table. When
+#' term tables combine, a family's definitions may land at new ordinals (its
+#' `hp` may now be the second `hp`), so its cells are re-pointed here. This
+#' scoping is what lets a stratum, a role, or a label stay with the family
+#' that declared it.
+#' @keywords internal
+#' @noRd
+remap_definition_ordinals <- function(fmMat, from, to) {
+
+	if (nrow(fmMat) == 0 || is.null(from) || nrow(from) == 0) {
+		return(fmMat)
+	}
+
+	fromKey <- term_definition_key(from)
+	toKey <- term_definition_key(to)
+
+	for (t in intersect(names(fmMat), from$term)) {
+		map <- match(fromKey[from$term == t], toKey[to$term == t])
+		cells <- fmMat[[t]]
+		hit <- which(!is.na(cells) & cells >= 1)
+		fmMat[[t]][hit] <- map[cells[hit]]
+	}
+
+	fmMat
+}
+
+#' Resolve one formula matrix row to its term-table rows
+#'
+#' Membership names the terms; each cell's ordinal names which definition of
+#' its term this formula reads. Rows return in term-table order.
+#' @keywords internal
+#' @noRd
+resolve_formula_row <- function(rowVals, tmTab) {
+
+	vals <- unlist(rowVals)
+	vals[is.na(vals)] <- 0
+	members <- which(vals >= 1)
+
+	idx <- vapply(members, function(j) {
+		which(tmTab$term == names(vals)[j])[[vals[j]]]
+	}, integer(1))
+
+	tmTab[sort(idx), , drop = FALSE]
 }
 
 #' Merge subset instructions when families combine (union by name)
@@ -401,21 +481,14 @@ c.fmls <- function(...) {
 #' @noRd
 fmls_cast <- function(x, to, ..., x_arg = "", to_arg = "") {
 
-	# New terms that will be the key scalar attribute
-
-	# Handle terms first
-	toTm <- attr(to, "termTable")
+	# Definitions merge quietly here: in a `c()` the ptype2 step has already
+	# reported any true conflicts
 	xTm <- attr(x, "termTable")
+	newTmTab <- combine_term_tables(attr(to, "termTable"), xTm, quiet = TRUE)
 
-	tmTab <-
-		rbind(toTm, xTm) |>
-		unique()
-
-	dups <- duplicated(tmTab$term)
-
-	newTmTab <- tmTab[!dups, ]
-
-	# When casting, the matrices need to be similar in columns
+	# When casting, the matrices need to be similar in columns; then each of
+	# x's membership cells is re-pointed at its definition's ordinal within
+	# the combined term table
 	newMatrix <-
 		df_cast(
 			x,
@@ -423,7 +496,8 @@ fmls_cast <- function(x, to, ..., x_arg = "", to_arg = "") {
 			...,
 			x_arg = x_arg,
 			to_arg = to_arg
-		)
+		) |>
+		remap_definition_ordinals(from = xTm, to = newTmTab)
 
 	new_fmls(newMatrix,
 					 termTable = newTmTab,
@@ -623,13 +697,15 @@ formulas_to_terms <- function(x) {
 
 	# Membership in the formula matrix is the whole story: strata and random
 	# effects are recorded there like any other term, so a stratum stays with
-	# the formula that declared it instead of leaking across combined families
+	# the formula that declared it instead of leaking across combined
+	# families — and the cell ordinals scope roles the same way, so each
+	# formula reads its own family's definition of a shared term
 	tms <-
 		apply(
 			fmMat,
 			MARGIN = 1,
 			FUN = function(.x) {
-				.y <- tmTab[tmTab$term %in% names(.x[which(.x >= 1)]), ]
+				.y <- resolve_formula_row(.x, tmTab)
 				vec_restore(.y, to = tm())
 		})
 

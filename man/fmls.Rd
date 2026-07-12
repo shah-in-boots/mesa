@@ -95,11 +95,14 @@ mediator (per VanderWeele and Robins).
 }
 
 \section{Combining}{
-Families of formulas combine with \code{\link[=c]{c()}} or \code{\link[vctrs:vec_c]{vctrs::vec_c()}}. The term
-tables of each family are merged; when the same term arrives with
-conflicting definitions (e.g. a plain predictor in one family and an
-exposure in another), the first (left-most) definition wins and a message
-reports the resolution.
+Families of formulas combine with \code{\link[=c]{c()}} or \code{\link[vctrs:vec_c]{vctrs::vec_c()}}. Each family
+keeps its own definition of every term: \code{hp} may adjust one family as a
+plain predictor and mediate another (\code{.m(hp)}), and after combining, each
+formula still reads its own family's definition — definitions are told
+apart by their role, and the merged term table holds one row per
+definition. Only when the same term arrives twice in the \emph{same} role but
+with different decoration (a conflicting label, say) does the first
+(left-most) definition win, with a message.
 }
 
 \section{Roles}{

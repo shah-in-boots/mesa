@@ -112,6 +112,8 @@ reference:
   contents:
   - model_table
   - model_table_helpers
+  - keep_models
+  - adjustment_sets
   - flatten_models
   - estimate_interaction
 - title: "Tables: the mesa"

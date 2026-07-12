@@ -28,7 +28,10 @@ labeled formulas may name either a term (the variable) or a specific level:
 \item a variable with a vector label relabels the term's \strong{levels} in
 ascending order (\code{am ~ c("Manual", "Automatic")});
 \item a bare level value relabels that \strong{level} wherever it appears
-(\code{0 ~ "Absent"}).
+(\code{0 ~ "Absent"});
+\item an outcome relabels its \strong{row group} (\code{mpg ~ "Miles per gallon"}); a
+name that is both a displayed term and an outcome — a mediator —
+relabels both.
 }
 
 Column (statistic) relabelings are supplied through \code{columns} and consumed

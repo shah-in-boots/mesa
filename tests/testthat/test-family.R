@@ -111,3 +111,91 @@ test_that("an empty fmls identifies no families", {
 	expect_equal(nrow(fam), 0)
 
 })
+
+test_that("a family group can be identified in mixed formulas", {
+
+	# Two expossures but the same outcome and same adjustment set
+  f1 <- fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential")
+  f2 <- fmls(mpg ~ .x(disp) + hp + cyl, pattern = "sequential")
+	# A mediation analysis with similar variables
+	f3 <- fmls(mpg ~ .x(wt) + .m(hp) + cyl)
+
+	f <- c(f1, f2, f3)
+	fam <- identify_family(f)
+
+	# Expect that f1 and f2 could be a complex sequential family
+	# They could have varied exposures, but the outcome is the same
+	# Adjustment set is the same
+	# Would look good in a table together side by side (column groups)
+	# Thus would expect them to have an overlap in potential families
+	# Additionally would expect that can regenerate mediation pattern with f3
+
+	# f1 and f2: two sequential ladders, and the shared outcome + shared
+	# adjustment set marks their overlap as `varied exposures` — the
+	# side-by-side (column group) table shape
+	ladders <- fam[fam$family %in% 1:2, ]
+	expect_equal(ladders$family, rep(c(1L, 2L), each = 3))
+	expect_equal(unique(ladders$pattern), "sequential")
+	expect_equal(unique(ladders$relation), "varied exposures")
+	expect_equal(unique(ladders$outcome), "mpg")
+	expect_setequal(unique(ladders$exposure), c("wt", "disp"))
+
+	# f3's mediation triad regenerates intact as its own family: `hp` stays
+	# the mediator there even though f1 and f2 adjusted for it as a plain
+	# predictor
+	triad <- fam[fam$family == 3L, ]
+	expect_equal(nrow(triad), 3)
+	expect_equal(unique(triad$pattern), "mediation")
+	expect_equal(unique(triad$mediator), "hp")
+	expect_setequal(triad$outcome, c("mpg", "hp"))
+
+})
+test_that("identify_family() stamps a mdl_tbl with family columns", {
+
+	d <- mtcars
+	mt <- suppressMessages(
+		c(
+			fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential"),
+			fmls(mpg ~ .x(disp) + hp + cyl, pattern = "sequential")
+		) |>
+			fit(.fn = lm, data = d, raw = FALSE) |>
+			model_table(data = d)
+	)
+
+	stamped <- identify_family(mt)
+
+	# The identification rides on as ordinary columns; the table stays a
+	# mdl_tbl, ready for `dplyr::filter()`
+	expect_s3_class(stamped, "mdl_tbl")
+	expect_equal(nrow(stamped), nrow(mt))
+	expect_equal(stamped$family, rep(c(1L, 2L), each = 3))
+	expect_equal(unique(stamped$pattern), "sequential")
+	expect_equal(unique(stamped$relation), "varied exposures")
+
+	# Whittling by family keeps the class and prunes the attributes
+	one <- dplyr::filter(stamped, family == 1)
+	expect_s3_class(one, "mdl_tbl")
+	expect_equal(nrow(one), 3L)
+	expect_equal(unique(one$exposure), "wt")
+
+	# Stamping again refreshes (the whittled table renumbers from 1)
+	expect_equal(unique(identify_family(one)$family), 1L)
+})
+
+test_that("a stratified mdl_tbl stamps one family across its stratum rows", {
+
+	d <- mtcars
+	mt <- suppressMessages(
+		fmls(mpg ~ .x(wt) + hp, pattern = "sequential") |>
+			add_strata(am) |>
+			fit(.fn = lm, data = d, raw = FALSE) |>
+			model_table(data = d)
+	)
+
+	stamped <- identify_family(mt)
+
+	# One formula family; the stratum expansion multiplies rows, not families
+	expect_equal(unique(stamped$family), 1L)
+	expect_equal(unique(stamped$pattern), "sequential")
+	expect_equal(nrow(stamped), nrow(mt))
+})

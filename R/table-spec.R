@@ -20,15 +20,25 @@
 #' `r lifecycle::badge('experimental')`
 #'
 #' `mdl_gt()` lays a collection of fitted models out on the *mesa* — the table
-#' upon which the models are displayed — as a declarative specification. It is
-#' deliberately bare: it takes no selection arguments and puts everything
-#' fitted on the mesa with default labels drawn from the term table and the
-#' attached data. The table is then grown one decision at a time with pipeable
-#' verbs, exactly the way a `{ggplot2}` plot is grown:
+#' upon which the models are displayed — as a declarative specification. The
+#' division of labor with [model_table()] is deliberate: **which models sit on
+#' the mesa is decided on the `mdl_tbl`**, with ordinary `dplyr` verbs over its
+#' provenance columns (`outcome`, `exposure`, `strata`, ...) and the family
+#' columns [identify_family()] stamps on — whittle, print, verify. `mdl_gt()`
+#' is then the gate: it verifies what arrives is *one presentable analysis*
+#' (see Details) and takes no selection arguments, putting everything fitted
+#' on the mesa with default labels drawn from the term table and the attached
+#' data. From there the table is grown one **display** decision at a time with
+#' pipeable verbs, exactly the way a `{ggplot2}` plot is grown:
 #'
-#' - `select_outcomes()`, `select_exposures()`, `select_terms()`,
-#'   `select_adjustment()`, `select_strata()` narrow what is shown;
-#' - `modify_labels()` relabels terms and levels late, without reselecting;
+#' - `select_adjustment()` chooses which rungs of the adjustment ladder are
+#'   displayed (e.g. only the crude and fully adjusted rows —
+#'   [adjustment_sets()] shows the rungs and the numbers they are selected
+#'   by), and `select_terms()` which terms' cells are shown;
+#' - the `add_*()` verbs append column blocks derived from the models and the
+#'   attached data (estimates, events, rates, sample sizes);
+#' - `modify_labels()` relabels outcomes, terms, and levels late, without
+#'   reselecting;
 #' - `as_gt()` renders the specification to a `{gt}` table (see [as_gt()]).
 #'
 #' Because the specification is declarative — the verbs record instructions and
@@ -55,11 +65,20 @@
 #'
 #' `mdl_gt()` validates before it builds. The object must be a `mdl_tbl`; only
 #' its fitted rows are laid out (failed and unfit rows are set aside); the
-#' table must hold a single model family (one fitting function) or it errors;
-#' and more than one attached dataset is reported with a message. See
-#' [model_table()] for the collection these are drawn from and [attach_data()]
-#' for supplying the data that categorical levels and data-derived statistics
-#' are read from.
+#' table must hold a single model family (one fitting function, on one link)
+#' or it errors; and more than one attached dataset is reported with a
+#' message.
+#'
+#' It then verifies the models form **one presentable analysis**, in
+#' [identify_family()]'s terms: a single formula family (an adjustment ladder,
+#' a mediation triad, parallel adjustment sets, or a lone model), or several
+#' families bound by a shared relation — `varied exposures` or `varied
+#' outcomes` over one adjustment ladder, the wide-table shapes. Unrelated
+#' families error, pointing back at the `mdl_tbl`: stamp it with
+#' `identify_family()`, `dplyr::filter()` it down, and lay out one analysis at
+#' a time. See [model_table()] for the collection these are drawn from and
+#' [attach_data()] for supplying the data that categorical levels and
+#' data-derived statistics are read from.
 #'
 #' @param object A `mdl_tbl` object holding at least one fitted model
 #'
@@ -182,6 +201,57 @@ mdl_gt <- function(object, ...) {
 		)
 	}
 
+	# One mesa, one analysis: a single formula family, or several families
+	# bound by a shared relation over *one* adjustment ladder (varied
+	# exposures / varied outcomes -- the wide-table shapes). Anything looser
+	# has no coherent layout, so it is turned back toward the model table's
+	# own verbs
+	fam <- identify_family(model_table_formulas(fitted))
+	famTab <- fam[!duplicated(fam$family),
+								c("family", "pattern", "relation", "outcome", "exposure"),
+								drop = FALSE]
+	if (nrow(famTab) > 1) {
+		relSets <- lapply(famTab$relation, function(r) {
+			if (is.na(r)) character() else trimws(strsplit(r, ",")[[1]])
+		})
+		shared <- Reduce(intersect, relSets)
+		if (length(shared) == 0) {
+			lines <- paste0(
+				"family ", famTab$family, " (", famTab$pattern, "): ",
+				famTab$outcome,
+				ifelse(is.na(famTab$exposure), "",
+							 paste0(" ~ ", famTab$exposure))
+			)
+			stop(
+				"A `mdl_gt` holds one analysis: a single family, or families ",
+				"related by varied exposures/outcomes over a shared adjustment ",
+				"ladder. This table holds unrelated families:\n  ",
+				paste(lines, collapse = "\n  "),
+				"\nWhittle the model table down first, e.g. ",
+				"`identify_family(x) |> keep_models(family = 1)`.",
+				call. = FALSE
+			)
+		}
+		# A relation label shared across two *different* ladders is two
+		# analyses standing side by side (e.g. two varied-exposure pairs on
+		# unrelated adjustment sets) -- their rows could never align
+		ladders <- vapply(
+			split(fam$covariates, fam$family),
+			ladder_signature, character(1)
+		)
+		if (length(unique(ladders)) > 1) {
+			stop(
+				"A `mdl_gt` holds one analysis, but these families share the ",
+				paste0("`", shared, "`", collapse = "/"),
+				" relation across ", length(unique(ladders)),
+				" different adjustment ladders — several analyses side by ",
+				"side. Whittle the model table to one ladder first ",
+				"(`identify_family()` to look, `keep_models()` to cut).",
+				call. = FALSE
+			)
+		}
+	}
+
 	# The spec starts with empty defaults: everything fitted is selected, the
 	# layout groups adjustment-set rows by outcome (`modify_layout()` swaps
 	# presets), and style is unset until `modify_style()` records instructions
@@ -190,8 +260,8 @@ mdl_gt <- function(object, ...) {
 	structure(
 		list(
 			mdl_tbl = fitted,
-			selection = list(outcomes = NULL, exposures = NULL, terms = NULL,
-											 adjustment = NULL, strata = NULL),
+			family = famTab,
+			selection = list(terms = NULL, adjustment = NULL),
 			labels = list(relabels = list(), columns = list()),
 			columns = list(),
 			layout = list(preset = "adjustment", row_groups = "outcome"),
@@ -207,7 +277,7 @@ mdl_gt <- function(object, ...) {
 #' Collect labeled-formula verb input into a single object
 #'
 #' The verbs accept the documented labeled-formula forms directly
-#' (`select_outcomes(m, mpg ~ "MPG")`), a list (`list(...)`), a character
+#' (`select_terms(m, cyl ~ "Cylinders")`), a list (`list(...)`), a character
 #' vector, or several formulas as separate arguments
 #' (`select_adjustment(m, 1 ~ "Crude", 3 ~ "Adjusted")`). One argument is
 #' passed through untouched; several formulas are gathered into a list, which
@@ -240,20 +310,6 @@ record_selection <- function(x, dimension, input, verb) {
 
 #' @rdname mdl_gt
 #' @export
-select_outcomes <- function(x, ...) {
-	validate_class(x, "mdl_gt")
-	record_selection(x, "outcomes", collect_labeled(...), "select_outcomes")
-}
-
-#' @rdname mdl_gt
-#' @export
-select_exposures <- function(x, ...) {
-	validate_class(x, "mdl_gt")
-	record_selection(x, "exposures", collect_labeled(...), "select_exposures")
-}
-
-#' @rdname mdl_gt
-#' @export
 select_terms <- function(x, ...) {
 	validate_class(x, "mdl_gt")
 	record_selection(x, "terms", collect_labeled(...), "select_terms")
@@ -264,13 +320,6 @@ select_terms <- function(x, ...) {
 select_adjustment <- function(x, ...) {
 	validate_class(x, "mdl_gt")
 	record_selection(x, "adjustment", collect_labeled(...), "select_adjustment")
-}
-
-#' @rdname mdl_gt
-#' @export
-select_strata <- function(x, ...) {
-	validate_class(x, "mdl_gt")
-	record_selection(x, "strata", collect_labeled(...), "select_strata")
 }
 
 #' Relabel terms, levels, or columns late
@@ -288,7 +337,10 @@ select_strata <- function(x, ...) {
 #' - a variable with a vector label relabels the term's **levels** in
 #'   ascending order (`am ~ c("Manual", "Automatic")`);
 #' - a bare level value relabels that **level** wherever it appears
-#'   (`0 ~ "Absent"`).
+#'   (`0 ~ "Absent"`);
+#' - an outcome relabels its **row group** (`mpg ~ "Miles per gallon"`); a
+#'   name that is both a displayed term and an outcome — a mediator —
+#'   relabels both.
 #'
 #' Column (statistic) relabelings are supplied through `columns` and consumed
 #' by the column verbs. Like every verb, `modify_labels()` merges: naming a
@@ -607,6 +659,19 @@ format.mdl_gt <- function(x, ...) {
 			paste0("  data: ", paste(marks, collapse = ", "))
 		}
 
+	# The verified analysis: its family pattern(s), and the relation binding
+	# several families when the mesa is a wide-table shape
+	familyLine <-
+		if (!is.null(x$family) && nrow(x$family) > 0) {
+			rels <- unique(stats::na.omit(x$family$relation))
+			paste0(
+				"  analysis: ", nrow(x$family),
+				if (nrow(x$family) == 1) " family (" else " families (",
+				paste(unique(x$family$pattern), collapse = ", "), ")",
+				if (length(rels) > 0) paste0(" — ", paste(rels, collapse = "; "))
+			)
+		}
+
 	layoutLine <- paste0(
 		"  layout: ", x$layout$preset,
 		" (rows: ",
@@ -654,5 +719,6 @@ format.mdl_gt <- function(x, ...) {
 		"# `as_gt()` renders; `select_*()` / `modify_labels()` refine the mesa"
 	)
 
-	c(header, dataLine, layoutLine, selectionBlock, columnsLine, labelsLine, "", hint)
+	c(header, dataLine, familyLine, layoutLine, selectionBlock, columnsLine,
+		labelsLine, "", hint)
 }

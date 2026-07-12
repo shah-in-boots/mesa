@@ -3,8 +3,9 @@
 # One internal engine, shared by every table verb and run when a table
 # specification is realized. It answers two questions about a `mdl_tbl`:
 #
-#   1. which model *rows* survive the outcome, exposure, strata, and
-#      adjustment-set filters, and
+#   1. which model *rows* survive the adjustment-set filter (narrowing by
+#      outcome, exposure, or strata happens upstream, on the `mdl_tbl`
+#      itself, before `mdl_gt()`), and
 #   2. which tidy-term *keys* each requested term covers.
 #
 # Both answers are exact. Names are matched against the `outcome`/`exposure`
@@ -14,9 +15,10 @@
 # variable-level relationship carried by the term table (stamped from the
 # attached data), not by string prefixing.
 #
-# Adjustment-set identity is the *sequential model index* within an
-# outcome x exposure family, so two models that happen to share a right-hand
-# side term count no longer collide (the raw `number` column did).
+# Adjustment-set identity is the *actual covariate set*: each distinct set
+# is one rung, and related families sharing a ladder share rung numbers, so
+# their rows align on the mesa by the covariates themselves rather than by
+# position (`adjustment_sets()` displays the mapping).
 
 #' Normalize a selection input to a named list
 #'
@@ -32,33 +34,29 @@ selection_input <- function(x) {
 	labeled_formulas_to_named_list(x)
 }
 
-#' The sequential adjustment index of every model row
+#' The adjustment-set index of every model row
 #'
-#' Within an outcome x exposure (x strata x level x subset x data x model)
-#' family, models are ordered by their adjustment degree (`number`, ties
-#' broken by row order) and numbered `1, 2, 3, ...`. This index — not the raw
-#' term count — is the identity an adjustment set is selected by, so models
-#' with equal term counts stay distinct.
+#' Each distinct adjustment set — the covariates a model carries beyond its
+#' outcome, exposure, mediator, and meta terms — is one rung, numbered by set
+#' size and then order of first appearance. The index is the *identity* of
+#' the set, not its position within a family: models carrying the same
+#' covariates share a rung wherever they sit (so related families' rows align
+#' on the mesa by the actual adjustment), and different sets never collide,
+#' even at equal term counts. [adjustment_sets()] displays the mapping.
 #' @return An integer vector, one entry per row of `x`.
 #' @keywords internal
-family_adjustment_index <- function(x) {
+adjustment_set_index <- function(x) {
 
-	naTo <- function(v) ifelse(is.na(v), ".NA", as.character(v))
-	fam <- paste(
-		naTo(x$outcome), naTo(x$exposure), naTo(x$strata), naTo(x$level),
-		naTo(x$subset), naTo(x$data_id), naTo(x$model_call),
-		sep = "\r"
-	)
-
-	idx <- integer(nrow(x))
-	for (g in unique(fam)) {
-		rows <- which(fam == g)
-		# Order by adjustment degree, breaking ties by original row order so the
-		# sequence is deterministic even when term counts collide
-		ord <- rows[order(x$number[rows], seq_along(rows))]
-		idx[ord] <- seq_along(ord)
+	fam <- identify_family(model_table_formulas(x))
+	if (nrow(fam) == 0) {
+		return(integer())
 	}
-	idx
+
+	sig <- vapply(fam$covariates, paste, character(1), collapse = "\r")
+	first <- !duplicated(sig)
+	sizes <- lengths(fam$covariates)[first]
+	rungs <- sig[first][order(sizes, seq_along(sizes))]
+	match(sig, rungs)
 }
 
 #' Resolve requested terms to their metadata and exact keys
@@ -162,40 +160,20 @@ resolve_term_metadata <- function(x, tmSel) {
 	do.call(rbind, rows)
 }
 
-#' Ensure requested names exist in a provenance column
-#' @keywords internal
-validate_selection_present <- function(requested, available, what) {
-	available <- unique(stats::na.omit(available))
-	missing <- setdiff(requested, available)
-	if (length(missing) > 0) {
-		stop(
-			"No models have the ", what, " ",
-			paste0("`", missing, "`", collapse = ", "), ". ",
-			"Available ", what, ": ",
-			if (length(available) > 0) {
-				paste0("`", available, "`", collapse = ", ")
-			} else {
-				"none"
-			},
-			".", call. = FALSE
-		)
-	}
-	invisible(TRUE)
-}
-
 #' Resolve a table selection against a model table
 #'
-#' The shared engine behind every table verb: filter a `mdl_tbl` by outcome,
-#' exposure, strata, and adjustment set, and resolve the requested terms to the
-#' exact tidy-term keys they cover. All matching is by identity — against the
-#' `outcome`/`exposure` columns and the term table — never `grepl()`.
+#' The shared engine behind every table verb: filter a `mdl_tbl` by adjustment
+#' set and resolve the requested terms to the exact tidy-term keys they cover.
+#' All matching is by identity — against the term table — never `grepl()`.
+#' (Narrowing by outcome, exposure, or strata is the `mdl_tbl`'s own job,
+#' before `mdl_gt()`.)
 #'
 #' @param x A `mdl_tbl` object.
-#' @param outcomes,exposures,terms,adjustment,strata Selection instructions in
-#'   the documented labeled-formula forms (see
-#'   [labeled_formulas_to_named_list()]); `NULL` leaves that dimension
-#'   unfiltered. `adjustment` selects by the sequential adjustment index (see
-#'   [family_adjustment_index()]), so its left-hand sides are integers.
+#' @param terms,adjustment Selection instructions in the documented
+#'   labeled-formula forms (see [labeled_formulas_to_named_list()]); `NULL`
+#'   leaves that dimension unfiltered. `adjustment` selects by the
+#'   adjustment-set index (see [adjustment_set_index()]; [adjustment_sets()]
+#'   displays it), so its left-hand sides are integers.
 #'
 #' @return A `mdl_gt_selection` object (a list) with: `models`, the filtered
 #'   `mdl_tbl`; `adjustment_index`, the sequential index aligned to those rows;
@@ -204,39 +182,21 @@ validate_selection_present <- function(requested, available, what) {
 #'   `labels`, the recorded labels for each dimension.
 #' @keywords internal
 resolve_selection <- function(x,
-															outcomes = NULL,
-															exposures = NULL,
 															terms = NULL,
-															adjustment = NULL,
-															strata = NULL) {
+															adjustment = NULL) {
 
 	validate_class(x, "mdl_tbl")
 
-	outSel <- selection_input(outcomes)
-	expSel <- selection_input(exposures)
 	tmSel <- selection_input(terms)
 	adjSel <- selection_input(adjustment)
-	staSel <- selection_input(strata)
 
-	# Sequential adjustment index over the whole table, before any filtering,
-	# so an adjustment set keeps its identity regardless of the other filters
-	adjIdx <- family_adjustment_index(x)
+	# Adjustment-set index over the whole table, before any filtering, so an
+	# adjustment set keeps its identity regardless of the other filters
+	adjIdx <- adjustment_set_index(x)
 
-	# Row filter: exact membership against the provenance columns
+	# Row filter: adjustment-set membership
 	keep <- rep(TRUE, nrow(x))
 
-	if (length(outSel) > 0) {
-		validate_selection_present(names(outSel), x$outcome, "outcome")
-		keep <- keep & x$outcome %in% names(outSel)
-	}
-	if (length(expSel) > 0) {
-		validate_selection_present(names(expSel), x$exposure, "exposure")
-		keep <- keep & x$exposure %in% names(expSel)
-	}
-	if (length(staSel) > 0) {
-		validate_selection_present(names(staSel), x$strata, "strata")
-		keep <- keep & x$strata %in% names(staSel)
-	}
 	if (length(adjSel) > 0) {
 		wanted <- as.integer(names(adjSel))
 		# Validate against the indices actually available among the rows the
@@ -247,8 +207,9 @@ resolve_selection <- function(x,
 			stop(
 				"No adjustment set numbered ",
 				paste(badIdx, collapse = ", "),
-				" is available. Adjustment sets run 1\u2013", max(availIdx),
-				" within each outcome \u00d7 exposure family.",
+				" is available. The adjustment sets on this mesa are numbered ",
+				"1\u2013", max(availIdx), " by their covariate sets; ",
+				"`adjustment_sets()` shows them.",
 				call. = FALSE
 			)
 		}
@@ -274,11 +235,8 @@ resolve_selection <- function(x,
 			terms = resolvedTerms,
 			term_keys = termKeys,
 			labels = list(
-				outcomes = outSel,
-				exposures = expSel,
 				terms = tmSel,
-				adjustment = adjSel,
-				strata = staSel
+				adjustment = adjSel
 			)
 		),
 		class = "mdl_gt_selection"

@@ -4,23 +4,16 @@
 \alias{resolve_selection}
 \title{Resolve a table selection against a model table}
 \usage{
-resolve_selection(
-  x,
-  outcomes = NULL,
-  exposures = NULL,
-  terms = NULL,
-  adjustment = NULL,
-  strata = NULL
-)
+resolve_selection(x, terms = NULL, adjustment = NULL)
 }
 \arguments{
 \item{x}{A \code{mdl_tbl} object.}
 
-\item{outcomes, exposures, terms, adjustment, strata}{Selection instructions in
-the documented labeled-formula forms (see
-\code{\link[=labeled_formulas_to_named_list]{labeled_formulas_to_named_list()}}); \code{NULL} leaves that dimension
-unfiltered. \code{adjustment} selects by the sequential adjustment index (see
-\code{\link[=family_adjustment_index]{family_adjustment_index()}}), so its left-hand sides are integers.}
+\item{terms, adjustment}{Selection instructions in the documented
+labeled-formula forms (see \code{\link[=labeled_formulas_to_named_list]{labeled_formulas_to_named_list()}}); \code{NULL}
+leaves that dimension unfiltered. \code{adjustment} selects by the
+adjustment-set index (see \code{\link[=adjustment_set_index]{adjustment_set_index()}}; \code{\link[=adjustment_sets]{adjustment_sets()}}
+displays it), so its left-hand sides are integers.}
 }
 \value{
 A \code{mdl_gt_selection} object (a list) with: \code{models}, the filtered
@@ -30,9 +23,10 @@ exact tidy-term keys (or \code{NULL} when no terms were requested); and
 \code{labels}, the recorded labels for each dimension.
 }
 \description{
-The shared engine behind every table verb: filter a \code{mdl_tbl} by outcome,
-exposure, strata, and adjustment set, and resolve the requested terms to the
-exact tidy-term keys they cover. All matching is by identity — against the
-\code{outcome}/\code{exposure} columns and the term table — never \code{grepl()}.
+The shared engine behind every table verb: filter a \code{mdl_tbl} by adjustment
+set and resolve the requested terms to the exact tidy-term keys they cover.
+All matching is by identity — against the term table — never \code{grepl()}.
+(Narrowing by outcome, exposure, or strata is the \code{mdl_tbl}'s own job,
+before \code{mdl_gt()}.)
 }
 \keyword{internal}

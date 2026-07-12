@@ -19,19 +19,28 @@ test_that("fmls-fmls can be combined", {
 	y <- fmls(f2)
 	expect_s3_class(vec_ptype2(x, y), "fmls")
 
-	# Conflicting definitions of `input` resolve to the left-most, with a
-	# message; here the plain definition wins over the exposure rune
-	expect_message(f <- vec_c(x, y), regexp = "conflicting definitions")
+	# `input` is a plain predictor in one family and the exposure of the
+	# other; both definitions survive the combine, each formula still
+	# reading its own family's definition
+	expect_no_message(f <- vec_c(x, y))
 	expect_length(f, 3)
 	expect_equal(nrow(f), 2)
-	expect_equal(f[1, ], f[2, ], ignore_attr = TRUE)
-	expect_false("exposure" %in% vec_data(key_terms(f))$role)
+	expect_equal(
+		with(vec_data(key_terms(f)), role[term == "input"]),
+		c("predictor", "exposure")
+	)
 
-	# Flipped version should enrich the exposure term value
-	expect_message(f <- vec_c(y, x), regexp = "conflicting definitions")
-	expect_equal(f[1, ], f[2, ], ignore_attr = TRUE)
-	expect_true("exposure" %in% vec_data(key_terms(f))$role)
-	expect_length(key_terms(f), 3)
+	# The rows stay distinct: each formula's membership cell points at its
+	# own definition of `input` by ordinal within the term table
+	expect_equal(vec_data(f)$input, c(1L, 2L))
+
+	# Flipped, the exposure definition is declared (and so listed) first
+	expect_no_message(f <- vec_c(y, x))
+	expect_equal(
+		with(vec_data(key_terms(f)), role[term == "input"]),
+		c("exposure", "predictor")
+	)
+	expect_length(key_terms(f), 4)
 
 	# No conflict, no message
 	expect_no_message(f <- c(fmls(a ~ b), fmls(x ~ y)))
@@ -45,11 +54,11 @@ test_that("fmls-fmls can be combined", {
 	expect_length(f, 6)
 	expect_equal(nrow(f), 2)
 	expect_s3_class(f, "fmls")
-	expect_false("exposure" %in% vec_data(key_terms(f))$role)
+	expect_true("exposure" %in% vec_data(key_terms(f))$role)
 
 	f <- vec_c(y, x) # Flip the order so the richer formula is first
-	expect_equal(sum(f[1, ], na.rm = TRUE), 5)
-	expect_equal(sum(f[2, ], na.rm = TRUE), 3)
+	expect_equal(sum(f[1, ] >= 1, na.rm = TRUE), 5)
+	expect_equal(sum(f[2, ] >= 1, na.rm = TRUE), 3)
 	expect_s3_class(f, "fmls")
 	expect_true("exposure" %in% vec_data(key_terms(f))$role)
 
@@ -235,5 +244,31 @@ test_that("printed formulas annotate meta terms with their runes", {
 	fmt <- format(both)
 	expect_match(fmt[1], ".s(am)", fixed = TRUE)
 	expect_false(grepl(".s(am)", fmt[2], fixed = TRUE))
+
+})
+
+
+test_that("combining formulas works appropriately", {
+
+	# Two expossures but the same outcome and same adjustment set
+  f1 <- fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential")
+  f2 <- fmls(mpg ~ .x(disp) + hp + cyl, pattern = "sequential")
+	# A mediation analysis with similar variables
+	f3 <- fmls(mpg ~ .x(wt) + .m(hp) + cyl)
+
+	# Roles differ across the families (`hp` adjusts f1 and f2, mediates f3),
+	# but that is not a conflict: each family keeps its own definition
+	expect_no_message({f <- c(f1, f2, f3)})
+
+	# Both roles are maintained for the shared term, in family order
+	expect_equal({
+		x <- f |> tm() |> describe("role")
+		x$hp
+	}, c("predictor", "mediator"))
+
+	# And each formula still reads its own family's definition: the
+	# mediation triad regenerates intact from the combined object
+	fmt <- format(f)
+	expect_true("hp ~ wt" %in% fmt)
 
 })

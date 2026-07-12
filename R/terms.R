@@ -894,9 +894,18 @@ describe <- function(x, property) {
 
 	y <- vec_proxy(x)
 	z <- y[[property]]
-	names(z) <- y$term
+
+	# A term may carry several definitions (a plain predictor in one family,
+	# the mediator of another), so each term's entry collects the property
+	# across its definitions, in order of appearance
+	terms <- unique(y$term)
+	out <- lapply(terms, function(t) {
+		v <- z[y$term == t]
+		if (is.list(v) && length(v) == 1) v[[1]] else unname(v)
+	})
+	names(out) <- terms
 
 	# Return in list format
-	as.list(z)
+	out
 
 }

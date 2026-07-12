@@ -172,6 +172,68 @@ mt2 <-
   model_table(data = d)
 ```
 
+### The handoff: whittle on the table, verify, then lay out
+
+*Which models* sit on a mesa is the `mdl_tbl`'s decision, made with ordinary
+`dplyr` verbs before `mdl_gt()` is ever called. `identify_family()` stamps
+the table with its family structure — `family`, `pattern`, `relation` — so
+the whittling can go by analysis rather than by column value, and the print
+shows what would sit together:
+
+```{r}
+mtMixed <-
+  c(
+    fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential"),
+    fmls(mpg ~ .x(disp) + hp + cyl, pattern = "sequential"),
+    fmls(qsec ~ .x(am))
+  ) |>
+  fit(.fn = lm, data = d) |>
+  model_table(data = d) |>
+  identify_family()
+mtMixed
+```
+
+`mdl_gt()` is then the gate: it verifies what arrives is *one presentable
+analysis* — a single family, or families bound by a shared relation over one
+adjustment ladder (varied exposures / varied outcomes, the wide-table
+shapes) — and turns anything looser back toward the table's own verbs:
+
+```{r}
+#| error: true
+mtMixed |> mdl_gt()
+```
+
+The whittling itself has a causal-aware verb, `keep_models()`: its arguments
+are the causal roles (`outcome`, `exposure`, `mediator`, ...), the fitting
+context (`strata`, `level`, `subset`), and the family structure (`family`,
+`pattern`, `relation`), taking bare names or strings, matched exactly — a
+typo errors with what is available instead of silently keeping nothing.
+Plain `dplyr::filter()` still works; `keep_models()` is the shorthand whose
+result is likelier to pass the gate:
+
+```{r}
+mtMixed |> keep_models(relation = "varied exposures") |> mdl_gt()
+```
+
+```{r}
+# Family ids come from the stamp printed above — look first, then cut
+mtMixed |> keep_models(family = c(1, 2)) |> mdl_gt()
+```
+
+Past the gate, every verb is a *display* decision: which adjustment rungs
+show (`select_adjustment()`), which terms' cells show (`select_terms()`),
+what the labels say (`modify_labels()` — outcomes included), and which
+column blocks ride along (`add_*()`). And the rungs need not be remembered —
+`adjustment_sets()` shows each distinct covariate set, what it adds over the
+rung below, and the number `select_adjustment()` picks it by. The index is
+the *identity* of the set (not its position within a family), so related
+families sharing a ladder share rung numbers and their rows align on the
+mesa by the actual adjustment:
+
+```{r}
+adjustment_sets(mtMixed)
+```
+
 A bare `mdl_gt()` is already a table; printing shows the specification without
 rendering:
 

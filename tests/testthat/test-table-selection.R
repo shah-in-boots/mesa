@@ -1,7 +1,9 @@
 # The selection resolver (M6.2) is the shared engine every table verb runs
 # when a specification is realized. These tests pin down its two contracts:
-# exact matching (no `grepl()` substring bleed) and adjustment-set identity by
-# sequential index rather than raw term count.
+# exact term matching (no `grepl()` substring bleed) and adjustment-set
+# identity by the actual covariate set rather than position or raw term
+# count. (Narrowing by outcome, exposure, or strata happens upstream, on the
+# `mdl_tbl` itself.)
 
 # A dataset whose variable names are deliberately adversarial: `gam` contains
 # `am`, `wt2` contains `wt`. Substring matching would confuse them.
@@ -12,38 +14,6 @@ adversarial_data <- function() {
 	d$cyl <- factor(d$cyl)
 	d
 }
-
-test_that("exposure selection matches names exactly, not as substrings", {
-
-	d <- adversarial_data()
-	am_model <- fmls(mpg ~ .x(am) + wt) |> fit(.fn = lm, data = d, raw = FALSE)
-	gam_model <- fmls(mpg ~ .x(gam) + wt) |> fit(.fn = lm, data = d, raw = FALSE)
-	x <- model_table(am_model, gam_model, data = d)
-
-	sel <- resolve_selection(x, exposures = ~ am)
-
-	# `am` must not drag in the `gam` model
-	expect_equal(nrow(sel$models), 1L)
-	expect_equal(sel$models$exposure, "am")
-
-	# and `gam` selects only itself
-	sel_gam <- resolve_selection(x, exposures = ~ gam)
-	expect_equal(nrow(sel_gam$models), 1L)
-	expect_equal(sel_gam$models$exposure, "gam")
-})
-
-test_that("outcome selection matches names exactly", {
-
-	d <- adversarial_data()
-	# Two outcomes, one a substring of the other
-	m_am <- fmls(am ~ .x(wt) + hp) |> fit(.fn = lm, data = d, raw = FALSE)
-	m_gam <- fmls(gam ~ .x(wt) + hp) |> fit(.fn = lm, data = d, raw = FALSE)
-	x <- model_table(m_am, m_gam, data = d)
-
-	sel <- resolve_selection(x, outcomes = ~ am)
-	expect_equal(nrow(sel$models), 1L)
-	expect_equal(sel$models$outcome, "am")
-})
 
 test_that("continuous term keys are exact (wt does not select wt2)", {
 
@@ -100,7 +70,7 @@ test_that("adjustment sets are indexed sequentially, colliding counts stay disti
 	m2 <- fmls(mpg ~ .x(wt) + drat) |> fit(.fn = lm, data = d, raw = FALSE)
 	x <- model_table(m1, m2, data = d)
 
-	idx <- family_adjustment_index(x)
+	idx <- adjustment_set_index(x)
 	expect_equal(idx, c(1L, 2L)) # distinct despite equal `number`
 	expect_equal(unique(x$number), 2L)
 
@@ -121,7 +91,7 @@ test_that("adjustment index tracks adjustment degree within a family", {
 		fit(.fn = lm, data = d, raw = FALSE) |>
 		model_table(data = d)
 
-	idx <- family_adjustment_index(x)
+	idx <- adjustment_set_index(x)
 	expect_equal(idx, c(1L, 2L, 3L))
 
 	sel <- resolve_selection(x, adjustment = list(1 ~ "Crude", 3 ~ "Adjusted"))
@@ -129,7 +99,7 @@ test_that("adjustment index tracks adjustment degree within a family", {
 	expect_setequal(sel$models$number, c(1L, 3L))
 })
 
-test_that("strata select exactly and each stratum numbers its own adjustment sets", {
+test_that("each stratum numbers its own adjustment sets", {
 
 	d <- adversarial_data()
 	x <-
@@ -138,16 +108,16 @@ test_that("strata select exactly and each stratum numbers its own adjustment set
 		model_table(data = d)
 
 	# Two strata levels (am = 0, 1), each with two adjustment sets
-	idx <- family_adjustment_index(x)
+	idx <- adjustment_set_index(x)
 	expect_equal(sort(unique(idx)), c(1L, 2L))
 	expect_equal(sum(idx == 1L), 2L) # one crude model per stratum level
 
-	sel <- resolve_selection(x, strata = ~ am, adjustment = 1 ~ "Crude")
+	sel <- resolve_selection(x, adjustment = 1 ~ "Crude")
 	expect_equal(nrow(sel$models), 2L) # one per stratum level
 	expect_true(all(sel$models$strata == "am"))
 })
 
-test_that("verb order does not change the resolved rows", {
+test_that("argument order does not change the resolved rows", {
 
 	d <- adversarial_data()
 	x <-
@@ -155,8 +125,8 @@ test_that("verb order does not change the resolved rows", {
 		fit(.fn = lm, data = d, raw = FALSE) |>
 		model_table(data = d)
 
-	a <- resolve_selection(x, outcomes = ~ mpg, adjustment = list(1 ~ "A", 2 ~ "B"))
-	b <- resolve_selection(x, adjustment = list(2 ~ "B", 1 ~ "A"), outcomes = ~ mpg)
+	a <- resolve_selection(x, terms = ~ wt, adjustment = list(1 ~ "A", 2 ~ "B"))
+	b <- resolve_selection(x, adjustment = list(2 ~ "B", 1 ~ "A"), terms = ~ wt)
 
 	expect_equal(a$models$id, b$models$id)
 	expect_equal(a$adjustment_index, b$adjustment_index)
@@ -170,8 +140,6 @@ test_that("unresolvable selections error clearly", {
 		fit(.fn = lm, data = d, raw = FALSE) |>
 		model_table(data = d)
 
-	expect_error(resolve_selection(x, outcomes = ~ disp), "Available outcome")
-	expect_error(resolve_selection(x, exposures = ~ hp), "Available exposure")
 	expect_error(resolve_selection(x, terms = ~ nothing), "table's terms")
 	expect_error(resolve_selection(x, adjustment = 9 ~ "Nope"), "adjustment set")
 })
@@ -218,4 +186,30 @@ test_that("term levels stamp from each term's own dataset when models span
 	expect_setequal(meta$levels[[which(meta$variable == "cyl")]], c("4", "6", "8"))
 	expect_setequal(meta$levels[[which(meta$variable == "grp")]], c("3", "4", "5"))
 
+})
+
+test_that("rung identity aligns related families regardless of row order", {
+
+	d <- adversarial_data()
+	# Two parallel families over the same two adjustment sets, built in
+	# opposite row orders. Positional numbering would pair {hp} with {drat}
+	# across the families; set identity keeps each set on its own rung.
+	x <- suppressMessages(
+		c(
+			fmls(mpg ~ .x(wt) + hp), fmls(mpg ~ .x(wt) + drat),
+			fmls(mpg ~ .x(disp) + drat), fmls(mpg ~ .x(disp) + hp)
+		) |>
+			fit(.fn = lm, data = d, raw = FALSE) |>
+			model_table(data = d)
+	)
+
+	idx <- adjustment_set_index(x)
+	# {hp} appears first, so it is rung 1 wherever it sits; {drat} is rung 2
+	expect_equal(idx, c(1L, 2L, 2L, 1L))
+
+	# Selecting rung 1 therefore picks the *same covariate set* from both
+	# families — the alignment a wide table pivots on
+	sel <- resolve_selection(x, adjustment = 1 ~ "Set one")
+	expect_equal(nrow(sel$models), 2L)
+	expect_true(all(grepl("hp", sel$models$formula_call)))
 })

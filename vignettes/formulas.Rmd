@@ -118,10 +118,21 @@ rather than one at a time.
 
 ## Combining families
 
-Two families merge with `c()` (or `vctrs::vec_c()`); when the same term
-arrives from both sides with conflicting definitions, the left-most
-definition wins and a message names the resolution — never a silent
-overwrite.
+Two families merge with `c()` (or `vctrs::vec_c()`); each family keeps its
+own definition of every term. A term may serve different causal roles in
+different families — `hp` can adjust one family as a plain predictor while
+mediating another — and after combining, each formula still reads its own
+family's definition:
+
+```{r}
+f1 <- fmls(mpg ~ .x(wt) + hp)
+f2 <- fmls(mpg ~ .x(wt) + .m(hp))
+describe(c(f1, f2), "role")$hp
+```
+
+Only when a term arrives twice in the *same* role but with different
+decoration (a conflicting label, say) does the left-most definition win,
+and a message names the resolution — never a silent overwrite.
 
 ```{r}
 f1 <- fmls(mpg ~ .x(wt) + hp)

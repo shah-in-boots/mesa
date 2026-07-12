@@ -66,14 +66,19 @@ never changes another's cells, and the layout presets place the same cells
 wide (levels on columns) or long (levels on rows) without recomputing
 anything.
 
-Nothing has to be decided up front. Each verb narrows or adds exactly one
-thing, and verbs compose in any order:
+Nothing has to be decided up front. *Which models* sit on the mesa was
+decided before `mdl_gt()`, on the `mdl_tbl` itself — `identify_family()`
+stamps the family structure, `keep_models()` whittles by causal role or
+family (ordinary `dplyr` verbs work too). The specification's verbs make
+*display* decisions, each narrowing or adding exactly one thing, composing
+in any order:
 
-- **`select_outcomes()` / `select_exposures()` / `select_terms()` /
-  `select_adjustment()` / `select_strata()`** narrow what is shown, and their
-  input is a labeled formula — so selecting and labeling are one gesture.
-- **`modify_labels()`** relabels terms, levels, or columns late, without
-  reselecting anything.
+- **`select_adjustment()` / `select_terms()`** choose which adjustment rungs
+  and which terms' cells are displayed (`adjustment_sets()` shows the rungs
+  and their numbers), and their input is a labeled formula — so selecting
+  and labeling are one gesture.
+- **`modify_labels()`** relabels outcomes, terms, levels, or columns late,
+  without reselecting anything.
 - **`add_estimates()`, `add_n()`, `add_events()`, `add_rate_difference()`,
   `add_forest()`, `add_interaction()`** each append one column block.
 - **`modify_layout()`, `modify_style()`** assign the table's axes and its

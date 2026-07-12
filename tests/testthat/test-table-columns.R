@@ -717,13 +717,18 @@ test_that("the interaction layout narrows to one outcome × exposure", {
 		fit(.fn = lm, data = d, raw = FALSE)
 	mt <- suppressMessages(model_table(m1, m2, data = d))
 
+	# The two outcomes relate (varied outcomes), so the gate admits them; the
+	# interaction layout itself still demands a single outcome at realization
 	spec <-
 		mt |> mdl_gt() |> modify_layout(preset = "interaction") |>
 		add_interaction()
 	expect_error(as_gt(spec), "single outcome")
 
-	# select_outcomes() narrows it into shape
-	g <- spec |> select_outcomes(~mpg) |> as_gt()
+	# Whittling the model table down narrows it into shape
+	g <-
+		mt |> dplyr::filter(outcome == "mpg") |> mdl_gt() |>
+		modify_layout(preset = "interaction") |> add_interaction() |>
+		as_gt()
 	expect_s3_class(g, "gt_tbl")
 
 	# The retired monolith is gone

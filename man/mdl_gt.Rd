@@ -2,26 +2,17 @@
 % Please edit documentation in R/table-spec.R
 \name{mdl_gt}
 \alias{mdl_gt}
-\alias{select_outcomes}
-\alias{select_exposures}
 \alias{select_terms}
 \alias{select_adjustment}
-\alias{select_strata}
 \alias{print.mdl_gt}
 \alias{format.mdl_gt}
 \title{The \verb{<mdl_gt>} table specification}
 \usage{
 mdl_gt(object, ...)
 
-select_outcomes(x, ...)
-
-select_exposures(x, ...)
-
 select_terms(x, ...)
 
 select_adjustment(x, ...)
-
-select_strata(x, ...)
 
 \method{print}{mdl_gt}(x, ...)
 
@@ -45,15 +36,25 @@ at all to clear that dimension's selection; for \code{print()}, unused}
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
 \code{mdl_gt()} lays a collection of fitted models out on the \emph{mesa} — the table
-upon which the models are displayed — as a declarative specification. It is
-deliberately bare: it takes no selection arguments and puts everything
-fitted on the mesa with default labels drawn from the term table and the
-attached data. The table is then grown one decision at a time with pipeable
-verbs, exactly the way a \code{{ggplot2}} plot is grown:
+upon which the models are displayed — as a declarative specification. The
+division of labor with \code{\link[=model_table]{model_table()}} is deliberate: \strong{which models sit on
+the mesa is decided on the \code{mdl_tbl}}, with ordinary \code{dplyr} verbs over its
+provenance columns (\code{outcome}, \code{exposure}, \code{strata}, ...) and the family
+columns \code{\link[=identify_family]{identify_family()}} stamps on — whittle, print, verify. \code{mdl_gt()}
+is then the gate: it verifies what arrives is \emph{one presentable analysis}
+(see Details) and takes no selection arguments, putting everything fitted
+on the mesa with default labels drawn from the term table and the attached
+data. From there the table is grown one \strong{display} decision at a time with
+pipeable verbs, exactly the way a \code{{ggplot2}} plot is grown:
 \itemize{
-\item \code{select_outcomes()}, \code{select_exposures()}, \code{select_terms()},
-\code{select_adjustment()}, \code{select_strata()} narrow what is shown;
-\item \code{modify_labels()} relabels terms and levels late, without reselecting;
+\item \code{select_adjustment()} chooses which rungs of the adjustment ladder are
+displayed (e.g. only the crude and fully adjusted rows —
+\code{\link[=adjustment_sets]{adjustment_sets()}} shows the rungs and the numbers they are selected
+by), and \code{select_terms()} which terms' cells are shown;
+\item the \verb{add_*()} verbs append column blocks derived from the models and the
+attached data (estimates, events, rates, sample sizes);
+\item \code{modify_labels()} relabels outcomes, terms, and levels late, without
+reselecting;
 \item \code{as_gt()} renders the specification to a \code{{gt}} table (see \code{\link[=as_gt]{as_gt()}}).
 }
 
@@ -80,11 +81,19 @@ recomputing anything.
 
 \code{mdl_gt()} validates before it builds. The object must be a \code{mdl_tbl}; only
 its fitted rows are laid out (failed and unfit rows are set aside); the
-table must hold a single model family (one fitting function) or it errors;
-and more than one attached dataset is reported with a message. See
-\code{\link[=model_table]{model_table()}} for the collection these are drawn from and \code{\link[=attach_data]{attach_data()}}
-for supplying the data that categorical levels and data-derived statistics
-are read from.
+table must hold a single model family (one fitting function, on one link)
+or it errors; and more than one attached dataset is reported with a
+message.
+
+It then verifies the models form \strong{one presentable analysis}, in
+\code{\link[=identify_family]{identify_family()}}'s terms: a single formula family (an adjustment ladder,
+a mediation triad, parallel adjustment sets, or a lone model), or several
+families bound by a shared relation — \verb{varied exposures} or \verb{varied outcomes} over one adjustment ladder, the wide-table shapes. Unrelated
+families error, pointing back at the \code{mdl_tbl}: stamp it with
+\code{identify_family()}, \code{dplyr::filter()} it down, and lay out one analysis at
+a time. See \code{\link[=model_table]{model_table()}} for the collection these are drawn from and
+\code{\link[=attach_data]{attach_data()}} for supplying the data that categorical levels and
+data-derived statistics are read from.
 }
 \examples{
 # The "adjustment" chain — adjustment sets on rows, outcomes as row

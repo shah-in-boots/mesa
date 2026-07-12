@@ -220,18 +220,61 @@ Items verified by execution are marked ✓.
   adjustment-ladder signature relate as `varied exposures` (same outcome —
   the wide-table shape) or `varied outcomes` (same exposure). Strata ride
   along without splitting the family; `data` stamps their observed levels.
-- [ ] **Wire family identity into the table layer.** `identify_family()`
-  is the intended lynchpin for deciding how a set of models can sit on one
-  `mesa`: a `varied exposures` relation *is* the wide table (exposures as
-  column blocks over shared adjustment rows — which the `"adjustment"`
-  preset already renders, but aligned positionally by sequential index,
-  not by verified adjustment-set identity); a `mediation` family wants its
-  own preset; a stratified family wants estimates-by-level or a forest.
-  The likely steps: an `identify_family()` method for `mdl_tbl` (reading
-  the same roles off the formula matrix), a family id carried from `fmls`
-  through `fit()` into the `mdl_tbl` so lineage survives `c()`, and
-  `family_adjustment_index()` / row alignment keyed by the actual
-  adjustment set rather than position, warning when ladders do not match.
+- [x] **Wire family identity into the table layer** — *the mdl_tbl → mdl_gt
+  handoff restructured 2026-07-11*. The division of labor is now: **the
+  `mdl_tbl` decides which models; the `mdl_gt` decides how they show.**
+  - `identify_family()` gained a `mdl_tbl` method ([family.R](R/family.R)):
+    the table's formula matrix + term table are reconstructed as a `fmls`
+    (rows parallel, stratum-expanded rows repeating their formula's row)
+    and the identification is *stamped on* as ordinary `family` / `pattern`
+    / `relation` columns, so whittling is plain `dplyr::filter()`. The
+    print method surfaces the stamp (family/pattern columns, a relations
+    context line, a families count in the header).
+  - `mdl_gt()` is the gate: after the fn/link check it verifies the fitted
+    rows form *one presentable analysis* — a single family, or several
+    families sharing a relation (`varied exposures` / `varied outcomes`,
+    the wide-table shapes) — errors otherwise naming the families and
+    pointing at `identify_family() |> dplyr::filter()`, and records the
+    verified structure as `spec$family` (shown by `print.mdl_gt`).
+  - `select_outcomes()` / `select_exposures()` / `select_strata()` retired
+    (pre-release, no deprecation cycle): model narrowing is the table's
+    job. `select_adjustment()` and `select_terms()` remain the granular
+    *display* selections; outcome labeling moved to `modify_labels()` (an
+    outcome name relabels its row group; a mediator name relabels both its
+    term and its outcome appearances). `resolve_selection()` slimmed to
+    terms + adjustment.
+  - *Still open, in order of value*: a family id carried from `fmls`
+    through `fit()` so lineage survives `c()` without recomputation; a
+    `mediation` layout preset; auto-choosing the layout preset from the
+    verified pattern.
+
+- [x] **Adjustment alignment keyed by set identity; causal whittling verbs**
+  — *2026-07-11*.
+  - `family_adjustment_index()` (positional: order-by-`number` within an
+    outcome × exposure family) is replaced by `adjustment_set_index()`
+    ([table-selection.R](R/table-selection.R)): each *distinct covariate
+    set* is one rung, numbered by set size then order of first appearance,
+    table-wide. Models carrying the same covariates share a rung wherever
+    they sit, so related families' rows align on the mesa by the actual
+    adjustment — two parallel families built in opposite row orders no
+    longer cross-pair (regression test in test-table-selection.R).
+  - The `mdl_gt()` gate tightened accordingly: several families must share
+    a relation over **one** ladder (`ladder_signature()`); two
+    varied-exposure pairs on different ladders — which share the relation
+    label — now error as several analyses side by side.
+  - `adjustment_sets()` (mdl_tbl and mdl_gt methods) *shows* the rungs: one
+    row per set — the `select_adjustment()` index, the covariates, what
+    each rung adds over the one below (when nested), model and family
+    counts — so the user never has to remember the ladder they built.
+  - `keep_models()` is the causal-aware whittling verb (extended name, no
+    `dplyr` collision; `dplyr` verbs still work). Arguments mirror the
+    causal columns — `outcome`, `exposure`, `mediator`, `interaction`,
+    `strata`, `level`, `subset` — plus the family structure (`family`,
+    `pattern`, `relation`); bare names or strings; exact identity matching;
+    every requested value validated against what the table holds (a typo
+    errors with the available values). `pattern`/`relation` identify on the
+    spot when unstamped; `family` ids require the `identify_family()` stamp
+    the user has seen (look first, then cut).
 
 ## Parsimony pass (2026-07-10)
 

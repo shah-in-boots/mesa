@@ -29,11 +29,8 @@ realize_mdl_gt <- function(x) {
 	# Stage 1 -- select: filter the models and resolve the requested terms
 	sel <- resolve_selection(
 		mt,
-		outcomes = x$selection$outcomes,
-		exposures = x$selection$exposures,
 		terms = x$selection$terms,
-		adjustment = x$selection$adjustment,
-		strata = x$selection$strata
+		adjustment = x$selection$adjustment
 	)
 	models <- sel$models
 	if (nrow(models) == 0) {
@@ -81,7 +78,7 @@ realize_mdl_gt <- function(x) {
 		)
 	}
 
-	# The sequential adjustment index is a per-model property; carry it onto the
+	# The adjustment-set index is a per-model property; carry it onto the
 	# parameter rows by matching each row back to its model (by identity, so
 	# colliding term counts stay distinct)
 	lookupKey <- model_identity_key(
@@ -131,7 +128,7 @@ realize_mdl_gt <- function(x) {
 	# against the attached data through each model's `data_id`
 	dec <- compute_data_statistics(dec, x)
 
-	# Labels: outcomes and adjustment sets from the recorded selection; terms and
+	# Labels: adjustment sets from the recorded selection; outcomes, terms, and
 	# levels from `modify_labels()`
 	dec <- apply_context_labels(dec, sel)
 	dec <- apply_relabels(dec, x$labels$relabels)
@@ -222,21 +219,13 @@ inject_reference_rows <- function(dec) {
 	ref
 }
 
-#' Outcome and adjustment-set labels from the recorded selection
+#' Adjustment-set labels from the recorded selection; the outcome label
+#' starts as the outcome itself and `modify_labels()` may rewrite it
 #' @keywords internal
 #' @noRd
 apply_context_labels <- function(dec, sel) {
 
-	outLabels <- sel$labels$outcomes
-	dec$outcome_label <-
-		if (length(outLabels) > 0) {
-			vapply(dec$outcome, function(o) {
-				lab <- outLabels[[o]]
-				if (is.null(lab)) o else as.character(lab)
-			}, character(1))
-		} else {
-			dec$outcome
-		}
+	dec$outcome_label <- dec$outcome
 
 	adjLabels <- sel$labels$adjustment
 	dec$adj_label <-
@@ -256,7 +245,9 @@ apply_context_labels <- function(dec, sel) {
 #'
 #' Term relabels (a variable named with a scalar label) rewrite `term_label`;
 #' level relabels (a variable with a vector label, mapped in ascending level
-#' order, or a bare level value) rewrite `level_label`.
+#' order, or a bare level value) rewrite `level_label`; an outcome named with
+#' a scalar label rewrites `outcome_label` (the row-group title). A name that
+#' is both a displayed term and an outcome — a mediator — relabels both.
 #' @keywords internal
 #' @noRd
 apply_relabels <- function(dec, relabels) {
@@ -265,8 +256,10 @@ apply_relabels <- function(dec, relabels) {
 
 	for (nm in names(relabels)) {
 		val <- relabels[[nm]]
+		matched <- FALSE
 
 		if (nm %in% dec$variable) {
+			matched <- TRUE
 			if (length(val) == 1) {
 				# Term relabel
 				dec$term_label[dec$variable == nm] <- as.character(val)
@@ -280,7 +273,18 @@ apply_relabels <- function(dec, relabels) {
 					}
 				}
 			}
-		} else {
+		}
+
+		# The interaction frame carries no outcome column; skip the outcome
+		# relabel there
+		if ("outcome" %in% names(dec) && nm %in% dec$outcome &&
+				length(val) == 1) {
+			matched <- TRUE
+			hit <- !is.na(dec$outcome) & dec$outcome == nm
+			dec$outcome_label[hit] <- as.character(val)
+		}
+
+		if (!matched) {
 			# Bare level value relabel, wherever that level appears
 			hit <- !is.na(dec$level) & dec$level == nm
 			dec$level_label[hit] <- as.character(val[1])

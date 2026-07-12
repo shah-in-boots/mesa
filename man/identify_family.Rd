@@ -3,14 +3,17 @@
 \name{identify_family}
 \alias{identify_family}
 \alias{identify_family.fmls}
+\alias{identify_family.mdl_tbl}
 \title{Identify the families a set of formulas contains}
 \usage{
 identify_family(x, ...)
 
 \method{identify_family}{fmls}(x, data = NULL, ...)
+
+\method{identify_family}{mdl_tbl}(x, ...)
 }
 \arguments{
-\item{x}{A \code{fmls} object}
+\item{x}{A \code{fmls} or \code{mdl_tbl} object}
 
 \item{...}{Arguments to be passed to or from other methods}
 
@@ -18,11 +21,16 @@ identify_family(x, ...)
 with \code{\link[=set_data]{set_data()}} so stratifying terms report their observed levels}
 }
 \value{
-A \code{tbl_df} with one row per formula, in the object's order:
-\code{family} (integer id, by order of first appearance), \code{pattern},
+For a \code{fmls}, a \code{tbl_df} with one row per formula, in the object's
+order: \code{family} (integer id, by order of first appearance), \code{pattern},
 \code{relation} (\code{NA} for a family that stands alone), \code{formula_call},
 \code{outcome}, \code{exposure}, \code{mediator}, \code{strata}, and \code{covariates} (a list of
-the adjustment terms)
+the adjustment terms).
+
+For a \code{mdl_tbl}, the same table with \code{family}, \code{pattern}, and \code{relation}
+stamped on as ordinary columns — the table stays a \code{mdl_tbl}, so the
+identification feeds straight into \code{dplyr} narrowing:
+\code{mt |> identify_family() |> dplyr::filter(family == 1) |> mdl_gt()}.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -76,5 +84,12 @@ identify_family(f)
 # A mediation triad is one family
 m <- fmls(mpg ~ .x(wt) + .m(hp) + cyl)
 identify_family(m)
+
+# On a model table the identification is stamped on as columns, so the
+# table can be whittled down to one presentable analysis before `mdl_gt()`
+f |>
+  fit(.fn = lm, data = mtcars) |>
+  model_table(data = mtcars) |>
+  identify_family()
 
 }

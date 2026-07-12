@@ -112,22 +112,49 @@ test_that("selection verbs record instructions and compose in any order", {
 
 	a <-
 		mt |> mdl_gt() |>
-		select_outcomes(mpg ~ "MPG") |>
+		modify_labels(mpg ~ "MPG") |>
 		select_adjustment(1 ~ "Crude", 3 ~ "Adjusted") |>
 		select_terms(cyl ~ "Cylinders")
 	b <-
 		mt |> mdl_gt() |>
 		select_terms(cyl ~ "Cylinders") |>
 		select_adjustment(1 ~ "Crude", 3 ~ "Adjusted") |>
-		select_outcomes(mpg ~ "MPG")
+		modify_labels(mpg ~ "MPG")
 
 	# Any permutation of the same verbs realizes to the same table
 	expect_equal(realize_mdl_gt(a), realize_mdl_gt(b))
 
-	# The recorded labels flow through to the decorated frame
+	# The recorded labels flow through to the decorated frame; the outcome
+	# relabel (a `modify_labels()` job now) reaches the row-group title
 	dec <- realize_mdl_gt(a)
 	expect_equal(unique(dec$term_label), "Cylinders")
 	expect_setequal(unique(dec$adj_label), c("Crude", "Adjusted"))
+	expect_equal(unique(dec$outcome_label), "MPG")
+})
+
+test_that("mdl_gt() admits one analysis and turns unrelated families back", {
+
+	d <- spec_data()
+
+	# Two ladders over the same outcome and covariates (varied exposures) pass
+	# the gate together -- `spec_table()` is exactly that shape -- and the
+	# verified structure is recorded on the specification
+	spec <- mdl_gt(spec_table(d))
+	expect_equal(nrow(spec$family), 2L)
+	expect_true(all(grepl("varied exposures", spec$family$relation)))
+
+	# An unrelated family (its own outcome, no shared ladder) is refused,
+	# pointing back at the model table's own verbs
+	stray <- fmls(qsec ~ .x(drat)) |> fit(.fn = lm, data = d, raw = FALSE)
+	mixed <- suppressMessages(model_table(spec_table(d), stray))
+	expect_error(mdl_gt(mixed), "unrelated families")
+	expect_error(mdl_gt(mixed), "identify_family")
+
+	# Whittled down with the stamped family columns, the gate opens
+	whittled <- identify_family(mixed)
+	expect_s3_class(whittled, "mdl_tbl")
+	kept <- dplyr::filter(whittled, family %in% c(1, 2))
+	expect_s3_class(mdl_gt(kept), "mdl_gt")
 })
 
 test_that("repeating a verb replaces its instruction with a message", {
@@ -239,4 +266,26 @@ test_that("mdl_gt() rejects one fitting function on two different links", {
 
 	expect_error(mdl_gt(mt), "glm \\(logit\\).*glm \\(identity\\)")
 
+})
+
+test_that("mdl_gt() refuses a shared relation spread across different ladders", {
+
+	d <- spec_data()
+	# Two varied-exposure pairs, each internally coherent, but over two
+	# different adjustment ladders ({hp} vs {drat}) — two analyses side by
+	# side, whose rows could never align on one mesa
+	mt <- suppressMessages(
+		c(
+			fmls(mpg ~ .x(wt) + hp), fmls(mpg ~ .x(disp) + hp),
+			fmls(qsec ~ .x(wt) + drat), fmls(qsec ~ .x(disp) + drat)
+		) |>
+			fit(.fn = lm, data = d, raw = FALSE) |>
+			model_table(data = d)
+	)
+
+	expect_error(mdl_gt(mt), "different adjustment ladders")
+
+	# Either pair alone passes
+	one <- suppressMessages(keep_models(mt, outcome = mpg))
+	expect_s3_class(mdl_gt(one), "mdl_gt")
 })

@@ -56,18 +56,23 @@
 #' terms first (see [set_data()]), so the strata column reports its observed
 #' levels, e.g. `am (2 levels)`.
 #'
-#' @param x A `fmls` object
+#' @param x A `fmls` or `mdl_tbl` object
 #'
 #' @param data An optional `data.frame`; when supplied, terms are stamped
 #'   with [set_data()] so stratifying terms report their observed levels
 #'
 #' @param ... Arguments to be passed to or from other methods
 #'
-#' @return A `tbl_df` with one row per formula, in the object's order:
-#'   `family` (integer id, by order of first appearance), `pattern`,
+#' @return For a `fmls`, a `tbl_df` with one row per formula, in the object's
+#'   order: `family` (integer id, by order of first appearance), `pattern`,
 #'   `relation` (`NA` for a family that stands alone), `formula_call`,
 #'   `outcome`, `exposure`, `mediator`, `strata`, and `covariates` (a list of
-#'   the adjustment terms)
+#'   the adjustment terms).
+#'
+#'   For a `mdl_tbl`, the same table with `family`, `pattern`, and `relation`
+#'   stamped on as ordinary columns — the table stays a `mdl_tbl`, so the
+#'   identification feeds straight into `dplyr` narrowing:
+#'   `mt |> identify_family() |> dplyr::filter(family == 1) |> mdl_gt()`.
 #'
 #' @examples
 #' # A sequential ladder and its varied-exposure sibling
@@ -80,6 +85,13 @@
 #' # A mediation triad is one family
 #' m <- fmls(mpg ~ .x(wt) + .m(hp) + cyl)
 #' identify_family(m)
+#'
+#' # On a model table the identification is stamped on as columns, so the
+#' # table can be whittled down to one presentable analysis before `mdl_gt()`
+#' f |>
+#'   fit(.fn = lm, data = mtcars) |>
+#'   model_table(data = mtcars) |>
+#'   identify_family()
 #'
 #' @export
 identify_family <- function(x, ...) {
@@ -184,10 +196,7 @@ identify_family.fmls <- function(x, data = NULL, ...) {
 	fams <- feats[!duplicated(feats$family), c("family", "outcome", "exposure"),
 								drop = FALSE]
 	fams$ladder <- vapply(fams$family, function(g) {
-		sets <- feats$covariates[feats$family == g]
-		sets <- sets[order(lengths(sets), vapply(sets, paste, character(1),
-																						 collapse = "|"))]
-		paste(vapply(sets, paste, character(1), collapse = "|"), collapse = "\r")
+		ladder_signature(feats$covariates[feats$family == g])
 	}, character(1))
 	fams$mediation <- vapply(fams$family, function(g) {
 		any(feats$pattern[feats$family == g] == "mediation")
@@ -220,4 +229,45 @@ identify_family.fmls <- function(x, data = NULL, ...) {
 
 	feats[c("family", "pattern", "relation", "formula_call", "outcome",
 					"exposure", "mediator", "strata", "covariates")]
+}
+
+#' @rdname identify_family
+#' @export
+identify_family.mdl_tbl <- function(x, ...) {
+
+	validate_class(x, "mdl_tbl")
+
+	# The table's formula matrix and term table *are* a `fmls`: the matrix rows
+	# stay parallel to the table's rows (a stratum-expanded model repeats its
+	# formula's row), so the identification is the `fmls` method's, and the
+	# result rides back onto the table as ordinary columns ready for
+	# `dplyr::filter()` or [keep_models()]. Stamping again simply refreshes
+	# the columns.
+	fam <- identify_family(model_table_formulas(x))
+
+	x$family <- fam$family
+	x$pattern <- fam$pattern
+	x$relation <- fam$relation
+	x
+}
+
+#' The `fmls` view of a model table: its formula matrix and term table,
+#' rows parallel to the table's rows
+#' @keywords internal
+#' @noRd
+model_table_formulas <- function(x) {
+	new_fmls(
+		formulaMatrix = attr(x, "formulaMatrix"),
+		termTable = attr(x, "termTable")
+	)
+}
+
+#' The ordered-multiset signature of a family's adjustment sets: the ladder
+#' two families must share to relate (and to sit on one mesa)
+#' @keywords internal
+#' @noRd
+ladder_signature <- function(sets) {
+	sets <- sets[order(lengths(sets), vapply(sets, paste, character(1),
+																					 collapse = "|"))]
+	paste(vapply(sets, paste, character(1), collapse = "|"), collapse = "\r")
 }

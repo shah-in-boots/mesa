@@ -668,11 +668,8 @@ realize_interaction <- function(x, block) {
 	mt <- x$mdl_tbl
 	sel <- resolve_selection(
 		mt,
-		outcomes = x$selection$outcomes,
-		exposures = x$selection$exposures,
 		terms = x$selection$terms,
-		adjustment = x$selection$adjustment,
-		strata = x$selection$strata
+		adjustment = x$selection$adjustment
 	)
 	models <- sel$models[!is.na(sel$models$interaction), , drop = FALSE]
 	if (nrow(models) == 0) {
@@ -689,8 +686,9 @@ realize_interaction <- function(x, block) {
 			length(unique(models$exposure)) > 1) {
 		stop(
 			"The `interaction` layout displays a single outcome \u00d7 exposure ",
-			"at a time; narrow the mesa with `select_outcomes()` / ",
-			"`select_exposures()`.",
+			"at a time; whittle the model table down first (e.g. ",
+			"`keep_models(x, outcome = ..., exposure = ...)`) before ",
+			"`mdl_gt()`.",
 			call. = FALSE
 		)
 	}
