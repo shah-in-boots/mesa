@@ -1,0 +1,4 @@
+[submodule "branding"]
+	path = branding
+	url = https://github.com/shah-in-boots/branding
+	branch = main
