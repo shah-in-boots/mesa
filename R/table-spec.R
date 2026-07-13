@@ -24,7 +24,7 @@
 #' division of labor with [model_table()] is deliberate: **which models sit on
 #' the mesa is decided on the `mdl_tbl`**, with ordinary `dplyr` verbs over its
 #' provenance columns (`outcome`, `exposure`, `strata`, ...) and the family
-#' columns [identify_family()] stamps on — whittle, print, verify. `mdl_gt()`
+#' columns [identify_family()] stamps on — pare, print, verify. `mdl_gt()`
 #' is then the gate: it verifies what arrives is *one presentable analysis*
 #' (see Details) and takes no selection arguments, putting everything fitted
 #' on the mesa with default labels drawn from the term table and the attached
@@ -227,7 +227,7 @@ mdl_gt <- function(object, ...) {
 				"related by varied exposures/outcomes over a shared adjustment ",
 				"ladder. This table holds unrelated families:\n  ",
 				paste(lines, collapse = "\n  "),
-				"\nWhittle the model table down first: `identify_family(x)` to ",
+				"\nPare the model table down first: `identify_family(x)` to ",
 				"look, then `keep_families(1)`, `keep_outcomes()`, or ",
 				"`keep_exposures()` to cut.",
 				call. = FALSE
@@ -246,7 +246,7 @@ mdl_gt <- function(object, ...) {
 				paste0("`", shared, "`", collapse = "/"),
 				" relation across ", length(unique(ladders)),
 				" different adjustment ladders — several analyses side by ",
-				"side. Whittle the model table to one ladder first ",
+				"side. Pare the model table to one ladder first ",
 				"(`identify_family()` to look, `keep_families()` or `adjusting_for()` ",
 				"to cut).",
 				call. = FALSE

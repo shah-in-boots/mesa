@@ -227,7 +227,7 @@ Items verified by execution are marked ✓.
     the table's formula matrix + term table are reconstructed as a `fmls`
     (rows parallel, stratum-expanded rows repeating their formula's row)
     and the identification is *stamped on* as ordinary `family` / `pattern`
-    / `relation` columns, so whittling is plain `dplyr::filter()`. The
+    / `relation` columns, so paring is plain `dplyr::filter()`. The
     print method surfaces the stamp (family/pattern columns, a relations
     context line, a families count in the header).
   - `mdl_gt()` is the gate: after the fn/link check it verifies the fitted
@@ -248,7 +248,7 @@ Items verified by execution are marked ✓.
     `mediation` layout preset; auto-choosing the layout preset from the
     verified pattern.
 
-- [x] **Adjustment alignment keyed by set identity; causal whittling verbs**
+- [x] **Adjustment alignment keyed by set identity; causal paring verbs**
   — *2026-07-11*.
   - `family_adjustment_index()` (positional: order-by-`number` within an
     outcome × exposure family) is replaced by `adjustment_set_index()`
@@ -266,7 +266,7 @@ Items verified by execution are marked ✓.
     row per set — the `select_adjustment()` index, the covariates, what
     each rung adds over the one below (when nested), model and family
     counts — so the user never has to remember the ladder they built.
-  - Whittling is a *family of verbs* speaking the causal language, one per
+  - Paring is a *family of verbs* speaking the causal language, one per
     dimension (the single argument-loaded `keep_models()` was tried
     2026-07-11 and replaced 2026-07-12 — a speakable pipe is more
     informative): `keep_outcomes()` / `keep_exposures()` and their
@@ -281,7 +281,8 @@ Items verified by execution are marked ✓.
     or strings; every requested value is validated against what the table
     holds (a typo errors with the available values); each verb messages
     what it kept; `dplyr` verbs still work. One shared doc page
-    (`?whittling`, model-table-helpers.R).
+    (`?paring`, model-table-helpers.R; the topic and internals were named
+    `whittling` for a day — renamed to *paring* 2026-07-13).
 
 ## Parsimony pass (2026-07-10)
 

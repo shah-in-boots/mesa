@@ -40,7 +40,7 @@ upon which the models are displayed — as a declarative specification. The
 division of labor with \code{\link[=model_table]{model_table()}} is deliberate: \strong{which models sit on
 the mesa is decided on the \code{mdl_tbl}}, with ordinary \code{dplyr} verbs over its
 provenance columns (\code{outcome}, \code{exposure}, \code{strata}, ...) and the family
-columns \code{\link[=identify_family]{identify_family()}} stamps on — whittle, print, verify. \code{mdl_gt()}
+columns \code{\link[=identify_family]{identify_family()}} stamps on — pare, print, verify. \code{mdl_gt()}
 is then the gate: it verifies what arrives is \emph{one presentable analysis}
 (see Details) and takes no selection arguments, putting everything fitted
 on the mesa with default labels drawn from the term table and the attached

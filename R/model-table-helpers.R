@@ -340,16 +340,16 @@ summary.mdl_tbl <- function(object, ...) {
 
 }
 
-# Whittling --------------------------------------------------------------------
+# Paring --------------------------------------------------------------------
 
-#' Whittle a model table down to one analysis
+#' Pare a model table down to one analysis
 #'
 #' @description
 #'
 #' `r lifecycle::badge('experimental')`
 #'
 #' A model table accumulates every model of a project; a mesa holds one
-#' analysis. These verbs whittle the table down along its causal dimensions,
+#' analysis. These verbs pare the table down along its causal dimensions,
 #' in language that says what the kept models share — the step before
 #' [mdl_gt()], whose gate admits only one presentable analysis:
 #'
@@ -383,7 +383,7 @@ summary.mdl_tbl <- function(object, ...) {
 #' pass `mdl_gt()`'s gate.
 #'
 #' Stamped `family`/`pattern`/`relation` columns describe the identification
-#' at stamp time; after whittling, re-run [identify_family()] to refresh
+#' at stamp time; after paring, re-run [identify_family()] to refresh
 #' them (ids renumber from 1).
 #'
 #' @param x A `mdl_tbl` object
@@ -401,7 +401,7 @@ summary.mdl_tbl <- function(object, ...) {
 #'   term, stratum level, subset rule (as recorded in the `subset` column),
 #'   or dataset name to restrict to
 #'
-#' @return The whittled `mdl_tbl`, its attributes pruned to the remaining
+#' @return The pared `mdl_tbl`, its attributes pruned to the remaining
 #'   models; a message reports how many models were kept.
 #'
 #' @examples
@@ -430,42 +430,42 @@ summary.mdl_tbl <- function(object, ...) {
 #' @seealso [identify_family()] to see the family structure first,
 #'   [adjustment_sets()] to see the adjustment rungs, [mdl_gt()] for the
 #'   gate these prepare for
-#' @name whittling
+#' @name paring
 NULL
 
-#' @rdname whittling
+#' @rdname paring
 #' @export
 keep_outcomes <- function(x, ...) {
 	validate_class(x, "mdl_tbl")
-	wanted <- whittle_terms(..., what = "outcome", available = x$outcome)
-	whittle_result(x, x$outcome %in% wanted)
+	wanted <- pare_terms(..., what = "outcome", available = x$outcome)
+	pare_result(x, x$outcome %in% wanted)
 }
 
-#' @rdname whittling
+#' @rdname paring
 #' @export
 drop_outcomes <- function(x, ...) {
 	validate_class(x, "mdl_tbl")
-	wanted <- whittle_terms(..., what = "outcome", available = x$outcome)
-	whittle_result(x, !x$outcome %in% wanted)
+	wanted <- pare_terms(..., what = "outcome", available = x$outcome)
+	pare_result(x, !x$outcome %in% wanted)
 }
 
-#' @rdname whittling
+#' @rdname paring
 #' @export
 keep_exposures <- function(x, ...) {
 	validate_class(x, "mdl_tbl")
-	wanted <- whittle_terms(..., what = "exposure", available = x$exposure)
-	whittle_result(x, x$exposure %in% wanted)
+	wanted <- pare_terms(..., what = "exposure", available = x$exposure)
+	pare_result(x, x$exposure %in% wanted)
 }
 
-#' @rdname whittling
+#' @rdname paring
 #' @export
 drop_exposures <- function(x, ...) {
 	validate_class(x, "mdl_tbl")
-	wanted <- whittle_terms(..., what = "exposure", available = x$exposure)
-	whittle_result(x, !x$exposure %in% wanted)
+	wanted <- pare_terms(..., what = "exposure", available = x$exposure)
+	pare_result(x, !x$exposure %in% wanted)
 }
 
-#' @rdname whittling
+#' @rdname paring
 #' @export
 keep_families <- function(x, ..., pattern = NULL, relation = NULL) {
 
@@ -521,10 +521,10 @@ keep_families <- function(x, ..., pattern = NULL, relation = NULL) {
 		}
 	}
 
-	whittle_result(x, keep)
+	pare_result(x, keep)
 }
 
-#' @rdname whittling
+#' @rdname paring
 #' @export
 restrict_to <- function(x, strata = NULL, level = NULL, subset = NULL,
 												data = NULL) {
@@ -533,10 +533,10 @@ restrict_to <- function(x, strata = NULL, level = NULL, subset = NULL,
 	env <- parent.frame()
 
 	dims <- list(
-		strata = whittle_input(substitute(strata), env),
-		level = whittle_input(substitute(level), env),
-		subset = whittle_input(substitute(subset), env),
-		data = whittle_input(substitute(data), env)
+		strata = pare_input(substitute(strata), env),
+		level = pare_input(substitute(level), env),
+		subset = pare_input(substitute(subset), env),
+		data = pare_input(substitute(data), env)
 	)
 	if (all(vapply(dims, is.null, logical(1)))) {
 		stop(
@@ -559,10 +559,10 @@ restrict_to <- function(x, strata = NULL, level = NULL, subset = NULL,
 		keep <- keep & values %in% wanted
 	}
 
-	whittle_result(x, keep)
+	pare_result(x, keep)
 }
 
-#' @rdname whittling
+#' @rdname paring
 #' @export
 adjusting_for <- function(x, ...) {
 
@@ -578,12 +578,12 @@ adjusting_for <- function(x, ...) {
 
 	sets <- identify_family(model_table_formulas(x))$covariates
 	keep_available(wanted, unlist(sets), "adjustment covariate")
-	whittle_result(x, vapply(sets, function(s) {
+	pare_result(x, vapply(sets, function(s) {
 		all(wanted %in% s)
 	}, logical(1)))
 }
 
-#' @rdname whittling
+#' @rdname paring
 #' @export
 excluding <- function(x, ...) {
 
@@ -605,30 +605,30 @@ excluding <- function(x, ...) {
 	for (term in intersect(wanted, names(fmMat))) {
 		hit <- hit | (!is.na(fmMat[[term]]) & fmMat[[term]] >= 1)
 	}
-	whittle_result(x, !hit)
+	pare_result(x, !hit)
 }
 
-#' The whittled table, with the one-line report every verb shares
+#' The pared table, with the one-line report every verb shares
 #' @keywords internal
 #' @noRd
-whittle_result <- function(x, keep) {
+pare_result <- function(x, keep) {
 	out <- x[keep, , drop = FALSE]
 	message("Kept ", nrow(out), " of ", nrow(x),
 					if (nrow(x) == 1) " model." else " models.")
 	out
 }
 
-#' Bare names or strings from a whittling verb's dots, validated against a
+#' Bare names or strings from a paring verb's dots, validated against a
 #' provenance column; empty dots error with what the table holds, so the
 #' verbs teach their own vocabulary
 #' @keywords internal
 #' @noRd
-whittle_terms <- function(..., what, available) {
+pare_terms <- function(..., what, available) {
 	wanted <- vars_from_dots(...)
 	if (length(wanted) == 0) {
 		available <- unique(stats::na.omit(available))
 		stop(
-			"Name the ", what, "(s) to whittle by. This table holds: ",
+			"Name the ", what, "(s) to pare by. This table holds: ",
 			if (length(available) > 0) {
 				paste0("`", available, "`", collapse = ", ")
 			} else {
@@ -642,12 +642,12 @@ whittle_terms <- function(..., what, available) {
 }
 
 
-#' Bare names, strings, numbers, or `c()` combinations from a whittling
+#' Bare names, strings, numbers, or `c()` combinations from a paring
 #' argument, as a character vector; `NULL` stays `NULL`. A bare name is
-#' taken as a name (the whittling verbs' house style), never evaluated.
+#' taken as a name (the paring verbs' house style), never evaluated.
 #' @keywords internal
 #' @noRd
-whittle_input <- function(expr, env) {
+pare_input <- function(expr, env) {
 	if (is.null(expr)) {
 		return(NULL)
 	}
@@ -655,12 +655,12 @@ whittle_input <- function(expr, env) {
 		return(as.character(expr))
 	}
 	if (is.call(expr) && identical(expr[[1L]], quote(c))) {
-		return(unlist(lapply(as.list(expr)[-1L], whittle_input, env = env)))
+		return(unlist(lapply(as.list(expr)[-1L], pare_input, env = env)))
 	}
 	as.character(eval(expr, env))
 }
 
-#' Ensure requested whittling values exist in the table, erroring with what
+#' Ensure requested paring values exist in the table, erroring with what
 #' is available instead of silently keeping nothing
 #' @keywords internal
 #' @noRd
@@ -717,7 +717,7 @@ keep_available <- function(requested, available, what) {
 #'   model_table(data = d)
 #' adjustment_sets(mt)
 #'
-#' @seealso The [whittling] verbs (especially [adjusting_for()]),
+#' @seealso The [paring] verbs (especially [adjusting_for()]),
 #'   [identify_family()], [mdl_gt()]
 #' @export
 adjustment_sets <- function(x, ...) {

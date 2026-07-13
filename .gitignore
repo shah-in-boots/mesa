@@ -46,3 +46,4 @@ vignettes/*.pdf
 .Rproj.user
 inst/doc
 
+**/.quarto/

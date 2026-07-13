@@ -47,6 +47,6 @@ adjustment_sets(mt)
 
 }
 \seealso{
-The \link{whittling} verbs (especially \code{\link[=adjusting_for]{adjusting_for()}}),
+The \link{paring} verbs (especially \code{\link[=adjusting_for]{adjusting_for()}}),
 \code{\link[=identify_family]{identify_family()}}, \code{\link[=mdl_gt]{mdl_gt()}}
 }

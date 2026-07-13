@@ -55,8 +55,9 @@ Suggests:
     lme4,
     broom.mixed,
     cmprsk,
-    tidycmprsk
-VignetteBuilder: knitr
+    tidycmprsk,
+    quarto
+VignetteBuilder: knitr, quarto
 URL: https://shah-in-boots.github.io/mesa/, https://github.com/shah-in-boots/mesa
 BugReports: https://github.com/shah-in-boots/mesa/issues
 Config/testthat/edition: 3

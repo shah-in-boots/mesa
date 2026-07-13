@@ -724,7 +724,7 @@ test_that("the interaction layout narrows to one outcome × exposure", {
 		add_interaction()
 	expect_error(as_gt(spec), "single outcome")
 
-	# Whittling the model table down narrows it into shape
+	# Paring the model table down narrows it into shape
 	g <-
 		mt |> dplyr::filter(outcome == "mpg") |> mdl_gt() |>
 		modify_layout(preset = "interaction") |> add_interaction() |>

@@ -16,3 +16,5 @@
 ^DESIGN\.md$
 ^tests/manual$
 ^issues\.md$
+^vignettes/\.quarto$
+^vignettes/*_files$

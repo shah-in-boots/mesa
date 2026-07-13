@@ -87,7 +87,7 @@
 #' identify_family(m)
 #'
 #' # On a model table the identification is stamped on as columns, so the
-#' # table can be whittled down to one presentable analysis before `mdl_gt()`
+#' # table can be pared down to one presentable analysis before `mdl_gt()`
 #' f |>
 #'   fit(.fn = lm, data = mtcars) |>
 #'   model_table(data = mtcars) |>

@@ -201,9 +201,9 @@ test_that("attach_data() keeps the whole frame for later reach", {
 
 })
 
-# Whittling ---------------------------------------------------------------
+# Paring ---------------------------------------------------------------
 
-whittle_table <- function() {
+pare_table <- function() {
 	d <- mtcars
 	suppressMessages(
 		c(
@@ -216,9 +216,9 @@ whittle_table <- function() {
 	)
 }
 
-test_that("keep/drop verbs whittle by causal role, bare names or strings", {
+test_that("keep/drop verbs pare by causal role, bare names or strings", {
 
-	mt <- whittle_table()
+	mt <- pare_table()
 
 	expect_message(kept <- keep_outcomes(mt, mpg), "Kept 6 of 7")
 	expect_s3_class(kept, "mdl_tbl")
@@ -244,9 +244,9 @@ test_that("keep/drop verbs whittle by causal role, bare names or strings", {
 	expect_error(keep_outcomes(mt), "This table holds")
 })
 
-test_that("keep_families() whittles by the identified family structure", {
+test_that("keep_families() pares by the identified family structure", {
 
-	mt <- whittle_table()
+	mt <- pare_table()
 
 	# relation and pattern identify on the spot, without a stamp
 	related <- suppressMessages(keep_families(mt, relation = "varied exposures"))
@@ -262,7 +262,7 @@ test_that("keep_families() whittles by the identified family structure", {
 	fam2 <- suppressMessages(keep_families(stamped, 2))
 	expect_equal(unique(fam2$exposure), "disp")
 
-	# And the whittled result passes the mdl_gt gate
+	# And the pared result passes the mdl_gt gate
 	expect_s3_class(mdl_gt(suppressMessages(
 		keep_families(mt, relation = "varied exposures")
 	)), "mdl_gt")
@@ -289,9 +289,9 @@ test_that("restrict_to() narrows the population and the dataset", {
 	expect_error(restrict_to(mt, level = 9), "Available level")
 })
 
-test_that("adjusting_for() and excluding() whittle by the adjustment terms", {
+test_that("adjusting_for() and excluding() pare by the adjustment terms", {
 
-	mt <- whittle_table()
+	mt <- pare_table()
 
 	# adjusting_for keeps models whose set carries every named covariate
 	adj <- suppressMessages(adjusting_for(mt, hp))
@@ -318,7 +318,7 @@ test_that("adjusting_for() and excluding() whittle by the adjustment terms", {
 
 test_that("adjustment_sets() shows the rungs select_adjustment() picks from", {
 
-	mt <- whittle_table()
+	mt <- pare_table()
 	rungs <- adjustment_sets(mt)
 
 	expect_s3_class(rungs, "tbl_df")

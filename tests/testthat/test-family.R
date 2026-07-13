@@ -172,13 +172,13 @@ test_that("identify_family() stamps a mdl_tbl with family columns", {
 	expect_equal(unique(stamped$pattern), "sequential")
 	expect_equal(unique(stamped$relation), "varied exposures")
 
-	# Whittling by family keeps the class and prunes the attributes
+	# Paring by family keeps the class and prunes the attributes
 	one <- dplyr::filter(stamped, family == 1)
 	expect_s3_class(one, "mdl_tbl")
 	expect_equal(nrow(one), 3L)
 	expect_equal(unique(one$exposure), "wt")
 
-	# Stamping again refreshes (the whittled table renumbers from 1)
+	# Stamping again refreshes (the pared table renumbers from 1)
 	expect_equal(unique(identify_family(one)$family), 1L)
 })
 

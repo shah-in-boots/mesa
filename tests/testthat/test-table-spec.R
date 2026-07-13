@@ -150,10 +150,10 @@ test_that("mdl_gt() admits one analysis and turns unrelated families back", {
 	expect_error(mdl_gt(mixed), "unrelated families")
 	expect_error(mdl_gt(mixed), "identify_family")
 
-	# Whittled down with the stamped family columns, the gate opens
-	whittled <- identify_family(mixed)
-	expect_s3_class(whittled, "mdl_tbl")
-	kept <- dplyr::filter(whittled, family %in% c(1, 2))
+	# Pared down with the stamped family columns, the gate opens
+	pared <- identify_family(mixed)
+	expect_s3_class(pared, "mdl_tbl")
+	kept <- dplyr::filter(pared, family %in% c(1, 2))
 	expect_s3_class(mdl_gt(kept), "mdl_gt")
 })
 

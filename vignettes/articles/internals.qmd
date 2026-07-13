@@ -139,14 +139,13 @@ f |> add_strata(not_a_column) |> plan_fit(data = d)
 Family identity works the same way as the stratum: *derived from roles,
 not recorded as lineage*. A `fmls` is born as one family — one expansion
 pattern generated its rows — but `c()` just stacks rows and merges term
-tables; nothing marks where each row came from. Downstream,
-`family_adjustment_index()` re-derives families as outcome × exposure
-groups, which is right for adjustment ladders but misfiles a mediation
-triad (its `mediator ~ exposure` member has a different left-hand side).
-`identify_family()` is the role-reading recovery: mediators bind their
-triads back together, and adjustment-ladder signatures relate families
-across exposures or outcomes (see the usage vignette; wiring this into the
-`mesa` layer as the layout gate is the open item in `issues.md`).
+tables; nothing marks where each row came from. `identify_family()` is the
+role-reading recovery: mediators bind their triads back together, and
+adjustment-ladder signatures relate families across exposures or outcomes.
+Everything downstream re-derives from the same roles — the `mdl_gt()` gate
+verifies one analysis, and `adjustment_set_index()` keys each model's rung
+by its actual covariate set (see the usage vignette). Carrying a family id
+through `fit()` as recorded lineage remains the open item in `issues.md`.
 
 **Review questions**
 
@@ -278,7 +277,7 @@ the fitted rows form *one presentable analysis* — a single formula family, or
 families bound by a shared `identify_family()` relation over *one* adjustment
 ladder — and records the verified structure on the spec (`spec$family`).
 Narrowing by outcome, exposure, or strata happens before the gate, on the
-`mdl_tbl` (the whittling verbs — `keep_outcomes()`, `restrict_to()`,
+`mdl_tbl` (the paring verbs — `keep_outcomes()`, `restrict_to()`,
 `adjusting_for()`, `excluding()`, ... — or plain `dplyr`); the spec's own
 selection holds only display decisions. Within the resolver, an adjustment set's index is
 the *identity* of its covariate set (`adjustment_set_index()`, displayed by
