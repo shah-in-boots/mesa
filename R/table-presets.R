@@ -687,7 +687,7 @@ realize_interaction <- function(x, block) {
 		stop(
 			"The `interaction` layout displays a single outcome \u00d7 exposure ",
 			"at a time; whittle the model table down first (e.g. ",
-			"`keep_models(x, outcome = ..., exposure = ...)`) before ",
+			"`keep_outcomes()` / `keep_exposures()`) before ",
 			"`mdl_gt()`.",
 			call. = FALSE
 		)

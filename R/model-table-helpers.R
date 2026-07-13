@@ -342,35 +342,45 @@ summary.mdl_tbl <- function(object, ...) {
 
 # Whittling --------------------------------------------------------------------
 
-#' Keep the models that share a causal context
+#' Whittle a model table down to one analysis
 #'
 #' @description
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' `keep_models()` whittles a `mdl_tbl` down to the models that belong
-#' together — the step before [mdl_gt()], whose gate admits only one
-#' presentable analysis. Models are kept by the causal roles they carry
-#' (`outcome`, `exposure`, `mediator`, `interaction`), by their fitting
-#' context (`strata`, `level`, `subset`), or by the family structure
-#' [identify_family()] reads (`family`, `pattern`, `relation`). Conditions
-#' combine with AND; several values in one argument combine with OR.
+#' A model table accumulates every model of a project; a mesa holds one
+#' analysis. These verbs whittle the table down along its causal dimensions,
+#' in language that says what the kept models share — the step before
+#' [mdl_gt()], whose gate admits only one presentable analysis:
 #'
-#' Ordinary `dplyr` verbs still work on the table — `keep_models()` is the
-#' causal-aware shorthand. What it adds over `dplyr::filter()`:
+#' - `keep_outcomes()` / `keep_exposures()` keep the models carrying a term
+#'   in that causal role; `drop_outcomes()` / `drop_exposures()` remove them.
 #'
-#' - arguments take **bare names or strings** (`keep_models(x, outcome =
-#'   mpg)`, `keep_models(x, outcome = c(mpg, qsec))`), matched by exact
-#'   identity, never by substring;
-#' - every requested value is **checked against what the table holds**, so a
-#'   typo errors with the available values instead of silently keeping
-#'   nothing;
-#' - `pattern` and `relation` are identified on the spot when the table has
-#'   not been stamped; a `relation` matches a family carrying it among
-#'   several (`"varied exposures, varied outcomes"`);
-#' - `family` ids are positional, so they must come from a stamp the user
-#'   has *seen*: `x |> identify_family() |> keep_models(family = 1)` (look
-#'   first, then cut).
+#' - `keep_families()` keeps identified families — by the ids
+#'   [identify_family()] stamps on the table (`keep_families(x, 1, 2)`;
+#'   look first, then cut), or by `pattern` (`"sequential"`, `"parallel"`,
+#'   `"mediation"`, `"direct"`) and `relation` (`"varied exposures"`,
+#'   `"varied outcomes"`), which are identified on the spot when the table
+#'   is not stamped.
+#'
+#' - `restrict_to()` restricts the population or source: the stratifying
+#'   term (`strata`), a stratum (`level`), a [subset_data()] rule
+#'   (`subset`), or the dataset (`data`).
+#'
+#' - `adjusting_for()` keeps the models whose adjustment set carries every
+#'   named covariate ([adjustment_sets()] shows the sets and their rungs).
+#'
+#' - `excluding()` keeps the models whose formulas avoid the named terms
+#'   entirely, whatever the role — the way to set aside a mediator or a
+#'   collider before laying the rest out.
+#'
+#' Terms are given as bare names or strings, matched by exact identity —
+#' never by substring — and every requested value is checked against what
+#' the table holds, so a typo errors with the available values instead of
+#' silently keeping nothing. Each verb reports what it kept with a message,
+#' and they chain in any order. Ordinary `dplyr` verbs still work on the
+#' table; these are the causal-aware shorthand whose result is likelier to
+#' pass `mdl_gt()`'s gate.
 #'
 #' Stamped `family`/`pattern`/`relation` columns describe the identification
 #' at stamp time; after whittling, re-run [identify_family()] to refresh
@@ -378,20 +388,18 @@ summary.mdl_tbl <- function(object, ...) {
 #'
 #' @param x A `mdl_tbl` object
 #'
-#' @param outcome,exposure,mediator,interaction Keep models carrying this
-#'   term in this causal role (bare names or strings; several combine as OR)
+#' @param ... The terms (bare names or strings) the verb keeps, drops, or
+#'   excludes; for `keep_families()`, the family id(s) from the stamped
+#'   `family` column
 #'
-#' @param strata,level,subset Keep models fit under this stratifying term,
-#'   stratum level, or subset rule
+#' @param pattern For `keep_families()`: keep families with this pattern
 #'
-#' @param family Keep these family id(s), from the columns
-#'   [identify_family()] stamped on the table
+#' @param relation For `keep_families()`: keep families carrying this
+#'   relation (a family holding several matches any of its own)
 #'
-#' @param pattern Keep families with this pattern: `"sequential"`,
-#'   `"parallel"`, `"mediation"`, or `"direct"`
-#'
-#' @param relation Keep families carrying this relation: `"varied
-#'   exposures"` or `"varied outcomes"`
+#' @param strata,level,subset,data For `restrict_to()`: the stratifying
+#'   term, stratum level, subset rule (as recorded in the `subset` column),
+#'   or dataset name to restrict to
 #'
 #' @return The whittled `mdl_tbl`, its attributes pruned to the remaining
 #'   models; a message reports how many models were kept.
@@ -407,64 +415,91 @@ summary.mdl_tbl <- function(object, ...) {
 #'   fit(.fn = lm, data = d) |>
 #'   model_table(data = d)
 #'
-#' # By causal role, bare names or strings
-#' keep_models(mt, outcome = mpg)
-#' keep_models(mt, exposure = c(wt, disp))
+#' # By causal role
+#' mt |> keep_outcomes(mpg)
+#' mt |> keep_exposures(wt, disp) |> drop_outcomes(qsec)
 #'
-#' # By the identified family structure
-#' keep_models(mt, relation = "varied exposures")
-#' mt |> identify_family() |> keep_models(family = 1)
+#' # By adjustment and by avoidance
+#' mt |> adjusting_for(hp)
+#' mt |> excluding(cyl)
+#'
+#' # By identified family
+#' mt |> keep_families(relation = "varied exposures")
+#' mt |> identify_family() |> keep_families(1)
 #'
 #' @seealso [identify_family()] to see the family structure first,
 #'   [adjustment_sets()] to see the adjustment rungs, [mdl_gt()] for the
-#'   gate this prepares for
+#'   gate these prepare for
+#' @name whittling
+NULL
+
+#' @rdname whittling
 #' @export
-keep_models <- function(x, outcome = NULL, exposure = NULL, mediator = NULL,
-												interaction = NULL, strata = NULL, level = NULL,
-												subset = NULL, family = NULL, pattern = NULL,
-												relation = NULL) {
+keep_outcomes <- function(x, ...) {
+	validate_class(x, "mdl_tbl")
+	wanted <- whittle_terms(..., what = "outcome", available = x$outcome)
+	whittle_result(x, x$outcome %in% wanted)
+}
+
+#' @rdname whittling
+#' @export
+drop_outcomes <- function(x, ...) {
+	validate_class(x, "mdl_tbl")
+	wanted <- whittle_terms(..., what = "outcome", available = x$outcome)
+	whittle_result(x, !x$outcome %in% wanted)
+}
+
+#' @rdname whittling
+#' @export
+keep_exposures <- function(x, ...) {
+	validate_class(x, "mdl_tbl")
+	wanted <- whittle_terms(..., what = "exposure", available = x$exposure)
+	whittle_result(x, x$exposure %in% wanted)
+}
+
+#' @rdname whittling
+#' @export
+drop_exposures <- function(x, ...) {
+	validate_class(x, "mdl_tbl")
+	wanted <- whittle_terms(..., what = "exposure", available = x$exposure)
+	whittle_result(x, !x$exposure %in% wanted)
+}
+
+#' @rdname whittling
+#' @export
+keep_families <- function(x, ..., pattern = NULL, relation = NULL) {
 
 	validate_class(x, "mdl_tbl")
-	env <- parent.frame()
+
+	ids <- unlist(rlang::list2(...))
+	ids <- if (length(ids) == 0) NULL else as.character(ids)
+	if (is.null(ids) && is.null(pattern) && is.null(relation)) {
+		stop(
+			"`keep_families()` needs family id(s) from the `identify_family()` ",
+			"stamp, a `pattern`, or a `relation`.",
+			call. = FALSE
+		)
+	}
 
 	keep <- rep(TRUE, nrow(x))
 
-	# The provenance dimensions match their columns by exact identity
-	roles <- list(
-		outcome = substitute(outcome), exposure = substitute(exposure),
-		mediator = substitute(mediator), interaction = substitute(interaction),
-		strata = substitute(strata), level = substitute(level),
-		subset = substitute(subset)
-	)
-	for (role in names(roles)) {
-		wanted <- whittle_input(roles[[role]], env)
-		if (is.null(wanted)) {
-			next
-		}
-		keep_available(wanted, x[[role]], role)
-		keep <- keep & x[[role]] %in% wanted
-	}
-
 	# Family ids are positional (by order of first appearance), so they are
 	# only meaningful against a stamp the user has seen
-	famWanted <- whittle_input(substitute(family), env)
-	if (!is.null(famWanted)) {
+	if (!is.null(ids)) {
 		if (!"family" %in% names(x)) {
 			stop(
-				"`family` ids exist once `identify_family()` stamps them on the ",
-				"table: `x |> identify_family() |> keep_models(family = 1)`.",
+				"Family ids exist once `identify_family()` stamps them on the ",
+				"table: `x |> identify_family() |> keep_families(1)`.",
 				call. = FALSE
 			)
 		}
-		keep_available(famWanted, as.character(x[["family"]]), "family")
-		keep <- keep & as.character(x[["family"]]) %in% famWanted
+		keep_available(ids, as.character(x[["family"]]), "family")
+		keep <- keep & as.character(x[["family"]]) %in% ids
 	}
 
 	# Patterns and relations are self-descriptive, so an unstamped table is
 	# identified on the spot (without stamping it)
-	patWanted <- whittle_input(substitute(pattern), env)
-	relWanted <- whittle_input(substitute(relation), env)
-	if (!is.null(patWanted) || !is.null(relWanted)) {
+	if (!is.null(pattern) || !is.null(relation)) {
 		pats <- if ("pattern" %in% names(x)) x[["pattern"]] else NULL
 		rels <- if ("relation" %in% names(x)) x[["relation"]] else NULL
 		if (is.null(pats) || is.null(rels)) {
@@ -472,29 +507,144 @@ keep_models <- function(x, outcome = NULL, exposure = NULL, mediator = NULL,
 			if (is.null(pats)) pats <- fresh$pattern
 			if (is.null(rels)) rels <- fresh$relation
 		}
-		if (!is.null(patWanted)) {
-			keep_available(patWanted, pats, "pattern")
-			keep <- keep & pats %in% patWanted
+		if (!is.null(pattern)) {
+			keep_available(pattern, pats, "pattern")
+			keep <- keep & pats %in% pattern
 		}
-		if (!is.null(relWanted)) {
+		if (!is.null(relation)) {
 			# A family may carry several relations, comma-joined; match by
 			# membership
 			relList <- strsplit(ifelse(is.na(rels), "", rels), ",[ ]*")
-			keep_available(relWanted, unlist(relList), "relation")
+			keep_available(relation, unlist(relList), "relation")
 			keep <- keep &
-				vapply(relList, function(r) any(relWanted %in% r), logical(1))
+				vapply(relList, function(r) any(relation %in% r), logical(1))
 		}
 	}
 
+	whittle_result(x, keep)
+}
+
+#' @rdname whittling
+#' @export
+restrict_to <- function(x, strata = NULL, level = NULL, subset = NULL,
+												data = NULL) {
+
+	validate_class(x, "mdl_tbl")
+	env <- parent.frame()
+
+	dims <- list(
+		strata = whittle_input(substitute(strata), env),
+		level = whittle_input(substitute(level), env),
+		subset = whittle_input(substitute(subset), env),
+		data = whittle_input(substitute(data), env)
+	)
+	if (all(vapply(dims, is.null, logical(1)))) {
+		stop(
+			"`restrict_to()` needs a population dimension: `strata`, `level`, ",
+			"`subset`, or `data`.",
+			call. = FALSE
+		)
+	}
+
+	columns <- c(strata = "strata", level = "level", subset = "subset",
+							 data = "data_id")
+	keep <- rep(TRUE, nrow(x))
+	for (dim in names(dims)) {
+		wanted <- dims[[dim]]
+		if (is.null(wanted)) {
+			next
+		}
+		values <- x[[columns[[dim]]]]
+		keep_available(wanted, values, dim)
+		keep <- keep & values %in% wanted
+	}
+
+	whittle_result(x, keep)
+}
+
+#' @rdname whittling
+#' @export
+adjusting_for <- function(x, ...) {
+
+	validate_class(x, "mdl_tbl")
+	wanted <- vars_from_dots(...)
+	if (length(wanted) == 0) {
+		stop(
+			"`adjusting_for()` needs the covariate(s) the kept models must ",
+			"adjust for; `adjustment_sets()` shows this table's sets.",
+			call. = FALSE
+		)
+	}
+
+	sets <- identify_family(model_table_formulas(x))$covariates
+	keep_available(wanted, unlist(sets), "adjustment covariate")
+	whittle_result(x, vapply(sets, function(s) {
+		all(wanted %in% s)
+	}, logical(1)))
+}
+
+#' @rdname whittling
+#' @export
+excluding <- function(x, ...) {
+
+	validate_class(x, "mdl_tbl")
+	wanted <- vars_from_dots(...)
+	if (length(wanted) == 0) {
+		stop(
+			"`excluding()` needs the term(s) the kept models must avoid.",
+			call. = FALSE
+		)
+	}
+
+	# Membership in the formula matrix covers every role a term could hold
+	fmMat <- attr(x, "formulaMatrix")
+	present <- names(fmMat)[colSums(fmMat, na.rm = TRUE) > 0]
+	keep_available(wanted, present, "term")
+
+	hit <- rep(FALSE, nrow(x))
+	for (term in intersect(wanted, names(fmMat))) {
+		hit <- hit | (!is.na(fmMat[[term]]) & fmMat[[term]] >= 1)
+	}
+	whittle_result(x, !hit)
+}
+
+#' The whittled table, with the one-line report every verb shares
+#' @keywords internal
+#' @noRd
+whittle_result <- function(x, keep) {
 	out <- x[keep, , drop = FALSE]
 	message("Kept ", nrow(out), " of ", nrow(x),
 					if (nrow(x) == 1) " model." else " models.")
 	out
 }
 
+#' Bare names or strings from a whittling verb's dots, validated against a
+#' provenance column; empty dots error with what the table holds, so the
+#' verbs teach their own vocabulary
+#' @keywords internal
+#' @noRd
+whittle_terms <- function(..., what, available) {
+	wanted <- vars_from_dots(...)
+	if (length(wanted) == 0) {
+		available <- unique(stats::na.omit(available))
+		stop(
+			"Name the ", what, "(s) to whittle by. This table holds: ",
+			if (length(available) > 0) {
+				paste0("`", available, "`", collapse = ", ")
+			} else {
+				"none"
+			},
+			".", call. = FALSE
+		)
+	}
+	keep_available(wanted, available, what)
+	wanted
+}
+
+
 #' Bare names, strings, numbers, or `c()` combinations from a whittling
 #' argument, as a character vector; `NULL` stays `NULL`. A bare name is
-#' taken as a name (the [keep_models()] house style), never evaluated.
+#' taken as a name (the whittling verbs' house style), never evaluated.
 #' @keywords internal
 #' @noRd
 whittle_input <- function(expr, env) {
@@ -567,7 +717,8 @@ keep_available <- function(requested, available, what) {
 #'   model_table(data = d)
 #' adjustment_sets(mt)
 #'
-#' @seealso [keep_models()], [identify_family()], [mdl_gt()]
+#' @seealso The [whittling] verbs (especially [adjusting_for()]),
+#'   [identify_family()], [mdl_gt()]
 #' @export
 adjustment_sets <- function(x, ...) {
 	UseMethod("adjustment_sets", object = x)

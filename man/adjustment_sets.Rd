@@ -47,5 +47,6 @@ adjustment_sets(mt)
 
 }
 \seealso{
-\code{\link[=keep_models]{keep_models()}}, \code{\link[=identify_family]{identify_family()}}, \code{\link[=mdl_gt]{mdl_gt()}}
+The \link{whittling} verbs (especially \code{\link[=adjusting_for]{adjusting_for()}}),
+\code{\link[=identify_family]{identify_family()}}, \code{\link[=mdl_gt]{mdl_gt()}}
 }

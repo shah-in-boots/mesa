@@ -286,6 +286,6 @@ test_that("mdl_gt() refuses a shared relation spread across different ladders", 
 	expect_error(mdl_gt(mt), "different adjustment ladders")
 
 	# Either pair alone passes
-	one <- suppressMessages(keep_models(mt, outcome = mpg))
+	one <- suppressMessages(keep_outcomes(mt, mpg))
 	expect_s3_class(mdl_gt(one), "mdl_gt")
 })

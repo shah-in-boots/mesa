@@ -216,50 +216,104 @@ whittle_table <- function() {
 	)
 }
 
-test_that("keep_models() whittles by causal role, bare names or strings", {
+test_that("keep/drop verbs whittle by causal role, bare names or strings", {
 
 	mt <- whittle_table()
 
-	expect_message(kept <- keep_models(mt, outcome = mpg), "Kept 6 of 7")
+	expect_message(kept <- keep_outcomes(mt, mpg), "Kept 6 of 7")
 	expect_s3_class(kept, "mdl_tbl")
 	expect_equal(unique(kept$outcome), "mpg")
 
-	# Strings and c() combinations reach the same place
-	viaString <- suppressMessages(keep_models(mt, outcome = "mpg"))
+	# Strings reach the same place; drop is the exact complement
+	viaString <- suppressMessages(keep_outcomes(mt, "mpg"))
 	expect_equal(kept$id, viaString$id)
-	all3 <- suppressMessages(keep_models(mt, outcome = c(mpg, qsec)))
-	expect_equal(nrow(all3), nrow(mt))
+	dropped <- suppressMessages(drop_outcomes(mt, qsec))
+	expect_equal(kept$id, dropped$id)
 
-	# Conditions combine with AND
-	one <- suppressMessages(keep_models(mt, outcome = mpg, exposure = disp))
+	# Several terms combine as OR; verbs chain as AND
+	both <- suppressMessages(keep_exposures(mt, wt, disp))
+	expect_equal(nrow(both), 6L)
+	one <- suppressMessages(mt |> keep_outcomes(mpg) |> keep_exposures(disp))
 	expect_equal(unique(one$exposure), "disp")
+	expect_equal(nrow(suppressMessages(drop_exposures(mt, wt, disp, am))), 0L)
 
-	# A typo errors with what is available, never a silent empty keep
-	expect_error(keep_models(mt, outcome = mpgg), "Available outcome")
-	expect_error(keep_models(mt, exposure = wt2), "Available exposure")
+	# A typo errors with what is available, never a silent empty keep --
+	# and an empty call teaches the vocabulary
+	expect_error(keep_outcomes(mt, mpgg), "Available outcome")
+	expect_error(drop_exposures(mt, wt2), "Available exposure")
+	expect_error(keep_outcomes(mt), "This table holds")
 })
 
-test_that("keep_models() whittles by family structure", {
+test_that("keep_families() whittles by the identified family structure", {
 
 	mt <- whittle_table()
 
 	# relation and pattern identify on the spot, without a stamp
-	related <- suppressMessages(keep_models(mt, relation = "varied exposures"))
+	related <- suppressMessages(keep_families(mt, relation = "varied exposures"))
 	expect_equal(unique(related$outcome), "mpg")
 	expect_equal(nrow(related), 6L)
-	ladders <- suppressMessages(keep_models(mt, pattern = "sequential"))
+	ladders <- suppressMessages(keep_families(mt, pattern = "sequential"))
 	expect_equal(nrow(ladders), 6L)
 
 	# family ids are positional, so they require the stamp the user has seen
-	expect_error(keep_models(mt, family = 1), "identify_family")
+	expect_error(keep_families(mt, 1), "identify_family")
+	expect_error(keep_families(mt), "needs family id")
 	stamped <- identify_family(mt)
-	fam2 <- suppressMessages(keep_models(stamped, family = 2))
+	fam2 <- suppressMessages(keep_families(stamped, 2))
 	expect_equal(unique(fam2$exposure), "disp")
 
 	# And the whittled result passes the mdl_gt gate
 	expect_s3_class(mdl_gt(suppressMessages(
-		keep_models(mt, relation = "varied exposures")
+		keep_families(mt, relation = "varied exposures")
 	)), "mdl_gt")
+})
+
+test_that("restrict_to() narrows the population and the dataset", {
+
+	d <- mtcars
+	mt <- suppressMessages(
+		fmls(mpg ~ .x(wt) + hp) |>
+			add_strata(am) |>
+			fit(.fn = lm, data = d, raw = FALSE) |>
+			model_table(data = d)
+	)
+
+	byLevel <- suppressMessages(restrict_to(mt, level = 1))
+	expect_equal(unique(byLevel$level), "1")
+	byStrata <- suppressMessages(restrict_to(mt, strata = am))
+	expect_equal(nrow(byStrata), nrow(mt))
+	byData <- suppressMessages(restrict_to(mt, data = d))
+	expect_equal(nrow(byData), nrow(mt))
+
+	expect_error(restrict_to(mt), "population dimension")
+	expect_error(restrict_to(mt, level = 9), "Available level")
+})
+
+test_that("adjusting_for() and excluding() whittle by the adjustment terms", {
+
+	mt <- whittle_table()
+
+	# adjusting_for keeps models whose set carries every named covariate
+	adj <- suppressMessages(adjusting_for(mt, hp))
+	expect_equal(nrow(adj), 4L)
+	full <- suppressMessages(adjusting_for(mt, hp, cyl))
+	expect_equal(nrow(full), 2L)
+	expect_true(all(grepl("cyl", full$formula_call)))
+	expect_error(adjusting_for(mt), "adjustment_sets")
+	expect_error(adjusting_for(mt, gear), "Available adjustment covariate")
+
+	# excluding keeps models whose formulas avoid the terms, whatever the role
+	noCyl <- suppressMessages(excluding(mt, cyl))
+	expect_false(any(grepl("cyl", noCyl$formula_call)))
+	noWt <- suppressMessages(excluding(mt, wt))
+	expect_false("wt" %in% noWt$exposure) # exposures count too
+	expect_error(excluding(mt, nothing), "Available term")
+
+	# The verbs chain into a gate-ready analysis
+	ready <- suppressMessages(
+		mt |> keep_outcomes(mpg) |> adjusting_for(hp)
+	)
+	expect_s3_class(mdl_gt(ready), "mdl_gt")
 })
 
 test_that("adjustment_sets() shows the rungs select_adjustment() picks from", {
@@ -277,6 +331,6 @@ test_that("adjustment_sets() shows the rungs select_adjustment() picks from", {
 	expect_equal(rungs$models, c(3L, 2L, 2L))
 
 	# The mdl_gt method reads the specification's fitted models
-	spec <- mdl_gt(suppressMessages(keep_models(mt, outcome = mpg)))
+	spec <- mdl_gt(suppressMessages(keep_outcomes(mt, mpg)))
 	expect_equal(adjustment_sets(spec)$adjustment, 1:3)
 })

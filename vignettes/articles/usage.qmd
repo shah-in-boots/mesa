@@ -203,21 +203,31 @@ shapes) — and turns anything looser back toward the table's own verbs:
 mtMixed |> mdl_gt()
 ```
 
-The whittling itself has a causal-aware verb, `keep_models()`: its arguments
-are the causal roles (`outcome`, `exposure`, `mediator`, ...), the fitting
-context (`strata`, `level`, `subset`), and the family structure (`family`,
-`pattern`, `relation`), taking bare names or strings, matched exactly — a
-typo errors with what is available instead of silently keeping nothing.
-Plain `dplyr::filter()` still works; `keep_models()` is the shorthand whose
-result is likelier to pass the gate:
+The whittling itself speaks the causal language, one verb per dimension, so
+a pipe reads like the analysis sentence. `keep_outcomes()` /
+`keep_exposures()` (and their `drop_*()` complements) go by causal role;
+`keep_families()` by the identified structure; `restrict_to()` by the
+population (stratum, level, subset rule) or dataset; `adjusting_for()`
+keeps the models whose adjustment set carries the named covariates; and
+`excluding()` keeps the models whose formulas avoid a term entirely — the
+way to set aside a mediator before laying the rest out. Everything is
+matched exactly, a typo errors with what is available instead of silently
+keeping nothing, and each verb reports what it kept. Plain `dplyr::filter()`
+still works; these are the shorthand whose result is likelier to pass the
+gate:
 
 ```{r}
-mtMixed |> keep_models(relation = "varied exposures") |> mdl_gt()
+mtMixed |> keep_outcomes(mpg) |> mdl_gt()
 ```
 
 ```{r}
 # Family ids come from the stamp printed above — look first, then cut
-mtMixed |> keep_models(family = c(1, 2)) |> mdl_gt()
+mtMixed |> keep_families(1, 2) |> mdl_gt()
+```
+
+```{r}
+# Or by what the models adjust for
+mtMixed |> adjusting_for(hp, cyl)
 ```
 
 Past the gate, every verb is a *display* decision: which adjustment rungs

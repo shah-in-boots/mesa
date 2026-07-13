@@ -241,7 +241,7 @@ identify_family.mdl_tbl <- function(x, ...) {
 	# stay parallel to the table's rows (a stratum-expanded model repeats its
 	# formula's row), so the identification is the `fmls` method's, and the
 	# result rides back onto the table as ordinary columns ready for
-	# `dplyr::filter()` or [keep_models()]. Stamping again simply refreshes
+	# `dplyr::filter()` or [keep_families()]. Stamping again simply refreshes
 	# the columns.
 	fam <- identify_family(model_table_formulas(x))
 

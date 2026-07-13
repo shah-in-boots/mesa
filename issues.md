@@ -266,15 +266,22 @@ Items verified by execution are marked ✓.
     row per set — the `select_adjustment()` index, the covariates, what
     each rung adds over the one below (when nested), model and family
     counts — so the user never has to remember the ladder they built.
-  - `keep_models()` is the causal-aware whittling verb (extended name, no
-    `dplyr` collision; `dplyr` verbs still work). Arguments mirror the
-    causal columns — `outcome`, `exposure`, `mediator`, `interaction`,
-    `strata`, `level`, `subset` — plus the family structure (`family`,
-    `pattern`, `relation`); bare names or strings; exact identity matching;
-    every requested value validated against what the table holds (a typo
-    errors with the available values). `pattern`/`relation` identify on the
-    spot when unstamped; `family` ids require the `identify_family()` stamp
-    the user has seen (look first, then cut).
+  - Whittling is a *family of verbs* speaking the causal language, one per
+    dimension (the single argument-loaded `keep_models()` was tried
+    2026-07-11 and replaced 2026-07-12 — a speakable pipe is more
+    informative): `keep_outcomes()` / `keep_exposures()` and their
+    `drop_*()` complements (causal role); `keep_families(ids, pattern =,
+    relation =)` (identified structure — ids require the
+    `identify_family()` stamp the user has seen; pattern/relation identify
+    on the spot); `restrict_to(strata =, level =, subset =, data =)` (the
+    population, in the epidemiologic sense of restriction); `adjusting_for()`
+    (models whose adjustment set carries the named covariates); and
+    `excluding()` (models whose formulas avoid the named terms entirely —
+    setting aside a mediator or collider). All exact-matching, bare names
+    or strings; every requested value is validated against what the table
+    holds (a typo errors with the available values); each verb messages
+    what it kept; `dplyr` verbs still work. One shared doc page
+    (`?whittling`, model-table-helpers.R).
 
 ## Parsimony pass (2026-07-10)
 

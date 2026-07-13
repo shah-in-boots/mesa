@@ -278,8 +278,9 @@ the fitted rows form *one presentable analysis* — a single formula family, or
 families bound by a shared `identify_family()` relation over *one* adjustment
 ladder — and records the verified structure on the spec (`spec$family`).
 Narrowing by outcome, exposure, or strata happens before the gate, on the
-`mdl_tbl` (`keep_models()`, or plain `dplyr`); the spec's own selection holds
-only display decisions. Within the resolver, an adjustment set's index is
+`mdl_tbl` (the whittling verbs — `keep_outcomes()`, `restrict_to()`,
+`adjusting_for()`, `excluding()`, ... — or plain `dplyr`); the spec's own
+selection holds only display decisions. Within the resolver, an adjustment set's index is
 the *identity* of its covariate set (`adjustment_set_index()`, displayed by
 `adjustment_sets()`), not its position within a family — which is what lets
 related families' rows align on one mesa.

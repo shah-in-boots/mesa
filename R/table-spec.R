@@ -227,8 +227,9 @@ mdl_gt <- function(object, ...) {
 				"related by varied exposures/outcomes over a shared adjustment ",
 				"ladder. This table holds unrelated families:\n  ",
 				paste(lines, collapse = "\n  "),
-				"\nWhittle the model table down first, e.g. ",
-				"`identify_family(x) |> keep_models(family = 1)`.",
+				"\nWhittle the model table down first: `identify_family(x)` to ",
+				"look, then `keep_families(1)`, `keep_outcomes()`, or ",
+				"`keep_exposures()` to cut.",
 				call. = FALSE
 			)
 		}
@@ -246,7 +247,8 @@ mdl_gt <- function(object, ...) {
 				" relation across ", length(unique(ladders)),
 				" different adjustment ladders — several analyses side by ",
 				"side. Whittle the model table to one ladder first ",
-				"(`identify_family()` to look, `keep_models()` to cut).",
+				"(`identify_family()` to look, `keep_families()` or `adjusting_for()` ",
+				"to cut).",
 				call. = FALSE
 			)
 		}

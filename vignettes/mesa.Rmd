@@ -68,10 +68,12 @@ anything.
 
 Nothing has to be decided up front. *Which models* sit on the mesa was
 decided before `mdl_gt()`, on the `mdl_tbl` itself — `identify_family()`
-stamps the family structure, `keep_models()` whittles by causal role or
-family (ordinary `dplyr` verbs work too). The specification's verbs make
-*display* decisions, each narrowing or adding exactly one thing, composing
-in any order:
+stamps the family structure, and the whittling verbs speak the causal
+language: `keep_outcomes()` / `keep_exposures()` / `drop_*()`,
+`keep_families()`, `restrict_to()`, `adjusting_for()`, `excluding()`
+(ordinary `dplyr` verbs work too). The specification's verbs make *display*
+decisions, each narrowing or adding exactly one thing, composing in any
+order:
 
 - **`select_adjustment()` / `select_terms()`** choose which adjustment rungs
   and which terms' cells are displayed (`adjustment_sets()` shows the rungs
