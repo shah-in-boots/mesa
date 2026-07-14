@@ -24,22 +24,22 @@
 realize_mdl_gt <- function(x) {
 
 	validate_class(x, "mdl_gt")
-	mt <- x$mdl_tbl
+	mt <- x@mdl_tbl
 
 	# Stage 1 -- select: filter the models and resolve the requested terms
 	sel <- resolve_selection(
 		mt,
-		terms = x$selection$terms,
-		adjustment = x$selection$adjustment
+		terms = x@selection$terms,
+		adjustment = x@selection$adjustment
 	)
-	models <- sel$models
+	models <- sel@models
 	if (nrow(models) == 0) {
 		stop("No models on the mesa match the current selection.", call. = FALSE)
 	}
 
 	# The terms whose estimates become columns: an explicit `select_terms()`,
 	# else the exposures, else every non-outcome term the models carry
-	displayTerms <- mdl_gt_display_terms(mt, x$selection, sel)
+	displayTerms <- mdl_gt_display_terms(mt, x@selection, sel)
 	if (nrow(displayTerms) == 0) {
 		stop(
 			"Nothing to display: no terms were selected and the models declare ",
@@ -89,7 +89,7 @@ realize_mdl_gt <- function(x) {
 		flat$data_id, flat$model_call, flat$outcome, flat$exposure,
 		flat$strata, flat$stratum_level, flat$subset, flat$formula_call
 	)
-	flat$adj_index <- sel$adjustment_index[match(flatKey, lookupKey)]
+	flat$adj_index <- sel@adjustment_index[match(flatKey, lookupKey)]
 
 	# Stage 2 -- decorate: join term metadata and derive the factor level a key
 	# stands for
@@ -131,7 +131,7 @@ realize_mdl_gt <- function(x) {
 	# Labels: adjustment sets from the recorded selection; outcomes, terms, and
 	# levels from `modify_labels()`
 	dec <- apply_context_labels(dec, sel)
-	dec <- apply_relabels(dec, x$labels$relabels)
+	dec <- apply_relabels(dec, x@labels$relabels)
 
 	# A stable ordering for downstream layout: outcome, stratum, subset,
 	# adjustment index, then term and level (reference level first)
@@ -156,10 +156,10 @@ realize_mdl_gt <- function(x) {
 mdl_gt_display_terms <- function(mt, selection, sel) {
 
 	if (!is.null(selection$terms)) {
-		return(sel$terms)
+		return(sel@terms)
 	}
 
-	exposures <- unique(stats::na.omit(sel$models$exposure))
+	exposures <- unique(stats::na.omit(sel@models$exposure))
 	if (length(exposures) > 0) {
 		return(resolve_term_metadata(
 			mt, stats::setNames(as.list(exposures), exposures)
@@ -227,7 +227,7 @@ apply_context_labels <- function(dec, sel) {
 
 	dec$outcome_label <- dec$outcome
 
-	adjLabels <- sel$labels$adjustment
+	adjLabels <- sel@labels$adjustment
 	dec$adj_label <-
 		if (length(adjLabels) > 0) {
 			vapply(as.character(dec$adj_index), function(k) {

@@ -46,7 +46,7 @@ model_display_na <- function() {
 #' @keywords internal
 #' @noRd
 color_status <- function(symbol, status) {
-	if (!isTRUE(getOption("mesa.color", TRUE)) || !has_cli()) {
+	if (!isTRUE(epigram_color()) || !has_cli()) {
 		return(symbol)
 	}
 	fn <- switch(
@@ -165,7 +165,7 @@ format.mdl_tbl <- function(x, ..., n = 10) {
 	}
 
 	body <- list(` ` = as.character(shown))
-	# The stamped family identification (`identify_family()`), when present
+	# The family identification the table always carries
 	if ("family" %in% names(x)) {
 		body$family <- naTo(as.character(x[["family"]][shown]))
 		body$pattern <- naTo(x[["pattern"]][shown])
@@ -356,12 +356,10 @@ summary.mdl_tbl <- function(object, ...) {
 #' - `keep_outcomes()` / `keep_exposures()` keep the models carrying a term
 #'   in that causal role; `drop_outcomes()` / `drop_exposures()` remove them.
 #'
-#' - `keep_families()` keeps identified families — by the ids
-#'   [identify_family()] stamps on the table (`keep_families(x, 1, 2)`;
-#'   look first, then cut), or by `pattern` (`"sequential"`, `"parallel"`,
-#'   `"mediation"`, `"direct"`) and `relation` (`"varied exposures"`,
-#'   `"varied outcomes"`), which are identified on the spot when the table
-#'   is not stamped.
+#' - `keep_families()` keeps identified families — by the ids the table's
+#'   `family` column carries (`keep_families(x, 1, 2)`; the column shows them),
+#'   or by `pattern` (`"sequential"`, `"parallel"`, `"mediation"`, `"direct"`)
+#'   and `relation` (`"varied exposures"`, `"varied outcomes"`).
 #'
 #' - `restrict_to()` restricts the population or source: the stratifying
 #'   term (`strata`), a stratum (`level`), a [subset_data()] rule
@@ -382,9 +380,9 @@ summary.mdl_tbl <- function(object, ...) {
 #' table; these are the causal-aware shorthand whose result is likelier to
 #' pass `mdl_gt()`'s gate.
 #'
-#' Stamped `family`/`pattern`/`relation` columns describe the identification
-#' at stamp time; after paring, re-run [identify_family()] to refresh
-#' them (ids renumber from 1).
+#' Every `mdl_tbl` carries `family`/`pattern`/`relation` columns describing the
+#' identification; they refresh automatically each time the table is reshaped,
+#' so after paring the ids renumber from 1 against the rows that remain.
 #'
 #' @param x A `mdl_tbl` object
 #'
@@ -417,18 +415,17 @@ summary.mdl_tbl <- function(object, ...) {
 #'
 #' # By causal role
 #' mt |> keep_outcomes(mpg)
-#' mt |> keep_exposures(wt, disp) |> drop_outcomes(qsec)
+#' mt |> drop_outcomes(qsec) |> keep_exposures(wt, disp)
 #'
 #' # By adjustment and by avoidance
 #' mt |> adjusting_for(hp)
 #' mt |> excluding(cyl)
 #'
-#' # By identified family
+#' # By identified family (the `family`/`pattern`/`relation` columns show it)
 #' mt |> keep_families(relation = "varied exposures")
-#' mt |> identify_family() |> keep_families(1)
+#' mt |> keep_families(1)
 #'
-#' @seealso [identify_family()] to see the family structure first,
-#'   [adjustment_sets()] to see the adjustment rungs, [mdl_gt()] for the
+#' @seealso [adjustment_sets()] to see the adjustment rungs, [mdl_gt()] for the
 #'   gate these prepare for
 #' @name paring
 NULL
@@ -475,50 +472,34 @@ keep_families <- function(x, ..., pattern = NULL, relation = NULL) {
 	ids <- if (length(ids) == 0) NULL else as.character(ids)
 	if (is.null(ids) && is.null(pattern) && is.null(relation)) {
 		stop(
-			"`keep_families()` needs family id(s) from the `identify_family()` ",
-			"stamp, a `pattern`, or a `relation`.",
+			"`keep_families()` needs a family id, a `pattern`, or a `relation`. ",
+			"The table's `family`/`pattern`/`relation` columns show them.",
 			call. = FALSE
 		)
 	}
 
+	# Every `mdl_tbl` carries the identification as columns, refreshed each time
+	# the table is built or reshaped, so the family structure is read straight
+	# off the rows that remain
 	keep <- rep(TRUE, nrow(x))
 
-	# Family ids are positional (by order of first appearance), so they are
-	# only meaningful against a stamp the user has seen
 	if (!is.null(ids)) {
-		if (!"family" %in% names(x)) {
-			stop(
-				"Family ids exist once `identify_family()` stamps them on the ",
-				"table: `x |> identify_family() |> keep_families(1)`.",
-				call. = FALSE
-			)
-		}
 		keep_available(ids, as.character(x[["family"]]), "family")
 		keep <- keep & as.character(x[["family"]]) %in% ids
 	}
 
-	# Patterns and relations are self-descriptive, so an unstamped table is
-	# identified on the spot (without stamping it)
-	if (!is.null(pattern) || !is.null(relation)) {
-		pats <- if ("pattern" %in% names(x)) x[["pattern"]] else NULL
-		rels <- if ("relation" %in% names(x)) x[["relation"]] else NULL
-		if (is.null(pats) || is.null(rels)) {
-			fresh <- identify_family(model_table_formulas(x))
-			if (is.null(pats)) pats <- fresh$pattern
-			if (is.null(rels)) rels <- fresh$relation
-		}
-		if (!is.null(pattern)) {
-			keep_available(pattern, pats, "pattern")
-			keep <- keep & pats %in% pattern
-		}
-		if (!is.null(relation)) {
-			# A family may carry several relations, comma-joined; match by
-			# membership
-			relList <- strsplit(ifelse(is.na(rels), "", rels), ",[ ]*")
-			keep_available(relation, unlist(relList), "relation")
-			keep <- keep &
-				vapply(relList, function(r) any(relation %in% r), logical(1))
-		}
+	if (!is.null(pattern)) {
+		keep_available(pattern, x[["pattern"]], "pattern")
+		keep <- keep & x[["pattern"]] %in% pattern
+	}
+
+	if (!is.null(relation)) {
+		# A family may carry several relations, comma-joined; match by membership
+		relList <- strsplit(ifelse(is.na(x[["relation"]]), "", x[["relation"]]),
+												",[ ]*")
+		keep_available(relation, unlist(relList), "relation")
+		keep <- keep &
+			vapply(relList, function(r) any(relation %in% r), logical(1))
 	}
 
 	pare_result(x, keep)
@@ -576,7 +557,7 @@ adjusting_for <- function(x, ...) {
 		)
 	}
 
-	sets <- identify_family(model_table_formulas(x))$covariates
+	sets <- identify_families(model_table_formulas(x))$covariates
 	keep_available(wanted, unlist(sets), "adjustment covariate")
 	pare_result(x, vapply(sets, function(s) {
 		all(wanted %in% s)
@@ -707,7 +688,7 @@ keep_available <- function(requested, available, what) {
 #'   index `select_adjustment()` uses), `covariates` (the set, `+`-joined;
 #'   `(unadjusted)` when empty), `adds` (what the rung adds over the
 #'   previous one, when it nests), `models` (how many models carry it), and
-#'   `families` (which families, by the stamped ids when present).
+#'   `families` (which families, by the table's `family` ids).
 #'
 #' @examples
 #' d <- mtcars
@@ -717,8 +698,9 @@ keep_available <- function(requested, available, what) {
 #'   model_table(data = d)
 #' adjustment_sets(mt)
 #'
-#' @seealso The [paring] verbs (especially [adjusting_for()]),
-#'   [identify_family()], [mdl_gt()]
+#' @seealso The [paring] verbs (especially [adjusting_for()]), [mdl_gt()]
+#'
+#' @include table-spec.R
 #' @export
 adjustment_sets <- function(x, ...) {
 	UseMethod("adjustment_sets", object = x)
@@ -728,7 +710,7 @@ adjustment_sets <- function(x, ...) {
 #' @export
 adjustment_sets.mdl_tbl <- function(x, ...) {
 
-	fam <- identify_family(model_table_formulas(x))
+	fam <- identify_families(model_table_formulas(x))
 	idx <- adjustment_set_index(x)
 
 	if (length(idx) == 0) {
@@ -741,13 +723,8 @@ adjustment_sets.mdl_tbl <- function(x, ...) {
 		))
 	}
 
-	# The stamped family ids when present -- they are what the user has seen
-	famIds <-
-		if ("family" %in% names(x)) {
-			x[["family"]]
-		} else {
-			fam$family
-		}
+	# The table's own family ids, refreshed against its current rows
+	famIds <- x[["family"]]
 
 	rungs <- sort(unique(idx))
 	sets <- lapply(rungs, function(k) fam$covariates[[match(k, idx)]])
@@ -779,10 +756,14 @@ adjustment_sets.mdl_tbl <- function(x, ...) {
 	)
 }
 
-#' @rdname adjustment_sets
-#' @export
-adjustment_sets.mdl_gt <- function(x, ...) {
-	adjustment_sets(x$mdl_tbl, ...)
+# `adjustment_sets()` stays an S3 generic (it also dispatches on the vctrs
+# `mdl_tbl`). The S7 `<mdl_gt>` joins that dispatch through an S7 *method*
+# registered on the S3 generic: a plain `adjustment_sets.mdl_gt` would never be
+# found, because the spec's class is the namespaced `epigram::mdl_gt`, not the bare
+# `mdl_gt` S3 dispatch looks for. `S7::methods_register()` (in `.onLoad`) wires
+# this method into S3 dispatch at load, so no `@export` is needed.
+method(adjustment_sets, mdl_gt) <- function(x, ...) {
+	adjustment_sets(x@mdl_tbl, ...)
 }
 
 # Model Table Helper Functions ------------------------------------------------

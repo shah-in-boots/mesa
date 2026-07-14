@@ -107,6 +107,27 @@ been fit yet
 }
 }
 
+\section{Family columns}{
+
+
+Every \code{mdl_tbl} also carries three columns read from the formulas' causal
+roles, describing how its models group into analyses:
+\itemize{
+\item \code{family} — integer id grouping the rows that belong to one analysis (an
+adjustment ladder, a mediation triad, ...), numbered by order of first
+appearance
+\item \code{pattern} — the family's shape: \code{sequential}, \code{parallel}, \code{mediation}, or
+\code{direct}
+\item \code{relation} — how families relate across their boundaries (\verb{varied exposures}, \verb{varied outcomes}), or \code{NA} for a family that stands alone
+}
+
+These are derived, not supplied: they are recomputed automatically whenever
+the table is built or reshaped (filtering to one exposure can dissolve a
+\verb{varied exposures} relation; paring renumbers the ids from 1), so they
+always describe the rows currently present. \code{\link[=keep_families]{keep_families()}} pares by
+them.
+}
+
 \section{Combining tables}{
 
 

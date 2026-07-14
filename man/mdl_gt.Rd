@@ -4,8 +4,6 @@
 \alias{mdl_gt}
 \alias{select_terms}
 \alias{select_adjustment}
-\alias{print.mdl_gt}
-\alias{format.mdl_gt}
 \title{The \verb{<mdl_gt>} table specification}
 \usage{
 mdl_gt(object, ...)
@@ -13,18 +11,14 @@ mdl_gt(object, ...)
 select_terms(x, ...)
 
 select_adjustment(x, ...)
-
-\method{print}{mdl_gt}(x, ...)
-
-\method{format}{mdl_gt}(x, ...)
 }
 \arguments{
 \item{object}{A \code{mdl_tbl} object holding at least one fitted model}
 
-\item{...}{For \code{mdl_gt()}, unused — it deliberately takes no selection
+\item{...}{For \code{mdl_gt()}, unused -- it deliberately takes no selection
 arguments, and an unused argument errors; for the selection verbs,
 labeled-formula selection input (a \code{formula}, a \code{list} of formulas, or a
-\code{character} vector — see \code{\link[=labeled_formulas_to_named_list]{labeled_formulas_to_named_list()}}), or nothing
+\code{character} vector -- see \code{\link[=labeled_formulas_to_named_list]{labeled_formulas_to_named_list()}}), or nothing
 at all to clear that dimension's selection; for \code{print()}, unused}
 
 \item{x}{A \verb{<mdl_gt>} specification (for the verbs and \code{print()})}
@@ -35,12 +29,13 @@ at all to clear that dimension's selection; for \code{print()}, unused}
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-\code{mdl_gt()} lays a collection of fitted models out on the \emph{mesa} — the table
-upon which the models are displayed — as a declarative specification. The
+\code{mdl_gt()} lays a collection of fitted models out on the \emph{mesa} -- the table
+upon which the models are displayed -- as a declarative specification. The
 division of labor with \code{\link[=model_table]{model_table()}} is deliberate: \strong{which models sit on
 the mesa is decided on the \code{mdl_tbl}}, with ordinary \code{dplyr} verbs over its
 provenance columns (\code{outcome}, \code{exposure}, \code{strata}, ...) and the family
-columns \code{\link[=identify_family]{identify_family()}} stamps on — pare, print, verify. \code{mdl_gt()}
+columns (\code{family}, \code{pattern}, \code{relation}) the table carries -- pare, print,
+verify. \code{mdl_gt()}
 is then the gate: it verifies what arrives is \emph{one presentable analysis}
 (see Details) and takes no selection arguments, putting everything fitted
 on the mesa with default labels drawn from the term table and the attached
@@ -48,7 +43,7 @@ data. From there the table is grown one \strong{display} decision at a time with
 pipeable verbs, exactly the way a \code{{ggplot2}} plot is grown:
 \itemize{
 \item \code{select_adjustment()} chooses which rungs of the adjustment ladder are
-displayed (e.g. only the crude and fully adjusted rows —
+displayed (e.g. only the crude and fully adjusted rows --
 \code{\link[=adjustment_sets]{adjustment_sets()}} shows the rungs and the numbers they are selected
 by), and \code{select_terms()} which terms' cells are shown;
 \item the \verb{add_*()} verbs append column blocks derived from the models and the
@@ -58,11 +53,11 @@ reselecting;
 \item \code{as_gt()} renders the specification to a \code{{gt}} table (see \code{\link[=as_gt]{as_gt()}}).
 }
 
-Because the specification is declarative — the verbs record instructions and
-resolution happens only at \code{\link[=as_gt]{as_gt()}}/\code{print()} — the verbs may arrive in any
+Because the specification is declarative -- the verbs record instructions and
+resolution happens only at \code{\link[=as_gt]{as_gt()}}/\code{print()} -- the verbs may arrive in any
 order. \strong{A verb replaces only what you name.} Repeating a verb with the
-same instruction — the same selection dimension, block type, style field,
-or label name — replaces just that instruction with a message, and leaves
+same instruction -- the same selection dimension, block type, style field,
+or label name -- replaces just that instruction with a message, and leaves
 everything else recorded on the specification standing (the \code{{ggplot2}}
 \code{labs()} merge behavior); calling a \verb{select_*()} verb with no arguments
 clears that dimension, which is the way to undo an earlier selection. A
@@ -70,12 +65,12 @@ bare \code{mdl_gt(mt) |> as_gt()} already renders a minimal estimate-and-interva
 table, so the grammar is usable from the first verb.
 }
 \details{
-The unit of a mesa is the \strong{term × effect cell}: one term (or term level)
-crossed with one effect — an estimate, its interval, a p-value, an event
+The unit of a mesa is the \strong{term x effect cell}: one term (or term level)
+crossed with one effect -- an estimate, its interval, a p-value, an event
 count, a rate, an observation count. The \verb{add_*()} verbs append \emph{column
 blocks}, groups of effects that travel together (an estimate with its CI
-and p), so blocks compose freely — adding, dropping, or reordering one
-never changes another's cells — and the layout presets place the same
+and p), so blocks compose freely -- adding, dropping, or reordering one
+never changes another's cells -- and the layout presets place the same
 cells wide (levels on columns) or long (levels on rows) without
 recomputing anything.
 
@@ -85,18 +80,18 @@ table must hold a single model family (one fitting function, on one link)
 or it errors; and more than one attached dataset is reported with a
 message.
 
-It then verifies the models form \strong{one presentable analysis}, in
-\code{\link[=identify_family]{identify_family()}}'s terms: a single formula family (an adjustment ladder,
+It then verifies the models form \strong{one presentable analysis}, in the terms
+of the table's family columns: a single formula family (an adjustment ladder,
 a mediation triad, parallel adjustment sets, or a lone model), or several
-families bound by a shared relation — \verb{varied exposures} or \verb{varied outcomes} over one adjustment ladder, the wide-table shapes. Unrelated
-families error, pointing back at the \code{mdl_tbl}: stamp it with
-\code{identify_family()}, \code{dplyr::filter()} it down, and lay out one analysis at
+families bound by a shared relation -- \verb{varied exposures} or \verb{varied outcomes} over one adjustment ladder, the wide-table shapes. Unrelated
+families error, pointing back at the \code{mdl_tbl}: read its \code{family} column,
+\code{dplyr::filter()} it down, and lay out one analysis at
 a time. See \code{\link[=model_table]{model_table()}} for the collection these are drawn from and
 \code{\link[=attach_data]{attach_data()}} for supplying the data that categorical levels and
 data-derived statistics are read from.
 }
 \examples{
-# The "adjustment" chain — adjustment sets on rows, outcomes as row
+# The "adjustment" chain -- adjustment sets on rows, outcomes as row
 # groups, a statistic block per term (the retired `tbl_beta()` shape)
 d <- mtcars
 d$cyl <- factor(d$cyl)
@@ -112,7 +107,7 @@ mt |>
   as_gt()
 
 \dontshow{if (requireNamespace("survival", quietly = TRUE)) withAutoprint(\{ # examplesIf}
-# The "levels" chain — event and rate rows over adjusted estimates, term
+# The "levels" chain -- event and rate rows over adjusted estimates, term
 # levels on columns (the retired hazard-table shape)
 lung <- survival::lung
 lung$sex <- factor(lung$sex, levels = 1:2, labels = c("Male", "Female"))

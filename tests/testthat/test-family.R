@@ -1,11 +1,12 @@
-# Family identification: `identify_family()` reads causal roles and sorts
-# formulas into families, naming each family's pattern and the relations
-# between families
+# Family identification: `identify_families()` reads causal roles and sorts
+# a `fmls` object's formulas into families, naming each family's pattern and
+# the relations between families. A `mdl_tbl` carries the result as `family`,
+# `pattern`, and `relation` columns, auto-stamped on build and every reshape.
 
 test_that("a sequential ladder is one family", {
 
 	f <- fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential")
-	fam <- identify_family(f)
+	fam <- identify_families(f)
 
 	expect_s3_class(fam, "tbl_df")
 	expect_equal(nrow(fam), 3)
@@ -22,7 +23,7 @@ test_that("a sequential ladder is one family", {
 test_that("parallel adjustment sets are one parallel family", {
 
 	f <- fmls(mpg ~ .x(wt) + hp + cyl, pattern = "parallel")
-	fam <- identify_family(f)
+	fam <- identify_families(f)
 
 	expect_equal(unique(fam$family), 1L)
 	expect_equal(unique(fam$pattern), "parallel")
@@ -31,7 +32,7 @@ test_that("parallel adjustment sets are one parallel family", {
 
 test_that("a single formula is a direct family", {
 
-	fam <- identify_family(fmls(mpg ~ .x(wt) + hp))
+	fam <- identify_families(fmls(mpg ~ .x(wt) + hp))
 	expect_equal(fam$pattern, "direct")
 	expect_true(is.na(fam$relation))
 
@@ -40,7 +41,7 @@ test_that("a single formula is a direct family", {
 test_that("a mediation triad binds into one family across outcomes", {
 
 	f <- fmls(mpg ~ .x(wt) + .m(hp) + cyl)
-	fam <- identify_family(f)
+	fam <- identify_families(f)
 
 	# Three formulas, one family, despite `hp ~ wt` having its own outcome
 	expect_equal(nrow(fam), 3)
@@ -57,7 +58,7 @@ test_that("same outcome and ladder over different exposures relate as varied exp
 		fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential"),
 		fmls(mpg ~ .x(disp) + hp + cyl, pattern = "sequential")
 	)
-	fam <- identify_family(f)
+	fam <- identify_families(f)
 
 	expect_equal(sort(unique(fam$family)), c(1L, 2L))
 	expect_equal(unique(fam$pattern), "sequential")
@@ -71,7 +72,7 @@ test_that("same exposure and ladder over different outcomes relate as varied out
 		fmls(mpg ~ .x(wt) + hp),
 		fmls(qsec ~ .x(wt) + hp)
 	)
-	fam <- identify_family(f)
+	fam <- identify_families(f)
 
 	expect_equal(sort(unique(fam$family)), c(1L, 2L))
 	expect_equal(unique(fam$relation), "varied outcomes")
@@ -84,7 +85,7 @@ test_that("differing ladders do not relate across exposures", {
 		fmls(mpg ~ .x(wt) + hp),
 		fmls(mpg ~ .x(disp) + cyl)
 	)
-	fam <- identify_family(f)
+	fam <- identify_families(f)
 
 	expect_equal(sort(unique(fam$family)), c(1L, 2L))
 	expect_true(all(is.na(fam$relation)))
@@ -95,18 +96,18 @@ test_that("strata ride along and report levels when data is stamped", {
 
 	f <- fmls(mpg ~ .x(wt) + hp + .s(am))
 
-	bare <- identify_family(f)
+	bare <- identify_families(f)
 	expect_equal(bare$strata, "am")
 	expect_equal(nrow(bare), 1)
 
-	stamped <- identify_family(f, data = mtcars)
+	stamped <- identify_families(f, data = mtcars)
 	expect_equal(stamped$strata, "am (2 levels)")
 
 })
 
 test_that("an empty fmls identifies no families", {
 
-	fam <- identify_family(fmls())
+	fam <- identify_families(fmls())
 	expect_s3_class(fam, "tbl_df")
 	expect_equal(nrow(fam), 0)
 
@@ -121,7 +122,7 @@ test_that("a family group can be identified in mixed formulas", {
 	f3 <- fmls(mpg ~ .x(wt) + .m(hp) + cyl)
 
 	f <- c(f1, f2, f3)
-	fam <- identify_family(f)
+	fam <- identify_families(f)
 
 	# Expect that f1 and f2 could be a complex sequential family
 	# They could have varied exposures, but the outcome is the same
@@ -150,7 +151,7 @@ test_that("a family group can be identified in mixed formulas", {
 	expect_setequal(triad$outcome, c("mpg", "hp"))
 
 })
-test_that("identify_family() stamps a mdl_tbl with family columns", {
+test_that("a mdl_tbl carries auto-stamped family columns", {
 
 	d <- mtcars
 	mt <- suppressMessages(
@@ -162,24 +163,23 @@ test_that("identify_family() stamps a mdl_tbl with family columns", {
 			model_table(data = d)
 	)
 
-	stamped <- identify_family(mt)
-
-	# The identification rides on as ordinary columns; the table stays a
-	# mdl_tbl, ready for `dplyr::filter()`
-	expect_s3_class(stamped, "mdl_tbl")
-	expect_equal(nrow(stamped), nrow(mt))
-	expect_equal(stamped$family, rep(c(1L, 2L), each = 3))
-	expect_equal(unique(stamped$pattern), "sequential")
-	expect_equal(unique(stamped$relation), "varied exposures")
+	# The identification rides on as ordinary columns from construction, no
+	# separate call; ids number across every model at once
+	expect_true(all(c("family", "pattern", "relation") %in% names(mt)))
+	expect_equal(mt$family, rep(c(1L, 2L), each = 3))
+	expect_equal(unique(mt$pattern), "sequential")
+	expect_equal(unique(mt$relation), "varied exposures")
 
 	# Paring by family keeps the class and prunes the attributes
-	one <- dplyr::filter(stamped, family == 1)
+	one <- suppressMessages(dplyr::filter(mt, family == 1))
 	expect_s3_class(one, "mdl_tbl")
 	expect_equal(nrow(one), 3L)
 	expect_equal(unique(one$exposure), "wt")
 
-	# Stamping again refreshes (the pared table renumbers from 1)
-	expect_equal(unique(identify_family(one)$family), 1L)
+	# The reshape refreshes: the pared table renumbers from 1 and the
+	# varied-exposures relation dissolves when only one exposure remains
+	expect_equal(unique(one$family), 1L)
+	expect_true(all(is.na(one$relation)))
 })
 
 test_that("a stratified mdl_tbl stamps one family across its stratum rows", {
@@ -192,10 +192,7 @@ test_that("a stratified mdl_tbl stamps one family across its stratum rows", {
 			model_table(data = d)
 	)
 
-	stamped <- identify_family(mt)
-
 	# One formula family; the stratum expansion multiplies rows, not families
-	expect_equal(unique(stamped$family), 1L)
-	expect_equal(unique(stamped$pattern), "sequential")
-	expect_equal(nrow(stamped), nrow(mt))
+	expect_equal(unique(mt$family), 1L)
+	expect_equal(unique(mt$pattern), "sequential")
 })

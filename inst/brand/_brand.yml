@@ -1,0 +1,39 @@
+color:
+  palette:
+    # Base/Neutral Colors (light to dark) — sandstone-grounded scale
+    lightest:     "#f5f0e8"   # warm off-white
+    light:        "#e5d3be"   # pale sandstone
+    medium-light: "#d0c0a0"   # mid sandstone
+    medium:       "#8c9a9a"   # cool gray
+    medium-dark:  "#6b6660"   # warm dark gray
+    dark:         "#4a4a4a"   # charcoal
+    darker:       "#3a342c"   # deep earth
+    darkest:      "#2a2520"   # near-black earth
+
+    # Accent Colors — sunset desert palette
+    mauve:        "#8b6f6f"   # primary; dusty rose-red
+    purple-muted: "#7a6b99"   # twilight purple (muted)
+    slate:        "#6b7b8c"   # desert sky blue-gray
+    sky-blue:     "#5b8db8"   # brighter desert sky blue
+    rust-red:     "#b03a2e"   # deep sunset red
+    amber:        "#c97035"   # sunset amber-orange
+    orange:       "#d9913d"   # golden orange
+    sandstone:    "#d4b896"   # warm neutral accent
+
+    # Bootstrap/common color aliases
+    red:    rust-red
+    blue:   sky-blue
+    purple: purple-muted
+
+  # Semantic roles — mapped to bslib/Bootstrap conventions
+  background: lightest
+  foreground: darkest
+  primary:    mauve
+  secondary:  purple-muted
+  tertiary:   slate
+  success:    slate
+  info:       sky-blue
+  warning:    amber
+  danger:     rust-red
+  light:      light
+  dark:       dark

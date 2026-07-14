@@ -8,12 +8,12 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
 Developer-facing companion to `vignette("usage")`. Shows the data structure
-under each layer and the seams between them, using `mesa:::` internals where
+under each layer and the seams between them, using `epigram:::` internals where
 needed. Each section ends with **review questions** — the places where the
 design deserves a second pair of eyes. Concrete defects live in `issues.md`.
 
 ```{r setup}
-library(mesa)
+library(epigram)
 d <- mtcars
 d$cyl <- factor(d$cyl)
 ```
@@ -42,7 +42,7 @@ vctrs::vec_proxy(t)
 The raw parse, before defaults:
 
 ```{r}
-mesa:::parse_formula_terms(mpg ~ .x(wt) + .i(cyl))
+epigram:::parse_formula_terms(mpg ~ .x(wt) + .i(cyl))
 ```
 
 Note `side`: strata and random effects get `side = "meta"` — neither left nor
@@ -139,13 +139,16 @@ f |> add_strata(not_a_column) |> plan_fit(data = d)
 Family identity works the same way as the stratum: *derived from roles,
 not recorded as lineage*. A `fmls` is born as one family — one expansion
 pattern generated its rows — but `c()` just stacks rows and merges term
-tables; nothing marks where each row came from. `identify_family()` is the
-role-reading recovery: mediators bind their triads back together, and
-adjustment-ladder signatures relate families across exposures or outcomes.
-Everything downstream re-derives from the same roles — the `mdl_gt()` gate
-verifies one analysis, and `adjustment_set_index()` keys each model's rung
-by its actual covariate set (see the usage vignette). Carrying a family id
-through `fit()` as recorded lineage remains the open item in `issues.md`.
+tables; nothing marks where each row came from. The internal
+`identify_families()` is the role-reading recovery: mediators bind their
+triads back together, and adjustment-ladder signatures relate families across
+exposures or outcomes. A `mdl_tbl` carries the result as its `family`,
+`pattern`, and `relation` columns, restamped whenever the table is built or
+reshaped, so no user call is needed. Everything downstream re-derives from the
+same roles — the `mdl_gt()` gate verifies one analysis, and
+`adjustment_set_index()` keys each model's rung by its actual covariate set
+(see the usage vignette). Carrying a family id through `fit()` as recorded
+lineage remains the open item in `issues.md`.
 
 **Review questions**
 
@@ -274,7 +277,7 @@ class(dplyr::select(mt, -fit_status))
 
 `mdl_gt()` itself is the gate between the notebook and the table: it verifies
 the fitted rows form *one presentable analysis* — a single formula family, or
-families bound by a shared `identify_family()` relation over *one* adjustment
+families bound by a shared `relation` over *one* adjustment
 ladder — and records the verified structure on the spec (`spec$family`).
 Narrowing by outcome, exposure, or strata happens before the gate, on the
 `mdl_tbl` (the paring verbs — `keep_outcomes()`, `restrict_to()`,
@@ -308,7 +311,7 @@ The decorated frame — one row per displayed estimate, reference rows
 injected for categorical terms:
 
 ```{r}
-mesa:::realize_mdl_gt(spec)[, c("outcome", "adj_index", "variable", "level",
+epigram:::realize_mdl_gt(spec)[, c("outcome", "adj_index", "variable", "level",
                               "estimate", "is_reference", "adj_label")]
 ```
 
@@ -317,7 +320,7 @@ per rendered cell; `render_cell_frame()` is the only place `{gt}` calls are
 emitted:
 
 ```{r}
-mesa:::mdl_gt_frame(spec)
+epigram:::mdl_gt_frame(spec)
 ```
 
 Two mechanisms live only in the renderer:

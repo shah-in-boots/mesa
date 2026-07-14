@@ -1,4 +1,4 @@
 library(testthat)
-library(mesa)
+library(epigram)
 
-test_check("mesa")
+test_check("epigram")

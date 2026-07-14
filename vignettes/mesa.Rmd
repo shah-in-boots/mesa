@@ -15,7 +15,7 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-library(mesa)
+library(epigram)
 ```
 
 The destination of the grammar is the fifth layer: laying a collection of
@@ -67,8 +67,9 @@ wide (levels on columns) or long (levels on rows) without recomputing
 anything.
 
 Nothing has to be decided up front. *Which models* sit on the mesa was
-decided before `mdl_gt()`, on the `mdl_tbl` itself — `identify_family()`
-stamps the family structure, and the paring verbs speak the causal
+decided before `mdl_gt()`, on the `mdl_tbl` itself — the table carries its
+family structure (`family`, `pattern`, `relation`) automatically, and the
+paring verbs speak the causal
 language: `keep_outcomes()` / `keep_exposures()` / `drop_*()`,
 `keep_families()`, `restrict_to()`, `adjusting_for()`, `excluding()`
 (ordinary `dplyr` verbs work too). The specification's verbs make *display*
@@ -201,5 +202,5 @@ That is the whole grammar: `mdl_gt()` to start, `select_*()` to narrow,
 `add_*()` to add statistics, `modify_*()` to lay out and style, `as_gt()` to
 render. To step back from the mechanics to the reasoning the roles are for —
 how variable roles map onto estimands like the total effect, direct effect,
-and effect modification — start from `vignette("terms", package = "mesa")`,
+and effect modification — start from `vignette("terms", package = "epigram")`,
 where the role vocabulary is laid out.

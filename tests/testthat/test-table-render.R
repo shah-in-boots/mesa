@@ -33,16 +33,14 @@ surv_table <- function(d = surv_data()) {
 		model_table(data = d)
 }
 
-# A bare spec shell for driving `render_cell_frame()` with hand-built frames:
-# the renderer reads only the layout preset and the style slot
+# A spec for driving `render_cell_frame()` with hand-built frames: the renderer
+# reads only the layout preset and the style slot, but a `<mdl_gt>` is now an S7
+# object, so the shell is a real one (built through the gate) with its preset
+# tuned -- `@<-` here, which also exercises the validator on the preset.
 render_spec <- function(preset = "adjustment") {
-	structure(
-		list(
-			layout = list(preset = preset, row_groups = "outcome"),
-			style = list(accents = list(), digits = NULL, missing_text = NULL)
-		),
-		class = "mdl_gt"
-	)
+	m <- mdl_gt(render_table())
+	m@layout$preset <- preset
+	m
 }
 
 # One hand-built cell-frame row
@@ -130,10 +128,10 @@ test_that("modify_layout() validates its preset and row groups at verb time", {
 
 	# A repeat replaces the earlier layout instruction with a message
 	m2 <- modify_layout(m, preset = "levels")
-	expect_equal(m2$layout$preset, "levels")
+	expect_equal(m2@layout$preset, "levels")
 	expect_message(m3 <- modify_layout(m2, preset = "adjustment"),
 								 "replaces the earlier layout")
-	expect_equal(m3$layout$preset, "adjustment")
+	expect_equal(m3@layout$preset, "adjustment")
 })
 
 test_that("the interaction preset defers to add_interaction() (M6.9)", {
@@ -219,8 +217,8 @@ test_that("modify_style() validates its accents at verb time", {
 
 	# A different field does not message, and does not wipe the first (M6.11)
 	m3 <- expect_no_message(modify_style(m2, missing_text = "-"))
-	expect_equal(m3$style$digits, 3)
-	expect_equal(m3$style$missing_text, "-")
+	expect_equal(m3@style$digits, 3)
+	expect_equal(m3@style$missing_text, "-")
 })
 
 test_that("modify_style() fields merge order-independently and survive a later single-field call (M6.11)", {
@@ -238,10 +236,10 @@ test_that("modify_style() fields merge order-independently and survive a later s
 		modify_style(accents = list(p < 0.05 ~ "bold")) |>
 		modify_style(digits = 3)
 
-	expect_equal(a$style, b$style)
-	expect_equal(length(a$style$accents), 1)
-	expect_equal(a$style$digits, 3)
-	expect_equal(a$style$missing_text, "-")
+	expect_equal(a@style, b@style)
+	expect_equal(length(a@style$accents), 1)
+	expect_equal(a@style$digits, 3)
+	expect_equal(a@style$missing_text, "-")
 
 	# The accents recorded first are still applied at render after the later
 	# digits-only call -- the defect this rule fixes

@@ -42,8 +42,11 @@ test_that("mdl_gt() holds a single model family, erroring when mixed", {
 
 	expect_error(mdl_gt(mixed), "single model family")
 
-	# One family builds cleanly
-	expect_s3_class(mdl_gt(spec_table(d)), "mdl_gt")
+	# One family builds cleanly. `mdl_gt` is now an S7 class, and S7 classes in a
+	# package report as `epigram::mdl_gt`, so class membership is tested with
+	# `S7_inherits()` (or `inherits(x, mdl_gt)` against the class object) rather
+	# than the string `expect_s3_class(x, "mdl_gt")`.
+	expect_true(S7::S7_inherits(mdl_gt(spec_table(d)), mdl_gt))
 })
 
 test_that("mdl_gt() messages, but does not error, on more than one dataset", {
@@ -60,7 +63,7 @@ test_that("mdl_gt() messages, but does not error, on more than one dataset", {
 test_that("a bare mesa lays out the exposures and realizes to estimates", {
 
 	m <- mdl_gt(spec_table())
-	expect_s3_class(m, "mdl_gt")
+	expect_true(S7::S7_inherits(m, mdl_gt))
 
 	dec <- realize_mdl_gt(m)
 	# The two exposures are shown; the adjusted-only covariates are not
@@ -140,21 +143,20 @@ test_that("mdl_gt() admits one analysis and turns unrelated families back", {
 	# the gate together -- `spec_table()` is exactly that shape -- and the
 	# verified structure is recorded on the specification
 	spec <- mdl_gt(spec_table(d))
-	expect_equal(nrow(spec$family), 2L)
-	expect_true(all(grepl("varied exposures", spec$family$relation)))
+	expect_equal(nrow(spec@family), 2L)
+	expect_true(all(grepl("varied exposures", spec@family$relation)))
 
 	# An unrelated family (its own outcome, no shared ladder) is refused,
 	# pointing back at the model table's own verbs
 	stray <- fmls(qsec ~ .x(drat)) |> fit(.fn = lm, data = d, raw = FALSE)
 	mixed <- suppressMessages(model_table(spec_table(d), stray))
 	expect_error(mdl_gt(mixed), "unrelated families")
-	expect_error(mdl_gt(mixed), "identify_family")
+	expect_error(mdl_gt(mixed), "keep_families")
 
-	# Pared down with the stamped family columns, the gate opens
-	pared <- identify_family(mixed)
-	expect_s3_class(pared, "mdl_tbl")
-	kept <- dplyr::filter(pared, family %in% c(1, 2))
-	expect_s3_class(mdl_gt(kept), "mdl_gt")
+	# The table already carries family columns, so paring down opens the gate
+	expect_true(all(c("family", "pattern", "relation") %in% names(mixed)))
+	kept <- suppressMessages(dplyr::filter(mixed, family %in% c(1, 2)))
+	expect_true(S7::S7_inherits(mdl_gt(kept), mdl_gt))
 })
 
 test_that("repeating a verb replaces its instruction with a message", {
@@ -221,7 +223,7 @@ test_that("selection is resolved lazily — bad selections error at realization"
 
 	# Recording a nonexistent term does not error at verb time
 	s <- mdl_gt(spec_table()) |> select_terms(~ nonexistent)
-	expect_s3_class(s, "mdl_gt")
+	expect_true(S7::S7_inherits(s, mdl_gt))
 
 	# It surfaces only when the spec is realized
 	expect_error(as_gt(s), "No term matches")
@@ -287,5 +289,71 @@ test_that("mdl_gt() refuses a shared relation spread across different ladders", 
 
 	# Either pair alone passes
 	one <- suppressMessages(keep_outcomes(mt, mpg))
-	expect_s3_class(mdl_gt(one), "mdl_gt")
+	expect_true(S7::S7_inherits(mdl_gt(one), mdl_gt))
+})
+
+# S7 contracts (added with the S3/vctrs -> S7 migration of the spec) ------------
+
+test_that("the spec is an S7 object: properties are read with `@`, not `$`", {
+
+	spec <- mdl_gt(spec_table())
+
+	# It is the S7 class, and S7 objects report a namespaced class name
+	expect_true(S7::S7_inherits(spec, mdl_gt))
+	expect_true(inherits(spec, mdl_gt)) # `inherits()` accepts the class object
+	expect_true("epigram::mdl_gt" %in% class(spec))
+
+	# Properties come off with `@`
+	expect_s3_class(spec@mdl_tbl, "mdl_tbl")
+	expect_equal(spec@layout$preset, "adjustment")
+
+	# `$` is not property access on an S7 object -- it errors loudly rather than
+	# silently returning NULL, which is what kept the migration honest
+	expect_error(spec$layout, "Can't get S7 properties with `\\$`")
+})
+
+test_that("the validator guards invariants on every modification, not just at build", {
+
+	spec <- mdl_gt(spec_table())
+
+	# A direct assignment that violates an invariant is rejected the instant it
+	# happens -- the guarantee a plain list of slots could never make
+	expect_error(
+		{ spec@layout$preset <- "banana" },
+		"preset must be"
+	)
+	expect_error(
+		{ spec@style$digits <- -1 },
+		"digits must be"
+	)
+	expect_error(
+		{ spec@selection <- list(bogus = 1) },
+		"selection may only name"
+	)
+
+	# A valid assignment goes through and leaves the object valid
+	spec@layout$preset <- "levels"
+	expect_equal(spec@layout$preset, "levels")
+})
+
+test_that("verbs have value semantics: refining a spec never mutates the original", {
+
+	spec <- mdl_gt(spec_table())
+	refined <- spec |>
+		select_terms(~ am) |>
+		modify_style(digits = 4)
+
+	# The original is untouched
+	expect_null(spec@selection$terms)
+	expect_null(spec@style$digits)
+
+	# The refinement carries the instructions
+	expect_equal(refined@style$digits, 4L)
+	expect_false(is.null(refined@selection$terms))
+})
+
+test_that("as_gt() is an S7 generic and dispatches on the spec", {
+
+	expect_s3_class(as_gt, "S7_generic")
+	expect_s3_class(as_gt(mdl_gt(spec_table())), "gt_tbl")
 })

@@ -2,12 +2,9 @@
 % Please edit documentation in R/table-render.R
 \name{as_gt}
 \alias{as_gt}
-\alias{as_gt.mdl_gt}
 \title{Render a \verb{<mdl_gt>} specification to a \code{{gt}} table}
 \usage{
 as_gt(x, ...)
-
-\method{as_gt}{mdl_gt}(x, ...)
 }
 \arguments{
 \item{x}{A \verb{<mdl_gt>} specification (from \code{\link[=mdl_gt]{mdl_gt()}})}

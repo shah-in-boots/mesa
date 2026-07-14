@@ -15,10 +15,10 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-library(mesa)
+library(epigram)
 ```
 
-`{mesa}` is built from an epistemological perspective: small building blocks
+`{epigram}` is built from an epistemological perspective: small building blocks
 that build up to more complex concepts.
 The smallest block is the **term** — a single variable, carrying not just its
 name but its causal identity.
@@ -90,7 +90,7 @@ describe(t2, "role")
 
 Wrapping a term in a recognized transformation — `log()`, `sqrt()`, `scale()`,
 `factor()`, `ordered()`, polynomial and spline markers — keeps the *full call*
-as the term's name, so a formula rebuilds exactly, without `{mesa}` needing to
+as the term's name, so a formula rebuilds exactly, without `{epigram}` needing to
 re-apply anything itself. The wrapper is additionally recorded for downstream
 interpretation.
 
@@ -101,7 +101,7 @@ describe(t3, "transformation")
 formula(t3)
 ```
 
-`term_transformations()` lists every wrapper `{mesa}` recognizes; an
+`term_transformations()` lists every wrapper `{epigram}` recognizes; an
 unrecognized call (`survival::Surv(time, status)`, say) is carried whole as an
 opaque term rather than rejected.
 

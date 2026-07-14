@@ -3,7 +3,7 @@
 
 test_that("printing a model table reports the state of the fleet", {
 
-	withr::local_options(mesa.color = FALSE)
+	withr::local_options(epigram.color = FALSE)
 
 	x <-
 		fmls(mpg ~ wt + hp + .s(am), pattern = "sequential") |>
@@ -29,7 +29,7 @@ test_that("printing a model table reports the state of the fleet", {
 
 test_that("printing distinguishes fitted, failed, and unfit models", {
 
-	withr::local_options(mesa.color = FALSE)
+	withr::local_options(epigram.color = FALSE)
 
 	fitted <-
 		fmls(mpg ~ wt) |>
@@ -61,7 +61,7 @@ test_that("printing distinguishes fitted, failed, and unfit models", {
 
 test_that("summary maps the fleet and explains failures", {
 
-	withr::local_options(mesa.color = FALSE)
+	withr::local_options(epigram.color = FALSE)
 
 	fitted <-
 		fmls(mpg ~ wt + .s(am)) |>
@@ -248,24 +248,23 @@ test_that("keep_families() pares by the identified family structure", {
 
 	mt <- pare_table()
 
-	# relation and pattern identify on the spot, without a stamp
+	# The table always carries family/pattern/relation, so every selector reads
+	# straight off the rows
 	related <- suppressMessages(keep_families(mt, relation = "varied exposures"))
 	expect_equal(unique(related$outcome), "mpg")
 	expect_equal(nrow(related), 6L)
 	ladders <- suppressMessages(keep_families(mt, pattern = "sequential"))
 	expect_equal(nrow(ladders), 6L)
 
-	# family ids are positional, so they require the stamp the user has seen
-	expect_error(keep_families(mt, 1), "identify_family")
-	expect_error(keep_families(mt), "needs family id")
-	stamped <- identify_family(mt)
-	fam2 <- suppressMessages(keep_families(stamped, 2))
+	# family ids work directly, no prior stamp; an empty call still errors
+	expect_error(keep_families(mt), "needs a family id")
+	fam2 <- suppressMessages(keep_families(mt, 2))
 	expect_equal(unique(fam2$exposure), "disp")
 
 	# And the pared result passes the mdl_gt gate
-	expect_s3_class(mdl_gt(suppressMessages(
+	expect_true(S7::S7_inherits(mdl_gt(suppressMessages(
 		keep_families(mt, relation = "varied exposures")
-	)), "mdl_gt")
+	)), mdl_gt))
 })
 
 test_that("restrict_to() narrows the population and the dataset", {
@@ -313,7 +312,7 @@ test_that("adjusting_for() and excluding() pare by the adjustment terms", {
 	ready <- suppressMessages(
 		mt |> keep_outcomes(mpg) |> adjusting_for(hp)
 	)
-	expect_s3_class(mdl_gt(ready), "mdl_gt")
+	expect_true(S7::S7_inherits(mdl_gt(ready), mdl_gt))
 })
 
 test_that("adjustment_sets() shows the rungs select_adjustment() picks from", {

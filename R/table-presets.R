@@ -21,7 +21,7 @@
 #' @keywords internal
 #' @noRd
 mdl_gt_frame <- function(x) {
-	if (identical(x$layout$preset, "interaction") ||
+	if (identical(x@layout$preset, "interaction") ||
 			!is.null(mdl_gt_column_block(x, "interaction"))) {
 		mdl_gt_interaction_frame(x)
 	} else {
@@ -59,11 +59,11 @@ mdl_gt_cell_frame <- function(dec, spec) {
 	ctx <- frame_context(spec)
 
 	switch(
-		spec$layout$preset,
+		spec@layout$preset,
 		adjustment = cell_frame_adjustment(dec, spec, ctx),
 		levels = cell_frame_levels(dec, spec, ctx),
 		stop(
-			"Unknown layout preset `", spec$layout$preset, "`.",
+			"Unknown layout preset `", spec@layout$preset, "`.",
 			call. = FALSE
 		)
 	)
@@ -87,7 +87,7 @@ frame_context <- function(spec) {
 
 	digits <- first_of(
 		if (!is.null(estBlock)) estBlock$digits,
-		spec$style$digits,
+		spec@style$digits,
 		2L
 	)
 
@@ -111,7 +111,7 @@ frame_context <- function(spec) {
 		if (!is.null(nBlock)) "n",
 		if (!is.null(forestBlock)) "forest"
 	)
-	unknown <- setdiff(names(spec$labels$columns), knownColumns)
+	unknown <- setdiff(names(spec@labels$columns), knownColumns)
 	if (length(unknown) > 0) {
 		stop(
 			"`modify_labels(columns = )` names a column not on the mesa: ",
@@ -122,9 +122,9 @@ frame_context <- function(spec) {
 		)
 	}
 
-	for (nm in names(spec$labels$columns)) {
+	for (nm in names(spec@labels$columns)) {
 		if (nm %in% names(statistics)) {
-			statistics[[nm]] <- as.character(spec$labels$columns[[nm]])
+			statistics[[nm]] <- as.character(spec@labels$columns[[nm]])
 		}
 	}
 	showBeta <- "beta" %in% names(statistics)
@@ -165,19 +165,19 @@ frame_context <- function(spec) {
 						 " (", format(rdBlock$conf_level * 100), "% CI)")
 		}
 	)
-	for (nm in names(spec$labels$columns)) {
+	for (nm in names(spec@labels$columns)) {
 		if (nm %in% names(dataHeaders)) {
-			dataHeaders[[nm]] <- as.character(spec$labels$columns[[nm]])
+			dataHeaders[[nm]] <- as.character(spec@labels$columns[[nm]])
 		}
 	}
 
 	nLabel <- nBlock$label
-	if (!is.null(spec$labels$columns[["n"]])) {
-		nLabel <- as.character(spec$labels$columns[["n"]])
+	if (!is.null(spec@labels$columns[["n"]])) {
+		nLabel <- as.character(spec@labels$columns[["n"]])
 	}
 	forestLabel <- ""
-	if (!is.null(spec$labels$columns[["forest"]])) {
-		forestLabel <- as.character(spec$labels$columns[["forest"]])
+	if (!is.null(spec@labels$columns[["forest"]])) {
+		forestLabel <- as.character(spec@labels$columns[["forest"]])
 	}
 
 	# An explicit `add_estimates()` always shows its statistic labels as the
@@ -304,7 +304,7 @@ column_key_base <- function(variable, level) {
 #' @noRd
 cell_frame_adjustment <- function(dec, spec, ctx) {
 
-	rc <- frame_row_context(dec, spec$layout)
+	rc <- frame_row_context(dec, spec@layout)
 	dec$row_group <- rc$group
 	dec$row_key <- rc$key
 	dec$key_base <- column_key_base(dec$variable, dec$level)
@@ -496,7 +496,7 @@ cell_frame_levels <- function(dec, spec, ctx) {
 		)
 	}
 
-	rc <- frame_row_context(dec, spec$layout)
+	rc <- frame_row_context(dec, spec@layout)
 	dec$row_group <- rc$group
 	dec$row_key <- rc$key
 	dec$key_base <- column_key_base(dec$variable, dec$level)
@@ -632,17 +632,17 @@ cell_frame_levels <- function(dec, spec, ctx) {
 mdl_gt_interaction_frame <- function(x) {
 
 	block <- mdl_gt_column_block(x, "interaction")
-	if (identical(x$layout$preset, "interaction") && is.null(block)) {
+	if (identical(x@layout$preset, "interaction") && is.null(block)) {
 		stop(
 			"The `interaction` layout's rows are defined by `add_interaction()`; ",
 			"add it to the specification.",
 			call. = FALSE
 		)
 	}
-	if (!identical(x$layout$preset, "interaction")) {
+	if (!identical(x@layout$preset, "interaction")) {
 		stop(
 			"`add_interaction()` defines the rows of the `interaction` layout, ",
-			"so it cannot be an add-on to the `", x$layout$preset, "` preset. ",
+			"so it cannot be an add-on to the `", x@layout$preset, "` preset. ",
 			"Select the layout with `modify_layout(preset = \"interaction\")`.",
 			call. = FALSE
 		)
@@ -665,13 +665,13 @@ mdl_gt_interaction_frame <- function(x) {
 #' @noRd
 realize_interaction <- function(x, block) {
 
-	mt <- x$mdl_tbl
+	mt <- x@mdl_tbl
 	sel <- resolve_selection(
 		mt,
-		terms = x$selection$terms,
-		adjustment = x$selection$adjustment
+		terms = x@selection$terms,
+		adjustment = x@selection$adjustment
 	)
-	models <- sel$models[!is.na(sel$models$interaction), , drop = FALSE]
+	models <- sel@models[!is.na(sel@models$interaction), , drop = FALSE]
 	if (nrow(models) == 0) {
 		stop(
 			"The `interaction` layout needs models fitted with an interaction ",
@@ -771,7 +771,7 @@ realize_interaction <- function(x, block) {
 
 	# Late relabels apply to the interaction terms and their levels exactly as
 	# they do to any other term
-	dec <- apply_relabels(dec, x$labels$relabels)
+	dec <- apply_relabels(dec, x@labels$relabels)
 	dec
 }
 

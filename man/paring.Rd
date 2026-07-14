@@ -58,12 +58,10 @@ in language that says what the kept models share — the step before
 \itemize{
 \item \code{keep_outcomes()} / \code{keep_exposures()} keep the models carrying a term
 in that causal role; \code{drop_outcomes()} / \code{drop_exposures()} remove them.
-\item \code{keep_families()} keeps identified families — by the ids
-\code{\link[=identify_family]{identify_family()}} stamps on the table (\code{keep_families(x, 1, 2)};
-look first, then cut), or by \code{pattern} (\code{"sequential"}, \code{"parallel"},
-\code{"mediation"}, \code{"direct"}) and \code{relation} (\code{"varied exposures"},
-\code{"varied outcomes"}), which are identified on the spot when the table
-is not stamped.
+\item \code{keep_families()} keeps identified families — by the ids the table's
+\code{family} column carries (\code{keep_families(x, 1, 2)}; the column shows them),
+or by \code{pattern} (\code{"sequential"}, \code{"parallel"}, \code{"mediation"}, \code{"direct"})
+and \code{relation} (\code{"varied exposures"}, \code{"varied outcomes"}).
 \item \code{restrict_to()} restricts the population or source: the stratifying
 term (\code{strata}), a stratum (\code{level}), a \code{\link[=subset_data]{subset_data()}} rule
 (\code{subset}), or the dataset (\code{data}).
@@ -82,9 +80,9 @@ and they chain in any order. Ordinary \code{dplyr} verbs still work on the
 table; these are the causal-aware shorthand whose result is likelier to
 pass \code{mdl_gt()}'s gate.
 
-Stamped \code{family}/\code{pattern}/\code{relation} columns describe the identification
-at stamp time; after paring, re-run \code{\link[=identify_family]{identify_family()}} to refresh
-them (ids renumber from 1).
+Every \code{mdl_tbl} carries \code{family}/\code{pattern}/\code{relation} columns describing the
+identification; they refresh automatically each time the table is reshaped,
+so after paring the ids renumber from 1 against the rows that remain.
 }
 \examples{
 d <- mtcars
@@ -99,19 +97,18 @@ mt <-
 
 # By causal role
 mt |> keep_outcomes(mpg)
-mt |> keep_exposures(wt, disp) |> drop_outcomes(qsec)
+mt |> drop_outcomes(qsec) |> keep_exposures(wt, disp)
 
 # By adjustment and by avoidance
 mt |> adjusting_for(hp)
 mt |> excluding(cyl)
 
-# By identified family
+# By identified family (the `family`/`pattern`/`relation` columns show it)
 mt |> keep_families(relation = "varied exposures")
-mt |> identify_family() |> keep_families(1)
+mt |> keep_families(1)
 
 }
 \seealso{
-\code{\link[=identify_family]{identify_family()}} to see the family structure first,
 \code{\link[=adjustment_sets]{adjustment_sets()}} to see the adjustment rungs, \code{\link[=mdl_gt]{mdl_gt()}} for the
 gate these prepare for
 }

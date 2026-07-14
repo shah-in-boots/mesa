@@ -15,7 +15,7 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-library(mesa)
+library(epigram)
 ```
 
 Layer 2 of the grammar answers the question a single term cannot: how do
@@ -161,4 +161,4 @@ formula(fmls(mpg ~ .x(wt) + hp + cyl, pattern = "unadjusted"))
 A family of formulas is still just instructions — no data has been
 consulted yet. `vignette("playing")` covers how a family learns about a
 dataset: strata, subsets, and random effects, the tools that make working
-with `{mesa}` feel like *play*.
+with `{epigram}` feel like *play*.

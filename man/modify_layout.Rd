@@ -19,8 +19,8 @@ The modified \verb{<mdl_gt>} specification.
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-\code{modify_layout()} selects the layout preset — the complete assignment of the
-grammar's four axes (rows, row groups, columns, spanners) — and, optionally,
+\code{modify_layout()} selects the layout preset -- the complete assignment of the
+grammar's four axes (rows, row groups, columns, spanners) -- and, optionally,
 the row-group dimension. The launch presets are:
 \itemize{
 \item \code{"adjustment"} (the default): adjustment sets on rows, outcomes as row
@@ -28,7 +28,7 @@ groups, a statistic block per term or term level on columns, terms
 spanning their levels.
 \item \code{"levels"}: statistic rows (the event count and incidence rate when
 \code{\link[=add_events]{add_events()}} is on the mesa, then one row per adjustment set), term
-levels on columns, terms as spanners — the shape of the retired hazard
+levels on columns, terms as spanners -- the shape of the retired hazard
 tables.
 \item \code{"interaction"}: interaction levels on rows, grouped by interaction
 term, the across-levels p-value floating over each band. Its rows are

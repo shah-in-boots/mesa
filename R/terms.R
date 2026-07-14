@@ -70,7 +70,7 @@
 #' @section Printing colors:
 #'
 #' Term printing uses ANSI colors from `cli`, so the user's console or IDE theme
-#' chooses how each named color appears. Set `options(mesa.color = FALSE)` to
+#' chooses how each named color appears. Set `options(epigram.color = FALSE)` to
 #' disable colors.
 #'
 #' @param x An object that can be coerced to a `tm` object.
@@ -617,7 +617,7 @@ is_tm <- function(x) {
 
 #' @export
 format.tm <- function(x,
-											color = getOption("mesa.color", TRUE),
+											color = epigram_color(),
 											...) {
 
 	if (vec_size(x) == 0) {

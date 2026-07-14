@@ -2,105 +2,54 @@
 #
 # A `fmls` object is born as one family — a single expansion pattern generates
 # its rows — but after `c()` the rows just stack, and nothing records which
-# family each came from. `identify_family()` recovers that structure from the
+# family each came from. `identify_families()` recovers that structure from the
 # causal roles themselves: it reads each formula's outcome, exposure,
 # mediator, and adjustment set, groups the related ones, and names the
-# relationship. This is the intended lynchpin for deciding how a set of
-# models can be laid out on a `mesa` — a mediation triad, a sequential
-# ladder, and a varied-exposure spread each admit different table shapes.
+# relationship. This is the lynchpin for deciding how a set of models can be
+# laid out on a table (`mdl_tbl`) — a mediation triad, a sequential ladder, and a
+# varied-exposure spread each admit different table shapes.
+#
+# It is not user-facing. A `mdl_tbl` carries `family`, `pattern`, and
+# `relation` as ordinary columns, restamped by `stamp_families()` whenever the
+# table is built or reshaped (a subset may unearth or dissolve a family), so
+# the identification is always fresh without the user asking for it.
 
-#' Identify the families a set of formulas contains
-#'
-#' @description
-#'
-#' `r lifecycle::badge('experimental')`
+#' Sort a `fmls` object's formulas into families
 #'
 #' A family is a set of formulas that belong to one analysis: an adjustment
 #' ladder climbing toward a fully adjusted model, a mediation triad, parallel
-#' adjustment sets around one exposure. `identify_family()` reads the causal
-#' roles a `fmls` object carries and sorts its formulas into families, naming
-#' each family's *pattern* and — where families relate to one another — the
-#' *relation* between them.
-#'
-#' @details
+#' adjustment sets around one exposure. Reads the causal roles a `fmls` object
+#' carries and sorts its formulas into families, naming each family's
+#' *pattern* and — where families relate to one another — the *relation*
+#' between them.
 #'
 #' Formulas group into a family by their outcome and exposure; a mediator
 #' binds its triad (per [fmls()]'s mediation expansion) into a single family
 #' across those boundaries. Within a family the adjustment sets decide the
-#' pattern:
+#' pattern: `mediation` (the formulas share a mediator-role term), `sequential`
+#' (the adjustment sets nest, each containing the last), `parallel` (adjustment
+#' sets that do not nest), or `direct` (a single formula). Families that share
+#' an outcome and adjustment ladder over different exposures relate as `varied
+#' exposures` (the wide-table shape); over different outcomes, `varied
+#' outcomes`.
 #'
-#' * `mediation` — the formulas share a mediator-role term (the causal triad)
+#' Stratifying terms (`.s()`) do not split a family — stratification expands at
+#' [fit()] time — so the stratum rides along in the `strata` column. Supplying
+#' `data` stamps the terms first (see [set_data()]) so the strata column reports
+#' its observed levels, e.g. `am (2 levels)`.
 #'
-#' * `sequential` — the adjustment sets nest, each containing the last (the
-#'   ladder the `"sequential"` pattern of [fmls()] generates)
-#'
-#' * `parallel` — several adjustment sets that do not nest (the `"parallel"`
-#'   pattern)
-#'
-#' * `direct` — a single formula
-#'
-#' Families that share structure relate across their boundaries, and the
-#' relation is what decides whether they can sit side by side on one
-#' [mdl_gt()]:
-#'
-#' * `varied exposures` — same outcome, same adjustment ladder, different
-#'   exposures: the wide-table shape, exposures as columns over shared
-#'   adjustment rows
-#'
-#' * `varied outcomes` — same exposure and ladder, different outcomes:
-#'   outcomes as row groups (or columns) over shared adjustment rows
-#'
-#' Stratifying terms (`.s()`) do not split a family — stratification expands
-#' at [fit()] time, multiplying every member by its stratum levels — so the
-#' stratum rides along in the `strata` column. Supplying `data` stamps the
-#' terms first (see [set_data()]), so the strata column reports its observed
-#' levels, e.g. `am (2 levels)`.
-#'
-#' @param x A `fmls` or `mdl_tbl` object
+#' @param x A `fmls` object
 #'
 #' @param data An optional `data.frame`; when supplied, terms are stamped
 #'   with [set_data()] so stratifying terms report their observed levels
 #'
-#' @param ... Arguments to be passed to or from other methods
-#'
-#' @return For a `fmls`, a `tbl_df` with one row per formula, in the object's
-#'   order: `family` (integer id, by order of first appearance), `pattern`,
-#'   `relation` (`NA` for a family that stands alone), `formula_call`,
-#'   `outcome`, `exposure`, `mediator`, `strata`, and `covariates` (a list of
-#'   the adjustment terms).
-#'
-#'   For a `mdl_tbl`, the same table with `family`, `pattern`, and `relation`
-#'   stamped on as ordinary columns — the table stays a `mdl_tbl`, so the
-#'   identification feeds straight into `dplyr` narrowing:
-#'   `mt |> identify_family() |> dplyr::filter(family == 1) |> mdl_gt()`.
-#'
-#' @examples
-#' # A sequential ladder and its varied-exposure sibling
-#' f <- c(
-#'   fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential"),
-#'   fmls(mpg ~ .x(disp) + hp + cyl, pattern = "sequential")
-#' )
-#' identify_family(f)
-#'
-#' # A mediation triad is one family
-#' m <- fmls(mpg ~ .x(wt) + .m(hp) + cyl)
-#' identify_family(m)
-#'
-#' # On a model table the identification is stamped on as columns, so the
-#' # table can be pared down to one presentable analysis before `mdl_gt()`
-#' f |>
-#'   fit(.fn = lm, data = mtcars) |>
-#'   model_table(data = mtcars) |>
-#'   identify_family()
+#' @return A `tbl_df` with one row per formula, in the object's order: `family`
+#'   (integer id, by order of first appearance), `pattern`, `relation` (`NA`
+#'   for a family that stands alone), `formula_call`, `outcome`, `exposure`,
+#'   `mediator`, `strata`, and `covariates` (a list of the adjustment terms).
 #'
 #' @export
-identify_family <- function(x, ...) {
-	UseMethod("identify_family", object = x)
-}
-
-#' @rdname identify_family
-#' @export
-identify_family.fmls <- function(x, data = NULL, ...) {
+identify_families <- function(x, data = NULL) {
 
 	validate_class(x, "fmls")
 	if (!is.null(data)) {
@@ -231,19 +180,43 @@ identify_family.fmls <- function(x, data = NULL, ...) {
 					"exposure", "mediator", "strata", "covariates")]
 }
 
-#' @rdname identify_family
-#' @export
-identify_family.mdl_tbl <- function(x, ...) {
+#' Stamp (or refresh) a model table's `family`, `pattern`, and `relation`
+#' columns from its own formulas
+#'
+#' A `mdl_tbl`'s formula matrix and term table *are* a `fmls`: the matrix rows
+#' stay parallel to the table's rows (a stratum-expanded model repeats its
+#' formula's row), so the identification is [identify_families()]'s, and the
+#' result rides back onto the table as ordinary columns. Called automatically
+#' whenever a table is built or reshaped, since a subset can unearth or dissolve
+#' a family — the ids renumber from 1 against whatever rows remain.
+#' @keywords internal
+#' @noRd
+stamp_families <- function(x) {
 
-	validate_class(x, "mdl_tbl")
+	blank <- function(x) {
+		x$family <- rep(NA_integer_, nrow(x))
+		x$pattern <- rep(NA_character_, nrow(x))
+		x$relation <- rep(NA_character_, nrow(x))
+		x
+	}
 
-	# The table's formula matrix and term table *are* a `fmls`: the matrix rows
-	# stay parallel to the table's rows (a stratum-expanded model repeats its
-	# formula's row), so the identification is the `fmls` method's, and the
-	# result rides back onto the table as ordinary columns ready for
-	# `dplyr::filter()` or [keep_families()]. Stamping again simply refreshes
-	# the columns.
-	fam <- identify_family(model_table_formulas(x))
+	# A prototype or otherwise non-parallel table has no rows to identify; leave
+	# empty columns of the right type so the class stays column-consistent
+	if (nrow(x) == 0 || !has_parallel_attributes(x)) {
+		return(blank(x))
+	}
+
+	# Best-effort. A term that is an outcome in one formula and an exposure in
+	# another cannot be reconstructed into a single well-formed `fmls` (the term
+	# table is a flat term -> role map), so such a table's identification is left
+	# blank rather than blocking its construction
+	fam <- tryCatch(
+		identify_families(model_table_formulas(x)),
+		error = function(e) NULL
+	)
+	if (is.null(fam) || nrow(fam) != nrow(x)) {
+		return(blank(x))
+	}
 
 	x$family <- fam$family
 	x$pattern <- fam$pattern
@@ -263,7 +236,7 @@ model_table_formulas <- function(x) {
 }
 
 #' The ordered-multiset signature of a family's adjustment sets: the ladder
-#' two families must share to relate (and to sit on one mesa)
+#' two families must share to relate (and to sit on one table)
 #' @keywords internal
 #' @noRd
 ladder_signature <- function(sets) {

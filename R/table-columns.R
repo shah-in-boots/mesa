@@ -221,7 +221,7 @@ add_events <- function(x,
 		# identity, never a guess — and require it explicitly otherwise. The
 		# inference succeeds exactly when every outcome on the mesa parses to a
 		# `Surv()` call and they all name the same time argument.
-		outcomes <- unique(stats::na.omit(x$mdl_tbl$outcome))
+		outcomes <- unique(stats::na.omit(x@mdl_tbl$outcome))
 		surv <- lapply(outcomes, parse_surv_outcome)
 		followup <- NULL
 		if (length(outcomes) > 0 && !any(vapply(surv, is.null, logical(1)))) {
@@ -304,20 +304,20 @@ add_interaction <- function(x, conf_level = 0.95) {
 	# The block defines the interaction layout's rows, so declaring it implies
 	# the layout (M6.12) — one gesture for one decision, rather than the
 	# mandatory add_interaction() + modify_layout(preset = "interaction") pair
-	if (isTRUE(x$layout$declared) &&
-			!identical(x$layout$preset, "interaction")) {
+	if (isTRUE(x@layout$declared) &&
+			!identical(x@layout$preset, "interaction")) {
 		stop(
 			"`add_interaction()` defines the rows of the `interaction` layout, ",
-			"but `modify_layout()` already selected the `", x$layout$preset,
+			"but `modify_layout()` already selected the `", x@layout$preset,
 			"` preset. Use `modify_layout(preset = \"interaction\")`, or drop ",
 			"the earlier `modify_layout()` call.",
 			call. = FALSE
 		)
 	}
-	if (!identical(x$layout$preset, "interaction")) {
+	if (!identical(x@layout$preset, "interaction")) {
 		message("`add_interaction()` sets the layout to the `interaction` preset.")
-		x$layout$preset <- "interaction"
-		x$layout$declared <- TRUE
+		x@layout$preset <- "interaction"
+		x@layout$declared <- TRUE
 	}
 
 	block <- list(type = "interaction", conf_level = as.numeric(conf_level))
@@ -455,7 +455,7 @@ compute_data_statistics <- function(dec, spec) {
 		)
 	}
 
-	datLs <- attr(spec$mdl_tbl, "dataList")
+	datLs <- attr(spec@mdl_tbl, "dataList")
 
 	dec$events <- NA_real_
 	dec$rate <- NA_real_
@@ -580,14 +580,14 @@ parse_surv_outcome <- function(outcome) {
 #' @keywords internal
 #' @noRd
 record_column_block <- function(x, block, verb) {
-	types <- vapply(x$columns, function(b) b$type, character(1))
+	types <- vapply(x@columns, function(b) b$type, character(1))
 	at <- which(types == block$type)
 	if (length(at) > 0) {
 		message("`", verb, "()` replaces the earlier ", block$type,
 						" column block.")
-		x$columns[[at[1]]] <- block
+		x@columns[[at[1]]] <- block
 	} else {
-		x$columns <- c(x$columns, list(block))
+		x@columns <- c(x@columns, list(block))
 	}
 	x
 }
@@ -596,7 +596,7 @@ record_column_block <- function(x, block, verb) {
 #' @keywords internal
 #' @noRd
 mdl_gt_column_block <- function(x, type) {
-	for (b in x$columns) {
+	for (b in x@columns) {
 		if (identical(b$type, type)) {
 			return(b)
 		}

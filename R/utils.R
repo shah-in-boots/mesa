@@ -107,6 +107,13 @@ has_cli <- function() {
   isTRUE(requireNamespace("cli", quietly = TRUE))
 }
 
+#' Package color option with the old option name as a compatibility fallback
+#' @keywords internal
+#' @noRd
+epigram_color <- function(default = TRUE) {
+	getOption("epigram.color", getOption("mesa.color", default))
+}
+
 #' A stable content-derived dataset id for frames passed as inline
 #' expressions rather than names (`data_<hash>`); identical content gets the
 #' identical id at [fit()], [model_table()], and [attach_data()], so the
@@ -206,4 +213,3 @@ labeled_formula_value <- function(x) {
 		rhs(x)
 	}
 }
-

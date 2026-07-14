@@ -13,7 +13,7 @@ it. Succinct by intent; the machinery behind each chunk is in
 `vignette("internals")`.
 
 ```{r setup}
-library(mesa)
+library(epigram)
 d <- mtcars
 d$cyl <- factor(d$cyl)
 d$am <- factor(d$am, levels = c(0, 1), labels = c("Automatic", "Manual"))
@@ -103,16 +103,18 @@ fmls(mpg ~ .x(wt) + hp) |>
 ```
 
 And whether formulas are *related* — one family or several, and how — is
-readable from the causal roles themselves. `identify_family()` sorts a
-`fmls` into families, names each family's pattern, and names the relation
-between families that share an adjustment ladder:
+readable from the causal roles themselves. A `model_table()` records this
+automatically, sorting its rows into families and carrying a `family`,
+`pattern`, and `relation` column that name each family's pattern and the
+relation between families that share an adjustment ladder (no separate call,
+and refreshed whenever the table is reshaped):
 
 ```{r}
 c(
   fmls(mpg ~ .x(wt) + hp + cyl, pattern = "sequential"),
   fmls(mpg ~ .x(disp) + hp + cyl, pattern = "sequential")
 ) |>
-  identify_family()
+  model_table()
 ```
 
 Same outcome, same ladder, different exposures: the `varied exposures`
@@ -122,7 +124,7 @@ its `mediator ~ exposure` member has a different left-hand side:
 
 ```{r}
 fmls(mpg ~ .x(wt) + .m(hp) + qsec) |>
-  identify_family()
+  model_table()
 ```
 
 ## 3. Models
@@ -175,10 +177,10 @@ mt2 <-
 ### The handoff: pare the table, verify, then lay out
 
 *Which models* sit on a mesa is the `mdl_tbl`'s decision, made with ordinary
-`dplyr` verbs before `mdl_gt()` is ever called. `identify_family()` stamps
-the table with its family structure — `family`, `pattern`, `relation` — so
-the paring can go by analysis rather than by column value, and the print
-shows what would sit together:
+`dplyr` verbs before `mdl_gt()` is ever called. The table already carries its
+family structure — `family`, `pattern`, `relation`, refreshed on every
+reshape — so the paring can go by analysis rather than by column value, and
+the print shows what would sit together:
 
 ```{r}
 mtMixed <-
@@ -188,8 +190,7 @@ mtMixed <-
     fmls(qsec ~ .x(am))
   ) |>
   fit(.fn = lm, data = d) |>
-  model_table(data = d) |>
-  identify_family()
+  model_table(data = d)
 mtMixed
 ```
 
@@ -221,7 +222,7 @@ mtMixed |> keep_outcomes(mpg) |> mdl_gt()
 ```
 
 ```{r}
-# Family ids come from the stamp printed above — look first, then cut
+# Family ids come from the `family` column printed above — look first, then cut
 mtMixed |> keep_families(1, 2) |> mdl_gt()
 ```
 

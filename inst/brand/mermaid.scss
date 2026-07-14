@@ -1,0 +1,74 @@
+/*-- scss:rules --*/
+
+// Mermaid theme support for Quarto documents that use this brand.
+//
+// Usage in a .qmd YAML header:
+//
+// brand: "../inst/brand/_brand.yml"
+// format:
+//   html:
+//     theme:
+//       - brand
+//       - ../inst/brand/colors.scss
+//       - ../inst/brand/mermaid.scss
+//
+// Usage in Mermaid diagrams:
+//
+// ```{mermaid}
+// flowchart LR
+//   Existing["already implemented"]:::implemented
+//   Future["planned work"]:::planned
+//   Existing --> Future
+// ```
+//
+// Do not put CSS custom properties directly in Mermaid `classDef` rules.
+// Mermaid parses those before browser CSS is applied, so `var(...)` can fail.
+// Instead, add semantic classes such as `:::implemented` or `:::planned` and
+// style the SVG classes that Mermaid emits.
+
+:root {
+  // Quarto's Mermaid runtime reads these variables for default diagram colors.
+  --mermaid-bg-color: #{$brand-lightest};
+  --mermaid-edge-color: #{$brand-purple-muted};
+  --mermaid-node-bg-color: #{rgba($brand-mauve, 0.1)};
+  --mermaid-node-fg-color: #{$brand-mauve};
+  --mermaid-label-bg-color: #{$brand-lightest};
+  --mermaid-label-fg-color: #{$brand-darkest};
+
+  // Semantic status colors used by `:::implemented` and `:::planned` nodes.
+  // Add more statuses here, then mirror the selector pattern below.
+  --mermaid-implemented-fill: #{$brand-light};
+  --mermaid-implemented-stroke: #{$brand-sky-blue};
+  --mermaid-implemented-text: #{$brand-darkest};
+  --mermaid-planned-fill: #{$brand-lightest};
+  --mermaid-planned-stroke: #{$brand-orange};
+  --mermaid-planned-text: #{$brand-darkest};
+}
+
+// Mermaid renders flowchart nodes as SVG groups with classes such as
+// `node implemented`; the visible box is the direct `.label-container`.
+svg.mermaid-js .node.implemented > .label-container {
+  fill: var(--mermaid-implemented-fill) !important;
+  stroke: var(--mermaid-implemented-stroke) !important;
+}
+
+svg.mermaid-js .node.planned > .label-container {
+  fill: var(--mermaid-planned-fill) !important;
+  stroke: var(--mermaid-planned-stroke) !important;
+}
+
+// Labels may be emitted as SVG text or HTML inside a foreignObject depending on
+// the Mermaid/Quarto version, so both `fill` and `color` are set.
+svg.mermaid-js .node.implemented .label,
+svg.mermaid-js .node.implemented .nodeLabel,
+svg.mermaid-js .node.implemented text {
+  color: var(--mermaid-implemented-text) !important;
+  fill: var(--mermaid-implemented-text) !important;
+}
+
+svg.mermaid-js .node.planned .label,
+svg.mermaid-js .node.planned .nodeLabel,
+svg.mermaid-js .node.planned text {
+  color: var(--mermaid-planned-text) !important;
+  fill: var(--mermaid-planned-text) !important;
+}

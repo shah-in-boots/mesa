@@ -58,6 +58,25 @@
 #' * `fit_status` — `TRUE` if the model fit; `FALSE` if it failed or has not
 #'   been fit yet
 #'
+#' @section Family columns:
+#'
+#' Every `mdl_tbl` also carries three columns read from the formulas' causal
+#' roles, describing how its models group into analyses:
+#'
+#' * `family` — integer id grouping the rows that belong to one analysis (an
+#'   adjustment ladder, a mediation triad, ...), numbered by order of first
+#'   appearance
+#' * `pattern` — the family's shape: `sequential`, `parallel`, `mediation`, or
+#'   `direct`
+#' * `relation` — how families relate across their boundaries (`varied
+#'   exposures`, `varied outcomes`), or `NA` for a family that stands alone
+#'
+#' These are derived, not supplied: they are recomputed automatically whenever
+#' the table is built or reshaped (filtering to one exposure can dissolve a
+#' `varied exposures` relation; paring renumbers the ids from 1), so they
+#' always describe the rows currently present. [keep_families()] pares by
+#' them.
+#'
 #' @section Combining tables:
 #'
 #' Model tables combine through `model_table(x, y)` (or `vctrs::vec_rbind()`);
@@ -148,6 +167,12 @@ model_table <- function(..., data = NULL) {
 			}
 		mdTab <- attach_data(mdTab, data = data, name = nm)
 	}
+
+	# Stamp the family identification on as ordinary columns. The combined table
+	# now carries the full, row-parallel formula matrix, so ids number across
+	# every model at once; any later reshape refreshes them (see
+	# `stamp_families()`)
+	mdTab <- stamp_families(mdTab)
 
 	# Return new class
 	mdTab
@@ -640,7 +665,10 @@ df_reconstruct <- function(x, to) {
 	attrs$dataList <- newDat
 	attributes(x) <- attrs
 
-	x
+	# Any reshape can unearth or dissolve a family (a subset renumbers, a
+	# varied-exposures relation vanishes when narrowed to one exposure), so the
+	# identification is recomputed against the rows that remain
+	stamp_families(x)
 
 }
 

@@ -1,7 +1,7 @@
 ---
-title: "S7 implementation"
+title: "S7 in epigram: objects on top of vectors"
 vignette: >
-  %\VignetteIndexEntry{S7 implementation}
+  %\VignetteIndexEntry{S7 in epigram: objects on top of vectors}
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 knitr:
@@ -12,5 +12,417 @@ knitr:
 
 ```{r}
 #| label: setup
-library(mesa)
+#| include: false
+library(epigram)
+```
+
+[S7](https://rconsortium.github.io/S7/) is the R Consortium's next-generation
+object system — a single, well-specified successor to S3 and S4, built by the
+same working group that maintains R's object model, and intended one day to
+land in base R. The tidyverse has been moving its *object* layer onto it. This
+vignette is a field guide to adopting S7 in a package that already leans on
+**vctrs** and **S3**, written from `epigram`'s own migration: the `<mdl_gt>` table
+specification and its resolved selection were rewritten as S7 classes, and
+every decision — including the ones that bit — is recorded here with the real
+code.
+
+The single most important idea comes first, because it shapes everything else.
+
+## S7 does not replace vctrs — it sits above it
+
+`epigram` has two kinds of custom class, and S7 is right for only one of them.
+
+| Kind | Classes | Built on | It is… |
+| --- | --- | --- | --- |
+| **Vector** types | `tm`, `fmls`, `mdl`, `mdl_tbl` | **vctrs** | a *vector of* terms / formulas / models |
+| **Object** (spec) types | `mdl_gt`, `mdl_gt_selection` | **S7** | a *single* scalar specification |
+
+A `tm` is a vector: you can `c()` two of them, subset with `tm[1:3]`, cast it,
+and drop it into a tibble column where **pillar** prints it. That behavior is
+the whole point of the class, and it is *vctrs* machinery — records, proxies,
+`vec_cast()`, `vec_ptype2()`, pillar shafts. S7 classes are **scalar objects
+with typed properties**; they have none of that vectorization. Rewriting `tm`
+as S7 would delete the very thing that makes it useful and force you to
+rebuild it by hand, worse.
+
+So the rule `epigram` follows — the same one the tidyverse follows — is:
+
+> **vctrs for vectors, S7 for objects.** They are complementary layers, not
+> competitors. Use vctrs when the thing *is a vector*; reach for S7 when the
+> thing is *one object* with named, typed parts.
+
+The `<mdl_gt>` specification is squarely the second kind: one table's worth of
+display instructions — a selection, a layout, a style, a list of column
+blocks. Before the migration it was a bare `structure(list(...), class =
+"mdl_gt")`. That is exactly the shape S7 improves on.
+
+## Anatomy of an S7 class
+
+Here is the spec's class definition (in `R/table-spec.R`), trimmed to its
+skeleton:
+
+```{r}
+#| label: class-skeleton
+#| eval: false
+mdl_gt <- S7::new_class(
+  "mdl_gt",
+  properties = list(
+    mdl_tbl   = S7_mdl_tbl,          # the fitted models (a registered vctrs type)
+    family    = S7::class_data.frame,
+    selection = S7::class_list,      # instruction slots the verbs fill
+    labels    = S7::class_list,
+    columns   = S7::class_list,
+    layout    = S7::class_list,
+    style     = S7::class_list
+  ),
+  validator   = function(self) { ... },   # invariants, checked on every change
+  constructor = function(object, ...) { ... }  # the gate
+)
+```
+
+Three things are doing work here, and each earns its keep.
+
+### 1. Properties are typed slots
+
+Each `list()` slot became a **property** with a declared type. `S7::class_list`,
+`S7::class_data.frame`, `S7::class_integer`, and `S7::class_any` are the
+built-in type descriptors; a property typed this way rejects a value of the
+wrong type at assignment. The type descriptors are ordinary values, so you can
+name your own — which is how a *vctrs* type joins in (next section).
+
+### 2. The validator runs on **every** modification — the headline win
+
+This is the benefit that justified the whole migration. A validator returns
+`NULL` (or `character(0)`) when the object is valid, or one string per
+violation. Crucially, S7 runs it **on construction and again on every property
+assignment**. `epigram`'s spec validator is:
+
+```{r}
+#| label: validator
+#| eval: false
+validator = function(self) {
+  msg <- character()
+  preset <- self@layout$preset
+  if (length(preset) &&
+      !preset %in% c("adjustment", "levels", "interaction")) {
+    msg <- c(msg, sprintf("@layout$preset must be ... not \"%s\"", preset))
+  }
+  d <- self@style$digits
+  if (!is.null(d) && (!is.numeric(d) || length(d) != 1 || d < 0)) {
+    msg <- c(msg, "@style$digits must be a single non-negative number or NULL")
+  }
+  # ... row_groups, selection names ...
+  msg
+}
+```
+
+With the old bare list, the spec's invariants were re-checked by hand inside
+each verb, and a bad *direct* assignment could sail through and only blow up at
+render. Now the object cannot enter an invalid state at all:
+
+```{r}
+#| label: validator-demo
+spec <-
+  fmls(mpg ~ .x(wt) + hp, pattern = "sequential") |>
+  fit(.fn = lm, data = mtcars, raw = FALSE) |>
+  model_table(data = mtcars) |>
+  mdl_gt()
+
+# A nonsense layout is rejected the instant it is assigned
+tryCatch(
+  spec@layout$preset <- "banana",
+  error = function(e) conditionMessage(e)
+)
+
+# So is a negative digit count
+tryCatch(
+  spec@style$digits <- -1,
+  error = function(e) conditionMessage(e)
+)
+```
+
+The verbs still validate their arguments for *friendly* messages; the validator
+is the backstop that makes the guarantee total.
+
+### 3. The constructor is the gate (and a sharp edge)
+
+`mdl_gt(mt)` does real work before an object exists: keep only the fitted rows,
+verify the table is one model family on one link and one presentable analysis,
+stamp on the verified family table. That logic lives in a custom `constructor`.
+
+One rule tripped the migration and is worth stating plainly:
+
+> **S7 requires the literal `new_object()` call to appear in the constructor's
+> own body.** It cannot be hidden inside a helper the constructor calls.
+
+The first attempt delegated everything to a builder that ended in
+`new_object()`, and S7 rejected it: *"`constructor` must contain a call to
+`new_object()`."* The fix is to let the builder return the finished *property
+values* and have the constructor make the `new_object()` call itself:
+
+```{r}
+#| label: constructor
+#| eval: false
+constructor = function(object, ...) {
+  v <- build_mdl_gt(object, ...)   # all the gate logic; returns a named list
+  new_object(
+    S7_object(),
+    mdl_tbl = v$mdl_tbl, family = v$family, selection = v$selection,
+    labels = v$labels, columns = v$columns, layout = v$layout, style = v$style
+  )
+}
+```
+
+`new_object()`'s first argument is the parent instance (`S7_object()` for a
+class with no S7 parent); the rest are the property values.
+
+## Reading and writing properties: `@`, never `$`
+
+S7 properties come off with `@`. On an S7 object, `$` is **not** property
+access — and, gratifyingly, it does not silently return `NULL`; it errors:
+
+```{r}
+#| label: at-vs-dollar
+spec@layout$preset            # `@` gets the property; then `$` indexes the list
+
+tryCatch(spec$layout, error = function(e) conditionMessage(e))
+```
+
+That loud failure is a migration ally. Porting the codebase meant changing
+`x$layout` to `x@layout` in a dozen files; every site that was missed failed
+immediately at test time instead of hiding. (Note the two operators compose:
+`spec@layout` gets the *list-valued property*, and `$preset` then indexes into
+that plain list.)
+
+Assignment goes back the same way and, as shown above, re-validates:
+
+```{r}
+#| label: at-assign
+spec@layout$preset <- "levels"
+spec@layout$preset
+```
+
+## Value semantics come for free
+
+S7 objects are ordinary R values — copy-on-modify. The `epigram` verbs
+(`select_terms()`, `modify_style()`, …) each return a modified copy and never
+mutate their input, which is exactly the lazy, composable contract the table
+grammar wants:
+
+```{r}
+#| label: value-semantics
+refined <- spec |>
+  select_terms(~ wt) |>
+  modify_style(digits = 4)
+
+spec@style$digits      # the original spec is untouched (still unset)
+refined@style$digits   # only the returned copy carries the instruction
+```
+
+## Generics and methods
+
+`epigram` uses all three ways S7 interacts with generics. Each is a small, real
+example.
+
+### An S7 generic of your own: `as_gt()`
+
+`as_gt()` was an S3 generic (`UseMethod`); it became an S7 generic
+(in `R/table-render.R`):
+
+```{r}
+#| label: s7-generic
+#| eval: false
+as_gt <- S7::new_generic("as_gt", "x")
+
+method(as_gt, mdl_gt) <- function(x, ...) {
+  render_cell_frame(mdl_gt_frame(x), x)
+}
+```
+
+`new_generic("as_gt", "x")` declares a generic dispatching on its first
+argument; `method(generic, class) <- fn` registers a method.
+
+### A method on a *base* generic: `print()` / `format()`
+
+`print()` and `format()` are base S3 generics. The idiomatic S7 route is to
+register methods on them rather than writing `print.mdl_gt`:
+
+```{r}
+#| label: base-method
+#| eval: false
+method(print,  mdl_gt) <- function(x, ...) { cat(format(x, ...), sep = "\n"); invisible(x) }
+method(format, mdl_gt) <- function(x, ...) { ... }
+```
+
+```{r}
+#| label: print-demo
+spec   # dispatches to the S7 `format` + `print` methods
+```
+
+### An S7 method on someone else's *S3* generic: `adjustment_sets()`
+
+`adjustment_sets()` is `epigram`'s own S3 generic, and it must keep dispatching on
+the vctrs `mdl_tbl`. To make the S7 `<mdl_gt>` join that same dispatch, register
+an S7 *method* on the existing S3 generic:
+
+```{r}
+#| label: s7-on-s3
+#| eval: false
+method(adjustment_sets, mdl_gt) <- function(x, ...) {
+  adjustment_sets(x@mdl_tbl, ...)
+}
+```
+
+This works because S7 knows how to slot a method into S3 dispatch — but only
+once you understand the namespacing wrinkle below.
+
+## Interop: three things that will bite, and their fixes
+
+Adopting S7 inside a package that already uses S3 and `inherits()` runs into a
+handful of realities. `epigram` hit all of them; here is the map.
+
+### 1. In a package, an S7 class is **namespaced**
+
+Define a class inside a package and its class string is `pkg::ClassName`, not
+the bare name:
+
+```{r}
+#| label: namespacing
+class(spec)
+inherits(spec, "mdl_gt")        # FALSE! the class is "epigram::mdl_gt"
+inherits(spec, mdl_gt)          # TRUE — pass the class *object*, not a string
+S7::S7_inherits(spec, mdl_gt)   # TRUE — the explicit S7 predicate
+```
+
+This happens whether or not you pass `package =` to `new_class()` — S7 infers
+the package from where the class is defined. It has two consequences a mixed
+codebase must handle:
+
+- **`inherits(x, "mdl_gt")` string checks stop matching.** `epigram` validates
+  types through one helper, `validate_class()`, so the fix lived in one place:
+  compare against the object's class names with any `pkg::` prefix stripped.
+
+  ```{r}
+  #| label: validate-class
+  #| eval: false
+  bareClasses <- sub("^[^:]*::", "", class(x))   # "epigram::mdl_gt" -> "mdl_gt"
+  if (!inherits(x, what) && !any(what %in% bareClasses)) stop(...)
+  ```
+
+- **S3 dispatch on the bare name stops finding the method.** A plain
+  `adjustment_sets.mdl_gt` is never called, because dispatch sees
+  `epigram::mdl_gt`. That is *why* `adjustment_sets` needed the S7-method
+  treatment above rather than a plain S3 method — S7 registers it under the
+  namespaced class so dispatch resolves.
+
+- **In tests**, `expect_s3_class(x, "mdl_gt")` fails for the same reason. Use
+  the class object instead: `expect_true(S7::S7_inherits(x, mdl_gt))`.
+
+### 2. Methods must be *registered* at load: `methods_register()`
+
+S7 methods — including those on base and foreign S3 generics — are wired into
+dispatch by a single call in `.onLoad()` (in `R/zzz.R`):
+
+```{r}
+#| label: onload
+#| eval: false
+.onLoad <- function(libname, pkgname) {
+  # ...
+  S7::methods_register()
+}
+```
+
+Because of this, S7 methods need **no** `@export` and no `S3method()` entry in
+`NAMESPACE`; only the *classes* and *generics* are exported. Omitting `@export`
+on the `method(...)` calls (and letting `methods_register()` do the wiring) is
+what keeps the `NAMESPACE` free of broken `S3method(print, mdl_gt)` lines
+pointing at a `print.mdl_gt` that no longer exists.
+
+### 3. Cross-file class references need `@include` (collation order)
+
+`method(as_gt, mdl_gt) <-` in `table-render.R` mentions the `mdl_gt` *class
+object*, which is created in `table-spec.R`. R sources files alphabetically by
+default, and `table-render.R` sorts before `table-spec.R` — so at load the
+class would not exist yet. An `@include` tag makes roxygen2 emit a `Collate:`
+order that puts the definition first:
+
+```{r}
+#| label: include
+#| eval: false
+#' @include table-spec.R
+#' @export
+as_gt <- S7::new_generic("as_gt", "x")
+```
+
+Only files that reference a class **object** at load time need this; files that
+merely mention `"mdl_gt"` as a *string* (e.g. `validate_class(x, "mdl_gt")`)
+resolve at call time and need nothing.
+
+## Registering a vctrs type so S7 can name it
+
+The `mdl_tbl` property is typed by the vctrs `mdl_tbl` class. You register an S3
+(or vctrs) class as an S7 type descriptor with `new_S3_class()` — *registering,
+not converting*; `mdl_tbl` stays a full vctrs vector:
+
+```{r}
+#| label: register-vctrs
+#| eval: false
+S7_mdl_tbl <- S7::new_S3_class("mdl_tbl")
+# ... then, in the class:  properties = list(mdl_tbl = S7_mdl_tbl, ...)
+```
+
+Now constructing a spec type-checks that what arrives really is a `mdl_tbl`, and
+an S7 generic could dispatch on `mdl_tbl` the same way it dispatches on
+`mdl_gt` — the two class systems referring to each other cleanly, each keeping
+what it is good at.
+
+## Two ends of the S7 spectrum
+
+Not every S7 class needs the full apparatus. `epigram`'s second S7 class,
+`mdl_gt_selection` (the resolved output of the selection resolver), is a *plain
+value* — all typed properties, no behavior:
+
+```{r}
+#| label: selection-class
+#| eval: false
+mdl_gt_selection <- S7::new_class(
+  "mdl_gt_selection",
+  properties = list(
+    models           = S7_mdl_tbl,
+    adjustment_index = S7::class_integer,
+    terms            = S7::class_data.frame,
+    term_keys        = S7::class_any,   # NULL or a character vector
+    labels           = S7::class_list
+  )
+)
+```
+
+No custom constructor (S7 generates one from the properties), no validator (no
+cross-field invariant to guard). It earns its keep simply by letting the
+resolver return one **self-documenting, type-checked** object instead of a bare
+list. Put next to `mdl_gt`, it shows the range: reach for a validator and a
+custom constructor only when there is a gate to guard or an invariant to keep.
+
+## Adoption checklist
+
+Everything above, as a sequence for the next class:
+
+1. **Decide it's an object, not a vector.** If you want `c()`, `[i]`, casting,
+   or pillar columns, it is a vctrs type — stop here.
+2. `Imports: S7` in `DESCRIPTION`; `S7::methods_register()` in `.onLoad()`.
+3. `new_class()` with typed `properties`; add a `validator` for real
+   invariants and a `constructor` only if construction is more than filling
+   slots (and put `new_object()` in the constructor's own body).
+4. Register any vctrs/S3 types you reference with `new_S3_class()`.
+5. Generics with `new_generic()`; methods with `method(gen, cls) <- fn` —
+   including on base and foreign S3 generics. Export classes and generics;
+   **not** methods.
+6. Add `@include` wherever one file names another's class object at load.
+7. Read properties with `@`; expect a namespaced `pkg::Class`, so test with
+   `S7_inherits()` and make any `inherits(x, "name")` string checks
+   prefix-tolerant.
+
+The reward: typed slots, invariants enforced on every change, clean dispatch,
+and value semantics — an *object* layer that composes naturally on top of the
+*vector* layer vctrs already gives you.
 ```

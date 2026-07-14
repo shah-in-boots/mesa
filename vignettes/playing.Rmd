@@ -15,10 +15,10 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-library(mesa)
+library(epigram)
 ```
 
-The feeling `{mesa}` is meant to give is *fluidity* — picking terms up off a
+The feeling `{epigram}` is meant to give is *fluidity* — picking terms up off a
 dataset and playing with the modeling: swap strata, add a random effect,
 subset the data, roll an interaction through, and watch the family of models
 unfold. This vignette covers the fluent verb layer that makes that possible,
@@ -110,7 +110,7 @@ f3
 
 Random (hierarchical) grouping is a role like any other — `.r()` — and it
 composes, prints, and rebuilds into the `(1 | term)` syntax mixed-model
-engines expect. `{mesa}` also parses that native `lme4` syntax directly, so
+engines expect. `{epigram}` also parses that native `lme4` syntax directly, so
 both spellings land on the same term:
 
 ```{r}

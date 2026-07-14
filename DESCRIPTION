@@ -1,5 +1,5 @@
-Package: mesa
-Title: Modeling Epidemiology Studies and Analyses
+Package: epigram
+Title: Epidemiology Grammar for Models
 Version: 0.0.0.9000
 Authors@R: 
     person(given = "Anish S.",
@@ -35,6 +35,7 @@ Imports:
     generics,
     lifecycle,
     methods,
+    S7,
     dplyr,
     broom,
     tidyr,
@@ -58,7 +59,31 @@ Suggests:
     tidycmprsk,
     quarto
 VignetteBuilder: knitr, quarto
-URL: https://shah-in-boots.github.io/mesa/, https://github.com/shah-in-boots/mesa
-BugReports: https://github.com/shah-in-boots/mesa/issues
+URL: https://shah-in-boots.github.io/epigram/, https://github.com/shah-in-boots/epigram
+BugReports: https://github.com/shah-in-boots/epigram/issues
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
+Collate: 
+    'data.R'
+    'epigram-package.R'
+    'family.R'
+    'fit.R'
+    'fluency.R'
+    'formulas.R'
+    'gt.R'
+    'interaction.R'
+    'table-spec.R'
+    'model-table-helpers.R'
+    'model-table.R'
+    'models.R'
+    'patterns.R'
+    'table-columns.R'
+    'table-presets.R'
+    'table-realize.R'
+    'table-render.R'
+    'table-selection.R'
+    'terms.R'
+    'utils.R'
+    'validation.R'
+    'vocabulary.R'
+    'zzz.R'

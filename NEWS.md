@@ -1,6 +1,6 @@
-# mesa (developmental version)
+# epigram (developmental version)
 
-This development cycle works through Milestones 0–7 of [blueprint.md](https://github.com/shah-in-boots/mesa/blob/main/blueprint.md), rebuilding the term, formula, fitting, collection, and table layers so the package feels fluid to play with, and documenting the result. Design decisions are recorded in `DESIGN.md`.
+This development cycle works through Milestones 0–7 of [blueprint.md](https://github.com/shah-in-boots/epigram/blob/main/blueprint.md), rebuilding the term, formula, fitting, collection, and table layers so the package feels fluid to play with, and documenting the result. Design decisions are recorded in `DESIGN.md`.
 
 ## Telling the story (Milestone 7)
 
@@ -20,7 +20,7 @@ This development cycle works through Milestones 0–7 of [blueprint.md](https://
 
 * Internal cleanup ahead of release, with no behavior change: the statistics vocabulary (known names, aliases, default headers) now lives in one registry instead of five hand-kept lists; `table-render.R` split along its own stage seams into `table-realize.R` / `table-presets.R` / `table-render.R`, with the interaction-vs-standard layout fork unified into one dispatch function — the cell-frame snapshot tests are the proof
 
-* `identify_family()` recovers the family structure of a `fmls` object from its causal roles — one row per formula, with the family id, its *pattern* (`sequential`, `parallel`, `mediation`, `direct`), and the *relation* between families that share an adjustment ladder (`varied exposures`, the wide-table shape; `varied outcomes`); a mediation triad binds into one family across its outcome boundaries, and supplying `data` stamps stratifying terms with their observed levels
+* Every `mdl_tbl` now carries its family structure as three columns — `family` (the id grouping rows into one analysis), `pattern` (`sequential`, `parallel`, `mediation`, `direct`), and `relation` (`varied exposures`, the wide-table shape; `varied outcomes`) — recovered from the formulas' causal roles. They are derived, not supplied: recomputed automatically whenever the table is built or reshaped, so a subset that dissolves a `varied exposures` relation or renumbers the families is always reflected. A mediation triad binds into one family across its outcome boundaries. `keep_families()` pares by them; the standalone `identify_family()` function is gone (the identification is now an internal detail of the model table)
 
 * **Breaking**: `fit_plan()` is renamed `plan_fit()` — the old name read as a fitting function; the new one says what it does, plan the fit (pre-release, so no deprecation cycle)
 
@@ -88,7 +88,7 @@ This development cycle works through Milestones 0–7 of [blueprint.md](https://
 
 * Printing a `fmls` now leads with a deck summary: formula count, outcomes, exposures, strata (with levels), random effects, and subsets
 
-* Term and formula printing now uses `cli` named ANSI colors by role, with `mesa.color` for user control
+* Term and formula printing now uses `cli` named ANSI colors by role, with `epigram.color` for user control
 
 ## Fixes
 
@@ -110,7 +110,7 @@ This development cycle works through Milestones 0–7 of [blueprint.md](https://
 
 * Author-only tests against private datasets moved to `tests/manual/`; R CMD check runs clean
 
-* Renamed package from `{rmdl}` to `{mesa}`.
+* Renamed package from `{rmdl}` to `{mesa}`, and now from `{mesa}` to `{epigram}`.
 
 * Remove additional imports, e.g. `{janitor}`, with bespoke function rewrites, to help decrease dependency burden
 

@@ -28,14 +28,17 @@
 #' @return A `gt_tbl` object.
 #'
 #' @seealso [mdl_gt()]
+#'
+#' @include table-spec.R
 #' @export
-as_gt <- function(x, ...) {
-	UseMethod("as_gt")
-}
+as_gt <- S7::new_generic("as_gt", "x")
 
-#' @rdname as_gt
-#' @export
-as_gt.mdl_gt <- function(x, ...) {
+# The method registers against the `mdl_gt` *class object*, which lives in
+# table-spec.R -- hence the `@include` above, so collation defines the class
+# before this file loads. The method is registered at load by
+# `S7::methods_register()` (see zzz.R); it needs no NAMESPACE entry, so no
+# `@export`.
+method(as_gt, mdl_gt) <- function(x, ...) {
 	render_cell_frame(mdl_gt_frame(x), x)
 }
 
@@ -55,7 +58,7 @@ as_gt.mdl_gt <- function(x, ...) {
 #' @noRd
 render_cell_frame <- function(frame, spec) {
 
-	missing_text <- first_of(spec$style$missing_text, "")
+	missing_text <- first_of(spec@style$missing_text, "")
 
 	# Row order: groups by first appearance, rows by their index within the
 	# group; reserved rows (`.`-prefixed keys, contributed by column blocks)
@@ -161,7 +164,7 @@ render_cell_frame <- function(frame, spec) {
 	# Stub indentation: under the adjustment preset, the rows beyond the first
 	# of each group step in (the old `tbl_beta` look -- the crude model flush,
 	# the adjusted models indented)
-	if (identical(spec$layout$preset, "adjustment")) {
+	if (identical(spec@layout$preset, "adjustment")) {
 		indent <- which(!reserved &
 											stats::ave(seq_len(nrow(rows)), rows$row_group,
 																 FUN = seq_along) > 1)
@@ -172,11 +175,11 @@ render_cell_frame <- function(frame, spec) {
 
 	gtbl <- apply_group_scoped(gtbl, gsPlacements)
 	gtbl <- render_plot_columns(gtbl, frame, rows, reserved)
-	gtbl <- apply_accents(gtbl, frame, rows, spec$style$accents)
+	gtbl <- apply_accents(gtbl, frame, rows, spec@style$accents)
 
 	# Vertical padding: `modify_style(padding =)` wins; a table with plot
 	# columns defaults to the dense zero-padding canvas they need
-	padding <- spec$style$padding
+	padding <- spec@style$padding
 	if (is.null(padding) && any(frame$type == "plot")) {
 		padding <- 0
 	}

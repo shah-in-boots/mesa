@@ -37,7 +37,7 @@ test_that("column verbs append blocks; a repeat replaces with a message", {
 	m <- mdl_gt(columns_table())
 
 	m2 <- m |> add_estimates(columns = list(beta ~ "B")) |> add_n()
-	types <- vapply(m2$columns, function(b) b$type, character(1))
+	types <- vapply(m2@columns, function(b) b$type, character(1))
 	expect_equal(types, c("estimates", "n"))
 
 	# Replacement keeps the block's position and wins
@@ -45,9 +45,9 @@ test_that("column verbs append blocks; a repeat replaces with a message", {
 		m3 <- add_estimates(m2, columns = list(beta ~ "Coef", p ~ "P")),
 		"replaces the earlier estimates"
 	)
-	types3 <- vapply(m3$columns, function(b) b$type, character(1))
+	types3 <- vapply(m3@columns, function(b) b$type, character(1))
 	expect_equal(types3, c("estimates", "n"))
-	expect_equal(names(m3$columns[[1]]$statistics), c("beta", "p"))
+	expect_equal(names(m3@columns[[1]]$statistics), c("beta", "p"))
 
 	expect_message(add_n(m2, label = "Obs"), "replaces the earlier n")
 })
@@ -159,7 +159,7 @@ test_that("modify_labels(columns=) errors at realization on an unknown column", 
 	m <-
 		columns_table() |> mdl_gt() |>
 		modify_labels(columns = list(betaa ~ "HR"))
-	expect_s3_class(m, "mdl_gt")
+	expect_true(S7::S7_inherits(m, mdl_gt))
 	expect_error(as_gt(m), "not on the mesa")
 
 	# Naming a real statistic that simply is not on this mesa also errors
@@ -259,7 +259,7 @@ test_that("add_events() and add_rate_difference() validate at verb time", {
 
 	# Blocks record and a repeat replaces with a message, like every verb
 	m2 <- m |> add_events(followup = time) |> add_rate_difference()
-	types <- vapply(m2$columns, function(b) b$type, character(1))
+	types <- vapply(m2@columns, function(b) b$type, character(1))
 	expect_equal(types, c("events", "rate_difference"))
 	expect_message(add_events(m2, followup = "time", person_years = 1000),
 								 "replaces the earlier events")
@@ -534,7 +534,7 @@ test_that("add_interaction() implies the interaction layout (M6.12)", {
 		implied <- mt |> mdl_gt() |> add_interaction(),
 		"sets the layout to the `interaction` preset"
 	)
-	expect_equal(implied$layout$preset, "interaction")
+	expect_equal(implied@layout$preset, "interaction")
 	expect_no_error(implied |> add_n() |> add_estimates() |> as_gt())
 
 	# Calling it again (layout already `interaction`) is silent about the layout
@@ -732,7 +732,7 @@ test_that("the interaction layout narrows to one outcome × exposure", {
 	expect_s3_class(g, "gt_tbl")
 
 	# The retired monolith is gone
-	expect_false("tbl_interaction_forest" %in% getNamespaceExports("mesa"))
+	expect_false("tbl_interaction_forest" %in% getNamespaceExports("epigram"))
 })
 
 
@@ -768,7 +768,7 @@ test_that("add_forest() validates at verb time and records like every verb", {
 	expect_error(add_forest(m, invert = NA), "`invert`")
 
 	m2 <- add_forest(m, axis = list(log = TRUE))
-	types <- vapply(m2$columns, function(b) b$type, character(1))
+	types <- vapply(m2@columns, function(b) b$type, character(1))
 	expect_equal(types, "forest")
 	expect_message(add_forest(m2, width = 200), "replaces the earlier forest")
 

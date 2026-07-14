@@ -40,7 +40,7 @@ side} is the instruction: \code{"bold"}, \code{"italic"}, or a text color (any
 color name or hex value); several may be combined
 (\code{p < 0.05 ~ c("bold", "italic")}). A criterion is evaluated once per
 term-level within each row, against all of that context's statistics, and
-accents every cell of the context — so \code{p < 0.05 ~ "bold"} bolds both the
+accents every cell of the context -- so \code{p < 0.05 ~ "bold"} bolds both the
 estimate and the p-value it belongs to. The recognized statistic names
 are \code{estimate} (alias \code{beta}), \code{conf_low}, \code{conf_high}, \code{p} (alias
 \code{p_value}), \code{n}, \code{events}, \code{rate}, and \code{rate_difference}.
@@ -51,12 +51,12 @@ rule.
 estimates a model did not produce). The default is an empty cell.
 \item \code{padding} scales the table's vertical row padding (as
 \code{\link[gt:opt_vertical_padding]{gt::opt_vertical_padding()}} does). A table carrying a forest column
-defaults to \code{0} — the dense canvas its plot cells need to read as one —
+defaults to \code{0} -- the dense canvas its plot cells need to read as one --
 and this overrides that default.
 }
 
 Like every verb, \code{modify_style()} merges: naming \code{digits} again after an
-earlier \code{accents} call replaces only \code{digits}, with a message naming it —
+earlier \code{accents} call replaces only \code{digits}, with a message naming it --
 the accents already recorded stand. Each of \code{accents}, \code{digits},
 \code{missing_text}, and \code{padding} replaces only itself.
 }

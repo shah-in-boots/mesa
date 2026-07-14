@@ -185,5 +185,5 @@ test_that("the retired monoliths are gone", {
 
 	expect_false(any(c("tbl_beta", "tbl_dichotomous_hazard",
 										 "tbl_categorical_hazard")
-									 %in% getNamespaceExports("mesa")))
+									 %in% getNamespaceExports("epigram")))
 })

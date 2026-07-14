@@ -14,10 +14,11 @@ test_that("construction validates its inputs (issue #46)", {
 	expect_error(model_table(rawFit), regexp = "raw = FALSE")
 	expect_error(model_table(list(rawFit)), regexp = "`lm` object")
 
-	# Every construction is validated against the invariant columns
+	# Every construction is validated against the invariant columns, then the
+	# derived family columns are stamped on after them
 	x <- fit(fmls(mpg ~ wt), .fn = lm, data = mtcars, raw = FALSE)
 	m <- model_table(x)
-	expect_named(m, model_table_columns())
+	expect_named(m, c(model_table_columns(), "family", "pattern", "relation"))
 	expect_error(
 		new_model_table(list(id = "a")),
 		regexp = "invariant column"
@@ -68,7 +69,7 @@ test_that("can handle list of models appropriately", {
 	expect_s3_class(z, "mdl_tbl")
 	expect_output(print(z), "<model_table>")
 	expect_equal(nrow(z), 3)
-	expect_length(z, 16)
+	expect_length(z, 19)
 	expect_length(attr(z, "termTable")$term, 7)
 	expect_length(unique(attr(z, "termTable")$term), 6)
 	expect_length(attr(z, "formulaMatrix"), 6)
@@ -307,7 +308,7 @@ test_that("attributes of models will adjust appropriately", {
 		fmls(mpg ~ wt + hp + cyl + .s(am), pattern = "sequential") |>
 		fit(.fn = lm, data = mtcars, raw = FALSE) |>
 		model_table()
-	expect_length(m1, 16)
+	expect_length(m1, 19)
 	expect_equal(nrow(m1), 6)
 	# Four modeling terms plus the ridden-along stratum column
 	expect_length(attr(m1, "formulaMatrix"), 5)

@@ -22,7 +22,7 @@ test_that("formula formatting passes color options to terms", {
 
 	old <- options(
 		cli.num_colors = 256,
-		mesa.color = TRUE
+		epigram.color = TRUE
 	)
 	on.exit(options(old), add = TRUE)
 

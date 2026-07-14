@@ -156,7 +156,7 @@ Further implementation details can be seen in the implementation of
 
 
 Term printing uses ANSI colors from \code{cli}, so the user's console or IDE theme
-chooses how each named color appears. Set \code{options(mesa.color = FALSE)} to
+chooses how each named color appears. Set \code{options(epigram.color = FALSE)} to
 disable colors.
 }
 

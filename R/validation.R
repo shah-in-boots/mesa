@@ -5,7 +5,13 @@
 #' @keywords internal
 #' @noRd
 validate_class <- function(x, what) {
-	if (!inherits(x, what)) {
+	# An S7 class defined inside a package reports as `pkg::Class` (e.g.
+	# `epigram::mdl_gt`), which base `inherits(x, "mdl_gt")` will not match against
+	# the bare name. Comparing against the object's class names with any `pkg::`
+	# prefix stripped lets `validate_class(spec, "mdl_gt")` recognize the S7 spec
+	# without every call site having to know it is S7. (See `vignette("s7")`.)
+	bareClasses <- sub("^[^:]*::", "", class(x))
+	if (!inherits(x, what) && !any(what %in% bareClasses)) {
 		stop(
 			deparse(substitute(x)),
 			" needs to inherit from `",
@@ -69,4 +75,3 @@ validate_scalar <- function(x, name, type = "numeric", min = NULL, max = NULL,
 	}
 	invisible(TRUE)
 }
-

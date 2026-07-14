@@ -20,6 +20,32 @@
 # their rows align on the mesa by the covariates themselves rather than by
 # position (`adjustment_sets()` displays the mapping).
 
+#' The resolved `<mdl_gt>` selection
+#'
+#' A plain data record produced by [resolve_selection()] and read by the
+#' realizers. It sits at the opposite end of the S7 spectrum from `<mdl_gt>`:
+#' where the spec is a rich object (custom constructor, validator, verbs), this
+#' is a *value* -- all typed properties, no behavior. It earns its S7 keep by
+#' letting `resolve_selection()` return one self-documenting, type-checked
+#' object instead of a bare list, and it needs neither a hand-written
+#' constructor nor a validator: S7 generates the constructor from the
+#' properties, and there are no cross-field invariants to guard.
+#' @include table-spec.R
+#' @keywords internal
+#' @noRd
+mdl_gt_selection <- S7::new_class(
+	"mdl_gt_selection",
+	package = "epigram",
+	properties = list(
+		models           = S7_mdl_tbl,
+		adjustment_index = S7::class_integer,
+		terms            = S7::class_data.frame,
+		# `NULL` when no terms were requested, else a character vector of keys
+		term_keys        = S7::class_any,
+		labels           = S7::class_list
+	)
+)
+
 #' Normalize a selection input to a named list
 #'
 #' Accepts the documented labeled-formula inputs (a `formula`, a `list` of
@@ -47,7 +73,7 @@ selection_input <- function(x) {
 #' @keywords internal
 adjustment_set_index <- function(x) {
 
-	fam <- identify_family(model_table_formulas(x))
+	fam <- identify_families(model_table_formulas(x))
 	if (nrow(fam) == 0) {
 		return(integer())
 	}
@@ -228,18 +254,17 @@ resolve_selection <- function(x,
 
 	models <- x[keep, , drop = FALSE]
 
-	structure(
-		list(
-			models = models,
-			adjustment_index = adjIdx[keep],
-			terms = resolvedTerms,
-			term_keys = termKeys,
-			labels = list(
-				terms = tmSel,
-				adjustment = adjSel
-			)
-		),
-		class = "mdl_gt_selection"
+	# S7 generates this constructor from the properties above; it type-checks
+	# each slot as it builds (`models` really is a `mdl_tbl`, and so on).
+	mdl_gt_selection(
+		models = models,
+		adjustment_index = adjIdx[keep],
+		terms = resolvedTerms,
+		term_keys = termKeys,
+		labels = list(
+			terms = tmSel,
+			adjustment = adjSel
+		)
 	)
 }
 

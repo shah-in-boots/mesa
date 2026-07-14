@@ -3,7 +3,7 @@
 # The table grammar is composition-first: `mdl_gt()` lifts a fitted `mdl_tbl`
 # onto a declarative specification, small pipeable verbs refine it, and
 # `as_gt()` (in table-render.R) realizes it. The spec carries *instructions*,
-# not results — selection, labels, column blocks, layout, and style — so verbs
+# not results -- selection, labels, column blocks, layout, and style -- so verbs
 # compose in any order and resolution is deferred to realization. This is the
 # same lazy contract a `{ggplot2}` plot is grown under (with the pipe, not `+`).
 #
@@ -13,18 +13,28 @@
 # verbs live in table-columns.R (M6.4/6.5); the cell-frame renderer lives in
 # table-render.R (M6.6).
 
+# `mdl_tbl` is a vctrs vector type and stays one; this registers it as an S3
+# class *object* so S7 can name it -- as the type of the spec's `mdl_tbl`
+# property below, and (in principle) as a dispatch class for S7 generics.
+# Registering, not converting: the two class systems refer to each other, and
+# `mdl_tbl` keeps all its vctrs vectorization. See `vignette("s7")`.
+#' @keywords internal
+#' @noRd
+S7_mdl_tbl <- S7::new_S3_class("mdl_tbl")
+
 #' The `<mdl_gt>` table specification
 #'
 #' @description
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' `mdl_gt()` lays a collection of fitted models out on the *mesa* — the table
-#' upon which the models are displayed — as a declarative specification. The
+#' `mdl_gt()` lays a collection of fitted models out on the *mesa* -- the table
+#' upon which the models are displayed -- as a declarative specification. The
 #' division of labor with [model_table()] is deliberate: **which models sit on
 #' the mesa is decided on the `mdl_tbl`**, with ordinary `dplyr` verbs over its
 #' provenance columns (`outcome`, `exposure`, `strata`, ...) and the family
-#' columns [identify_family()] stamps on — pare, print, verify. `mdl_gt()`
+#' columns (`family`, `pattern`, `relation`) the table carries -- pare, print,
+#' verify. `mdl_gt()`
 #' is then the gate: it verifies what arrives is *one presentable analysis*
 #' (see Details) and takes no selection arguments, putting everything fitted
 #' on the mesa with default labels drawn from the term table and the attached
@@ -32,7 +42,7 @@
 #' pipeable verbs, exactly the way a `{ggplot2}` plot is grown:
 #'
 #' - `select_adjustment()` chooses which rungs of the adjustment ladder are
-#'   displayed (e.g. only the crude and fully adjusted rows —
+#'   displayed (e.g. only the crude and fully adjusted rows --
 #'   [adjustment_sets()] shows the rungs and the numbers they are selected
 #'   by), and `select_terms()` which terms' cells are shown;
 #' - the `add_*()` verbs append column blocks derived from the models and the
@@ -41,11 +51,11 @@
 #'   reselecting;
 #' - `as_gt()` renders the specification to a `{gt}` table (see [as_gt()]).
 #'
-#' Because the specification is declarative — the verbs record instructions and
-#' resolution happens only at [as_gt()]/`print()` — the verbs may arrive in any
+#' Because the specification is declarative -- the verbs record instructions and
+#' resolution happens only at [as_gt()]/`print()` -- the verbs may arrive in any
 #' order. **A verb replaces only what you name.** Repeating a verb with the
-#' same instruction — the same selection dimension, block type, style field,
-#' or label name — replaces just that instruction with a message, and leaves
+#' same instruction -- the same selection dimension, block type, style field,
+#' or label name -- replaces just that instruction with a message, and leaves
 #' everything else recorded on the specification standing (the `{ggplot2}`
 #' `labs()` merge behavior); calling a `select_*()` verb with no arguments
 #' clears that dimension, which is the way to undo an earlier selection. A
@@ -54,12 +64,12 @@
 #'
 #' @details
 #'
-#' The unit of a mesa is the **term × effect cell**: one term (or term level)
-#' crossed with one effect — an estimate, its interval, a p-value, an event
+#' The unit of a mesa is the **term x effect cell**: one term (or term level)
+#' crossed with one effect -- an estimate, its interval, a p-value, an event
 #' count, a rate, an observation count. The `add_*()` verbs append *column
 #' blocks*, groups of effects that travel together (an estimate with its CI
-#' and p), so blocks compose freely — adding, dropping, or reordering one
-#' never changes another's cells — and the layout presets place the same
+#' and p), so blocks compose freely -- adding, dropping, or reordering one
+#' never changes another's cells -- and the layout presets place the same
 #' cells wide (levels on columns) or long (levels on rows) without
 #' recomputing anything.
 #'
@@ -69,13 +79,13 @@
 #' or it errors; and more than one attached dataset is reported with a
 #' message.
 #'
-#' It then verifies the models form **one presentable analysis**, in
-#' [identify_family()]'s terms: a single formula family (an adjustment ladder,
+#' It then verifies the models form **one presentable analysis**, in the terms
+#' of the table's family columns: a single formula family (an adjustment ladder,
 #' a mediation triad, parallel adjustment sets, or a lone model), or several
-#' families bound by a shared relation — `varied exposures` or `varied
+#' families bound by a shared relation -- `varied exposures` or `varied
 #' outcomes` over one adjustment ladder, the wide-table shapes. Unrelated
-#' families error, pointing back at the `mdl_tbl`: stamp it with
-#' `identify_family()`, `dplyr::filter()` it down, and lay out one analysis at
+#' families error, pointing back at the `mdl_tbl`: read its `family` column,
+#' `dplyr::filter()` it down, and lay out one analysis at
 #' a time. See [model_table()] for the collection these are drawn from and
 #' [attach_data()] for supplying the data that categorical levels and
 #' data-derived statistics are read from.
@@ -84,16 +94,16 @@
 #'
 #' @param x A `<mdl_gt>` specification (for the verbs and `print()`)
 #'
-#' @param ... For `mdl_gt()`, unused — it deliberately takes no selection
+#' @param ... For `mdl_gt()`, unused -- it deliberately takes no selection
 #'   arguments, and an unused argument errors; for the selection verbs,
 #'   labeled-formula selection input (a `formula`, a `list` of formulas, or a
-#'   `character` vector — see [labeled_formulas_to_named_list()]), or nothing
+#'   `character` vector -- see [labeled_formulas_to_named_list()]), or nothing
 #'   at all to clear that dimension's selection; for `print()`, unused
 #'
 #' @return `mdl_gt()` and the verbs return a `<mdl_gt>` specification object.
 #'
 #' @examples
-#' # The "adjustment" chain — adjustment sets on rows, outcomes as row
+#' # The "adjustment" chain -- adjustment sets on rows, outcomes as row
 #' # groups, a statistic block per term (the retired `tbl_beta()` shape)
 #' d <- mtcars
 #' d$cyl <- factor(d$cyl)
@@ -109,7 +119,7 @@
 #'   as_gt()
 #'
 #' @examplesIf requireNamespace("survival", quietly = TRUE)
-#' # The "levels" chain — event and rate rows over adjusted estimates, term
+#' # The "levels" chain -- event and rate rows over adjusted estimates, term
 #' # levels on columns (the retired hazard-table shape)
 #' lung <- survival::lung
 #' lung$sex <- factor(lung$sex, levels = 1:2, labels = c("Male", "Female"))
@@ -130,7 +140,94 @@
 #'
 #' @name mdl_gt
 #' @export
-mdl_gt <- function(object, ...) {
+mdl_gt <- S7::new_class(
+	"mdl_gt",
+	package = "epigram",
+	# Note this class reports itself as `epigram::mdl_gt`: S7 namespaces classes
+	# defined inside a package (whether or not `package =` is passed). So base
+	# `inherits(x, "mdl_gt")` and S3 dispatch on the bare name do *not* match it.
+	# epigram keeps its `inherits()`-based `validate_class()` and its S3
+	# `adjustment_sets()` generic working anyway -- the former strips the `pkg::`
+	# prefix before comparing, the latter gains the spec through an S7 *method*.
+	# See `vignette("s7")` for the full interop story.
+
+	# The spec's slots become *typed properties*. The vector types stay vctrs;
+	# `mdl_tbl` is named through its registered S3 shim (top of file), so a
+	# non-`mdl_tbl` can never be stored here. The instruction slots are the plain
+	# lists the verbs fill.
+	properties = list(
+		mdl_tbl   = S7_mdl_tbl,
+		family    = S7::class_data.frame,
+		selection = S7::class_list,
+		labels    = S7::class_list,
+		columns   = S7::class_list,
+		layout    = S7::class_list,
+		style     = S7::class_list
+	),
+
+	# The validator runs on construction *and* on every `@<-` modification, so
+	# the invariants the verbs must preserve are declared once here instead of
+	# being re-checked in each verb. A verb that drove the spec into a bad state
+	# -- `modify_layout()` with an unknown preset, a negative `digits` -- is
+	# caught the instant it assigns, not later at render. (Return `NULL`/an empty
+	# character vector when valid; one string per violation otherwise.)
+	validator = function(self) {
+		msg <- character()
+		preset <- self@layout$preset
+		if (length(preset) &&
+				!preset %in% c("adjustment", "levels", "interaction")) {
+			msg <- c(msg, sprintf(
+				paste0("@layout$preset must be \"adjustment\", \"levels\", or ",
+							 "\"interaction\", not \"%s\""),
+				preset
+			))
+		}
+		rg <- self@layout$row_groups
+		if (length(rg) && !rg %in% c("outcome", "strata")) {
+			msg <- c(msg, sprintf(
+				"@layout$row_groups must be \"outcome\" or \"strata\", not \"%s\"", rg
+			))
+		}
+		d <- self@style$digits
+		if (!is.null(d) &&
+				(!is.numeric(d) || length(d) != 1 || is.na(d) || d < 0)) {
+			msg <- c(msg, "@style$digits must be a single non-negative number or NULL")
+		}
+		if (length(self@selection) &&
+				!all(names(self@selection) %in% c("terms", "adjustment"))) {
+			msg <- c(msg, "@selection may only name `terms` and `adjustment`")
+		}
+		msg
+	},
+
+	# The constructor is the gate: `mdl_gt(mt)` runs every check a table must
+	# pass before it can be laid out. That verification is the bulk of the work,
+	# so it lives in `build_mdl_gt()`, which returns the finished property
+	# values; the constructor hands them to `new_object()`. S7 requires the
+	# `new_object()` call to appear in the constructor body itself, so it lives
+	# here rather than in the builder.
+	constructor = function(object, ...) {
+		v <- build_mdl_gt(object, ...)
+		new_object(
+			S7_object(),
+			mdl_tbl = v$mdl_tbl, family = v$family, selection = v$selection,
+			labels = v$labels, columns = v$columns, layout = v$layout,
+			style = v$style
+		)
+	}
+)
+
+#' Build and gate a `<mdl_gt>` specification
+#'
+#' The construction logic behind [mdl_gt()]: keep only the fitted rows, verify
+#' the table is one model family on one link and one presentable analysis (per
+#' its family columns), stamp the verified family table on the spec, and return
+#' the finished property values as a named list for the constructor to seal into
+#' the object. Kept apart from the class's `validator`, which guards the spec's
+#' internal invariants on every later modification.
+#' @keywords internal
+#' @noRd
+build_mdl_gt <- function(object, ...) {
 
 	validate_class(object, "mdl_tbl")
 
@@ -206,7 +303,7 @@ mdl_gt <- function(object, ...) {
 	# exposures / varied outcomes -- the wide-table shapes). Anything looser
 	# has no coherent layout, so it is turned back toward the model table's
 	# own verbs
-	fam <- identify_family(model_table_formulas(fitted))
+	fam <- identify_families(model_table_formulas(fitted))
 	famTab <- fam[!duplicated(fam$family),
 								c("family", "pattern", "relation", "outcome", "exposure"),
 								drop = FALSE]
@@ -227,9 +324,9 @@ mdl_gt <- function(object, ...) {
 				"related by varied exposures/outcomes over a shared adjustment ",
 				"ladder. This table holds unrelated families:\n  ",
 				paste(lines, collapse = "\n  "),
-				"\nPare the model table down first: `identify_family(x)` to ",
-				"look, then `keep_families(1)`, `keep_outcomes()`, or ",
-				"`keep_exposures()` to cut.",
+				"\nPare the model table down first: the `family`/`pattern`/`relation` ",
+				"columns show the structure, then `keep_families(1)`, ",
+				"`keep_outcomes()`, or `keep_exposures()` to cut.",
 				call. = FALSE
 			)
 		}
@@ -245,10 +342,10 @@ mdl_gt <- function(object, ...) {
 				"A `mdl_gt` holds one analysis, but these families share the ",
 				paste0("`", shared, "`", collapse = "/"),
 				" relation across ", length(unique(ladders)),
-				" different adjustment ladders — several analyses side by ",
+				" different adjustment ladders -- several analyses side by ",
 				"side. Pare the model table to one ladder first ",
-				"(`identify_family()` to look, `keep_families()` or `adjusting_for()` ",
-				"to cut).",
+				"(the `family`/`relation` columns show the structure; ",
+				"`keep_families()` or `adjusting_for()` to cut).",
 				call. = FALSE
 			)
 		}
@@ -259,18 +356,15 @@ mdl_gt <- function(object, ...) {
 	# presets), and style is unset until `modify_style()` records instructions
 	# (the renderer resolves fallbacks -- digits 2, missing text "", padding
 	# from the blocks -- at render, after any column block's own `digits`)
-	structure(
-		list(
-			mdl_tbl = fitted,
-			family = famTab,
-			selection = list(terms = NULL, adjustment = NULL),
-			labels = list(relabels = list(), columns = list()),
-			columns = list(),
-			layout = list(preset = "adjustment", row_groups = "outcome"),
-			style = list(accents = list(), digits = NULL, missing_text = NULL,
-									 padding = NULL)
-		),
-		class = "mdl_gt"
+	list(
+		mdl_tbl = fitted,
+		family = famTab,
+		selection = list(terms = NULL, adjustment = NULL),
+		labels = list(relabels = list(), columns = list()),
+		columns = list(),
+		layout = list(preset = "adjustment", row_groups = "outcome"),
+		style = list(accents = list(), digits = NULL, missing_text = NULL,
+								 padding = NULL)
 	)
 }
 
@@ -299,14 +393,17 @@ collect_labeled <- function(...) {
 
 #' Record a selection instruction, replacing any earlier one with a message.
 #' Calling the verb with no arguments records `NULL`, which clears the
-#' dimension — the documented way to undo an earlier `select_*()` call.
+#' dimension -- the documented way to undo an earlier `select_*()` call.
 #' @keywords internal
 #' @noRd
 record_selection <- function(x, dimension, input, verb) {
-	if (!is.null(x$selection[[dimension]])) {
+	if (!is.null(x@selection[[dimension]])) {
 		message("`", verb, "()` replaces the earlier ", dimension, " selection.")
 	}
-	x$selection[[dimension]] <- input
+	# `@<-` re-validates the whole spec (here: that `@selection` still names only
+	# the two dimensions). Assigning `NULL` clears the dimension, the documented
+	# undo -- base list semantics drop the element, and the validator is content.
+	x@selection[[dimension]] <- input
 	x
 }
 
@@ -341,14 +438,14 @@ select_adjustment <- function(x, ...) {
 #' - a bare level value relabels that **level** wherever it appears
 #'   (`0 ~ "Absent"`);
 #' - an outcome relabels its **row group** (`mpg ~ "Miles per gallon"`); a
-#'   name that is both a displayed term and an outcome — a mediator —
+#'   name that is both a displayed term and an outcome -- a mediator --
 #'   relabels both.
 #'
 #' Column (statistic) relabelings are supplied through `columns` and consumed
 #' by the column verbs. Like every verb, `modify_labels()` merges: naming a
 #' term, level, or column again replaces just that one label, with a message
-#' naming it, while every other label already recorded — from this call or an
-#' earlier one — stands (the `{ggplot2}` `labs()` merge behavior). So
+#' naming it, while every other label already recorded -- from this call or an
+#' earlier one -- stands (the `{ggplot2}` `labs()` merge behavior). So
 #' rethinking one label late never forces restating the rest.
 #'
 #' @param x A `<mdl_gt>` specification
@@ -370,26 +467,26 @@ modify_labels <- function(x, ..., columns = NULL) {
 
 	if (!is.null(relabels)) {
 		new <- labeled_formulas_to_named_list(relabels)
-		repeated <- intersect(names(new), names(x$labels$relabels))
+		repeated <- intersect(names(new), names(x@labels$relabels))
 		if (length(repeated) > 0) {
 			message(
 				"`modify_labels()` replaces the earlier label for ",
 				paste0("`", repeated, "`", collapse = ", "), "."
 			)
 		}
-		x$labels$relabels[names(new)] <- new
+		x@labels$relabels[names(new)] <- new
 	}
 
 	if (!is.null(columns)) {
 		new <- labeled_formulas_to_named_list(columns)
-		repeated <- intersect(names(new), names(x$labels$columns))
+		repeated <- intersect(names(new), names(x@labels$columns))
 		if (length(repeated) > 0) {
 			message(
 				"`modify_labels()` replaces the earlier column label for ",
 				paste0("`", repeated, "`", collapse = ", "), "."
 			)
 		}
-		x$labels$columns[names(new)] <- new
+		x@labels$columns[names(new)] <- new
 	}
 
 	x
@@ -401,8 +498,8 @@ modify_labels <- function(x, ..., columns = NULL) {
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' `modify_layout()` selects the layout preset — the complete assignment of the
-#' grammar's four axes (rows, row groups, columns, spanners) — and, optionally,
+#' `modify_layout()` selects the layout preset -- the complete assignment of the
+#' grammar's four axes (rows, row groups, columns, spanners) -- and, optionally,
 #' the row-group dimension. The launch presets are:
 #'
 #' - `"adjustment"` (the default): adjustment sets on rows, outcomes as row
@@ -410,7 +507,7 @@ modify_labels <- function(x, ..., columns = NULL) {
 #'   spanning their levels.
 #' - `"levels"`: statistic rows (the event count and incidence rate when
 #'   [add_events()] is on the mesa, then one row per adjustment set), term
-#'   levels on columns, terms as spanners — the shape of the retired hazard
+#'   levels on columns, terms as spanners -- the shape of the retired hazard
 #'   tables.
 #' - `"interaction"`: interaction levels on rows, grouped by interaction
 #'   term, the across-levels p-value floating over each band. Its rows are
@@ -459,17 +556,20 @@ modify_layout <- function(x, preset = NULL, row_groups = NULL) {
 		}
 	}
 
-	if (isTRUE(x$layout$declared)) {
+	if (isTRUE(x@layout$declared)) {
 		message("`modify_layout()` replaces the earlier layout instruction.")
 	}
 
+	# Each assignment re-validates: the class's `validator` re-checks `preset`
+	# and `row_groups` against the known values, so the verb-level check above is
+	# the friendly front door and the validator the backstop.
 	if (!is.null(preset)) {
-		x$layout$preset <- preset
+		x@layout$preset <- preset
 	}
 	if (!is.null(row_groups)) {
-		x$layout$row_groups <- row_groups
+		x@layout$row_groups <- row_groups
 	}
-	x$layout$declared <- TRUE
+	x@layout$declared <- TRUE
 	x
 }
 
@@ -489,7 +589,7 @@ modify_layout <- function(x, preset = NULL, row_groups = NULL) {
 #'   color name or hex value); several may be combined
 #'   (`p < 0.05 ~ c("bold", "italic")`). A criterion is evaluated once per
 #'   term-level within each row, against all of that context's statistics, and
-#'   accents every cell of the context — so `p < 0.05 ~ "bold"` bolds both the
+#'   accents every cell of the context -- so `p < 0.05 ~ "bold"` bolds both the
 #'   estimate and the p-value it belongs to. The recognized statistic names
 #'   are `estimate` (alias `beta`), `conf_low`, `conf_high`, `p` (alias
 #'   `p_value`), `n`, `events`, `rate`, and `rate_difference`.
@@ -500,11 +600,11 @@ modify_layout <- function(x, preset = NULL, row_groups = NULL) {
 #'   estimates a model did not produce). The default is an empty cell.
 #' - `padding` scales the table's vertical row padding (as
 #'   [gt::opt_vertical_padding()] does). A table carrying a forest column
-#'   defaults to `0` — the dense canvas its plot cells need to read as one —
+#'   defaults to `0` -- the dense canvas its plot cells need to read as one --
 #'   and this overrides that default.
 #'
 #' Like every verb, `modify_style()` merges: naming `digits` again after an
-#' earlier `accents` call replaces only `digits`, with a message naming it —
+#' earlier `accents` call replaces only `digits`, with a message naming it --
 #' the accents already recorded stand. Each of `accents`, `digits`,
 #' `missing_text`, and `padding` replaces only itself.
 #'
@@ -541,32 +641,32 @@ modify_style <- function(x, accents = NULL, digits = NULL,
 	validate_scalar(padding, "padding", min = 0, allow_null = TRUE)
 
 	# Each argument replaces only its own field, with a message only when that
-	# field was already recorded — the other style instructions stand (M6.11)
+	# field was already recorded -- the other style instructions stand (M6.11)
 	if (!is.null(accents)) {
-		if (length(x$style$accents) > 0) {
+		if (length(x@style$accents) > 0) {
 			message("`modify_style()` replaces the earlier `accents` instruction.")
 		}
-		x$style$accents <- accents
+		x@style$accents <- accents
 	}
 	if (!is.null(digits)) {
-		if (!is.null(x$style$digits)) {
+		if (!is.null(x@style$digits)) {
 			message("`modify_style()` replaces the earlier `digits` instruction.")
 		}
-		x$style$digits <- as.integer(digits)
+		x@style$digits <- as.integer(digits)
 	}
 	if (!is.null(missing_text)) {
-		if (!is.null(x$style$missing_text)) {
+		if (!is.null(x@style$missing_text)) {
 			message(
 				"`modify_style()` replaces the earlier `missing_text` instruction."
 			)
 		}
-		x$style$missing_text <- missing_text
+		x@style$missing_text <- missing_text
 	}
 	if (!is.null(padding)) {
-		if (!is.null(x$style$padding)) {
+		if (!is.null(x@style$padding)) {
 			message("`modify_style()` replaces the earlier `padding` instruction.")
 		}
-		x$style$padding <- as.numeric(padding)
+		x@style$padding <- as.numeric(padding)
 	}
 
 	x
@@ -576,7 +676,7 @@ modify_style <- function(x, accents = NULL, digits = NULL,
 #'
 #' The criterion (LHS) must be a comparison over the recognized statistic
 #' names; the instruction (RHS) must evaluate to a character vector of
-#' `"bold"`, `"italic"`, and/or a text color. Validated at verb time —
+#' `"bold"`, `"italic"`, and/or a text color. Validated at verb time --
 #' recording a bad accent and failing at render would waste the laziness.
 #' @keywords internal
 #' @noRd
@@ -631,18 +731,18 @@ validate_accent <- function(f) {
 
 # Printing --------------------------------------------------------------------
 
-#' @rdname mdl_gt
-#' @export
-print.mdl_gt <- function(x, ...) {
+# `print()` and `format()` are base S3 generics; registering S7 methods on them
+# (rather than writing `print.mdl_gt`) is the idiomatic S7 route. No `@export`:
+# `S7::methods_register()` in `.onLoad` wires them into S3 dispatch at load, so
+# `print(spec)` and `format(spec)` find them without a NAMESPACE entry.
+method(print, mdl_gt) <- function(x, ...) {
 	cat(format(x, ...), sep = "\n")
 	invisible(x)
 }
 
-#' @rdname mdl_gt
-#' @export
-format.mdl_gt <- function(x, ...) {
+method(format, mdl_gt) <- function(x, ...) {
 
-	mt <- x$mdl_tbl
+	mt <- x@mdl_tbl
 	family <- unique(stats::na.omit(mt$model_call))
 	datasets <- unique(stats::na.omit(mt$data_id))
 
@@ -664,31 +764,31 @@ format.mdl_gt <- function(x, ...) {
 	# The verified analysis: its family pattern(s), and the relation binding
 	# several families when the mesa is a wide-table shape
 	familyLine <-
-		if (!is.null(x$family) && nrow(x$family) > 0) {
-			rels <- unique(stats::na.omit(x$family$relation))
+		if (!is.null(x@family) && nrow(x@family) > 0) {
+			rels <- unique(stats::na.omit(x@family$relation))
 			paste0(
-				"  analysis: ", nrow(x$family),
-				if (nrow(x$family) == 1) " family (" else " families (",
-				paste(unique(x$family$pattern), collapse = ", "), ")",
-				if (length(rels) > 0) paste0(" — ", paste(rels, collapse = "; "))
+				"  analysis: ", nrow(x@family),
+				if (nrow(x@family) == 1) " family (" else " families (",
+				paste(unique(x@family$pattern), collapse = ", "), ")",
+				if (length(rels) > 0) paste0(" -- ", paste(rels, collapse = "; "))
 			)
 		}
 
 	layoutLine <- paste0(
-		"  layout: ", x$layout$preset,
+		"  layout: ", x@layout$preset,
 		" (rows: ",
-		switch(x$layout$preset,
+		switch(x@layout$preset,
 					 adjustment = "adjustment sets",
 					 levels = "term levels",
 					 interaction = "interaction levels",
-					 x$layout$preset),
-		", groups: ", x$layout$row_groups, "s)"
+					 x@layout$preset),
+		", groups: ", x@layout$row_groups, "s)"
 	)
 
 	# Declared selection, one line per dimension that has been narrowed
 	selLines <- character()
-	for (d in names(x$selection)) {
-		input <- x$selection[[d]]
+	for (d in names(x@selection)) {
+		input <- x@selection[[d]]
 		if (!is.null(input)) {
 			nm <- names(labeled_formulas_to_named_list(input))
 			selLines <- c(selLines, paste0("    ", d, ": ", paste(nm, collapse = ", ")))
@@ -703,17 +803,17 @@ format.mdl_gt <- function(x, ...) {
 
 	# Column blocks so far; the bare default is estimate + CI
 	columnsLine <-
-		if (length(x$columns) > 0) {
+		if (length(x@columns) > 0) {
 			paste0("  columns: ",
-						 paste(vapply(x$columns, describe_column_block, character(1)),
+						 paste(vapply(x@columns, describe_column_block, character(1)),
 						 			collapse = ", "))
 		} else {
 			"  columns: estimate + CI (default)"
 		}
 
 	labelsLine <-
-		if (length(x$labels$relabels) > 0 || length(x$labels$columns) > 0) {
-			relabelled <- unique(c(names(x$labels$relabels), names(x$labels$columns)))
+		if (length(x@labels$relabels) > 0 || length(x@labels$columns) > 0) {
+			relabelled <- unique(c(names(x@labels$relabels), names(x@labels$columns)))
 			paste0("  labels: ", paste(relabelled, collapse = ", "))
 		}
 

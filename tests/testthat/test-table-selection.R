@@ -24,12 +24,12 @@ test_that("continuous term keys are exact (wt does not select wt2)", {
 		model_table(data = d)
 
 	sel <- resolve_selection(x, terms = ~ wt)
-	expect_equal(sel$term_keys, "wt")
-	expect_false("wt2" %in% sel$term_keys)
+	expect_equal(sel@term_keys, "wt")
+	expect_false("wt2" %in% sel@term_keys)
 
 	# The reverse selection is just as clean
 	sel2 <- resolve_selection(x, terms = ~ wt2)
-	expect_equal(sel2$term_keys, "wt2")
+	expect_equal(sel2@term_keys, "wt2")
 })
 
 test_that("categorical terms resolve to their non-reference level keys", {
@@ -44,18 +44,18 @@ test_that("categorical terms resolve to their non-reference level keys", {
 
 	# The bare name plus one key per non-reference level, from the term table's
 	# variable-level relationship (stamped from the attached data)
-	expect_true(all(c("cyl", "cyl6", "cyl8") %in% sel$term_keys))
-	expect_false("cyl4" %in% sel$term_keys) # reference level is dropped
+	expect_true(all(c("cyl", "cyl6", "cyl8") %in% sel@term_keys))
+	expect_false("cyl4" %in% sel@term_keys) # reference level is dropped
 
 	# Metadata is carried alongside the keys
-	row <- sel$terms
+	row <- sel@terms
 	expect_equal(row$variable, "cyl")
 	expect_equal(row$reference, "4")
 	expect_equal(row$levels[[1]], c("4", "6", "8"))
 
 	# The tidy terms broom actually produced map back to `cyl`, exactly
 	tidy_terms <- flatten_models(x)$term |> unique()
-	mapped <- match_term_keys(tidy_terms, sel$terms)
+	mapped <- match_term_keys(tidy_terms, sel@terms)
 	expect_equal(mapped[tidy_terms == "cyl6"], "cyl")
 	expect_equal(mapped[tidy_terms == "cyl8"], "cyl")
 	expect_true(is.na(mapped[tidy_terms == "wt"]))
@@ -76,11 +76,11 @@ test_that("adjustment sets are indexed sequentially, colliding counts stay disti
 
 	# Selecting adjustment set 1 picks exactly the first model
 	sel1 <- resolve_selection(x, adjustment = 1 ~ "First")
-	expect_equal(nrow(sel1$models), 1L)
-	expect_equal(sel1$models$formula_call, "mpg ~ wt + hp")
+	expect_equal(nrow(sel1@models), 1L)
+	expect_equal(sel1@models$formula_call, "mpg ~ wt + hp")
 
 	sel2 <- resolve_selection(x, adjustment = 2 ~ "Second")
-	expect_equal(sel2$models$formula_call, "mpg ~ wt + drat")
+	expect_equal(sel2@models$formula_call, "mpg ~ wt + drat")
 })
 
 test_that("adjustment index tracks adjustment degree within a family", {
@@ -95,8 +95,8 @@ test_that("adjustment index tracks adjustment degree within a family", {
 	expect_equal(idx, c(1L, 2L, 3L))
 
 	sel <- resolve_selection(x, adjustment = list(1 ~ "Crude", 3 ~ "Adjusted"))
-	expect_equal(sel$adjustment_index, c(1L, 3L))
-	expect_setequal(sel$models$number, c(1L, 3L))
+	expect_equal(sel@adjustment_index, c(1L, 3L))
+	expect_setequal(sel@models$number, c(1L, 3L))
 })
 
 test_that("each stratum numbers its own adjustment sets", {
@@ -113,8 +113,8 @@ test_that("each stratum numbers its own adjustment sets", {
 	expect_equal(sum(idx == 1L), 2L) # one crude model per stratum level
 
 	sel <- resolve_selection(x, adjustment = 1 ~ "Crude")
-	expect_equal(nrow(sel$models), 2L) # one per stratum level
-	expect_true(all(sel$models$strata == "am"))
+	expect_equal(nrow(sel@models), 2L) # one per stratum level
+	expect_true(all(sel@models$strata == "am"))
 })
 
 test_that("argument order does not change the resolved rows", {
@@ -128,8 +128,8 @@ test_that("argument order does not change the resolved rows", {
 	a <- resolve_selection(x, terms = ~ wt, adjustment = list(1 ~ "A", 2 ~ "B"))
 	b <- resolve_selection(x, adjustment = list(2 ~ "B", 1 ~ "A"), terms = ~ wt)
 
-	expect_equal(a$models$id, b$models$id)
-	expect_equal(a$adjustment_index, b$adjustment_index)
+	expect_equal(a@models$id, b@models$id)
+	expect_equal(a@adjustment_index, b@adjustment_index)
 })
 
 test_that("unresolvable selections error clearly", {
@@ -157,12 +157,12 @@ test_that("labeled-formula inputs flow through one mechanism", {
 	l <- resolve_selection(x, terms = list(cyl ~ "Cylinders"))
 	c_ <- resolve_selection(x, terms = "cyl")
 
-	expect_equal(f$term_keys, l$term_keys)
-	expect_equal(f$term_keys, c_$term_keys)
+	expect_equal(f@term_keys, l@term_keys)
+	expect_equal(f@term_keys, c_@term_keys)
 
 	# The label rides along on the resolved term when supplied
-	expect_equal(l$terms$label, "Cylinders")
-	expect_equal(f$terms$label, "cyl") # falls back to the variable name
+	expect_equal(l@terms$label, "Cylinders")
+	expect_equal(f@terms$label, "cyl") # falls back to the variable name
 })
 
 test_that("term levels stamp from each term's own dataset when models span
@@ -210,6 +210,6 @@ test_that("rung identity aligns related families regardless of row order", {
 	# Selecting rung 1 therefore picks the *same covariate set* from both
 	# families — the alignment a wide table pivots on
 	sel <- resolve_selection(x, adjustment = 1 ~ "Set one")
-	expect_equal(nrow(sel$models), 2L)
-	expect_true(all(grepl("hp", sel$models$formula_call)))
+	expect_equal(nrow(sel@models), 2L)
+	expect_true(all(grepl("hp", sel@models$formula_call)))
 })

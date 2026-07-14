@@ -3,14 +3,11 @@
 \name{adjustment_sets}
 \alias{adjustment_sets}
 \alias{adjustment_sets.mdl_tbl}
-\alias{adjustment_sets.mdl_gt}
 \title{The adjustment sets of a model table}
 \usage{
 adjustment_sets(x, ...)
 
 \method{adjustment_sets}{mdl_tbl}(x, ...)
-
-\method{adjustment_sets}{mdl_gt}(x, ...)
 }
 \arguments{
 \item{x}{A \code{mdl_tbl} object, or a \verb{<mdl_gt>} specification (read from its
@@ -23,7 +20,7 @@ A \code{tibble} with one row per adjustment set: \code{adjustment} (the
 index \code{select_adjustment()} uses), \code{covariates} (the set, \code{+}-joined;
 \code{(unadjusted)} when empty), \code{adds} (what the rung adds over the
 previous one, when it nests), \code{models} (how many models carry it), and
-\code{families} (which families, by the stamped ids when present).
+\code{families} (which families, by the table's \code{family} ids).
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
@@ -47,6 +44,5 @@ adjustment_sets(mt)
 
 }
 \seealso{
-The \link{paring} verbs (especially \code{\link[=adjusting_for]{adjusting_for()}}),
-\code{\link[=identify_family]{identify_family()}}, \code{\link[=mdl_gt]{mdl_gt()}}
+The \link{paring} verbs (especially \code{\link[=adjusting_for]{adjusting_for()}}), \code{\link[=mdl_gt]{mdl_gt()}}
 }

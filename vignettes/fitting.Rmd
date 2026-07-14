@@ -15,7 +15,7 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-library(mesa)
+library(epigram)
 ```
 
 A family of formulas is still just instructions. Layer 3 answers "what
@@ -57,7 +57,7 @@ model's causal context (its formula, its term roles, its degrees of freedom,
 its variance–covariance matrix) alongside the fit itself, which is what the
 rest of the grammar consumes. `fit(..., raw = TRUE)` instead returns the
 plain list of fitted objects the fitting function itself produces — useful
-for a quick look, but nothing downstream can use it as a `{mesa}` object.
+for a quick look, but nothing downstream can use it as a `{epigram}` object.
 
 ```{r}
 m <- fit(f, .fn = lm, data = d)
