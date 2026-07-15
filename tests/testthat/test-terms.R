@@ -27,12 +27,15 @@ test_that("formula formatting passes color options to terms", {
 	on.exit(options(old), add = TRUE)
 
 	f <- fmls(mpg ~ .x(wt) + hp)
-	noColor <- format(f, color = FALSE)
-	colored <- format(f, color = TRUE)
+	# These must dispatch through base's generics. S7 methods registered by the
+	# table specification must not create package-local generic bindings.
+	noColor <- base::format(f, color = FALSE)
+	colored <- base::format(f, color = TRUE)
 
 	expect_equal(noColor, "mpg ~ wt + hp")
 	expect_equal(cli::ansi_strip(colored), "mpg ~ wt + hp")
 	expect_false(identical(colored, cli::ansi_strip(colored)))
+	expect_output(base::print(f, color = FALSE), "<fmls: 1 formula>", fixed = TRUE)
 
 })
 

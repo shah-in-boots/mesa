@@ -1135,15 +1135,17 @@ validate_accent <- function(f) {
 # Printing --------------------------------------------------------------------
 
 # `print()` and `format()` are base S3 generics; registering S7 methods on them
-# (rather than writing `print.mdl_gt`) is the idiomatic S7 route. No `@export`:
-# `S7::methods_register()` in `.onLoad` wires them into S3 dispatch at load, so
-# `print(spec)` and `format(spec)` find them without a NAMESPACE entry.
-method(print, mdl_gt) <- function(x, ...) {
-	cat(format(x, ...), sep = "\n")
+# (rather than writing `print.mdl_gt`) is the idiomatic S7 route. Call the
+# replacement function directly so package loading does not create local
+# `print`/`format` bindings; those bindings would make NAMESPACE register the
+# package's existing S3 methods against the wrong generic. No `@export`:
+# `S7::methods_register()` in `.onLoad` wires these methods into base dispatch.
+S7::`method<-`(base::print, mdl_gt, function(x, ...) {
+	cat(base::format(x, ...), sep = "\n")
 	invisible(x)
-}
+})
 
-method(format, mdl_gt) <- function(x, ...) {
+S7::`method<-`(base::format, mdl_gt, function(x, ...) {
 
 	mt <- x@mdl_tbl
 	family <- unique(stats::na.omit(mt$model_call))
@@ -1233,4 +1235,4 @@ method(format, mdl_gt) <- function(x, ...) {
 
 	c(header, dataLine, familyLine, effectLine, layoutLine, selectionBlock,
 		groupLine, placementLines, labelsLine, "", hint)
-}
+})

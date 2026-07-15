@@ -297,7 +297,7 @@ spec@groups
 spec@layout
 ```
 
-Realization runs in fixed stages, each file owning one:
+Runs in fixed stages, each file owning one:
 
 | stage | representation | file |
 |---|---|---|

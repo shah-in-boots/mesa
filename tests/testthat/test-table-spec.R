@@ -5,6 +5,8 @@ test_that("mdl_gt remains a validated S7 specification", {
 	expect_named(spec@groups, "effect")
 	expect_equal(spec@layout$preset, "adjustment")
 	expect_equal(spec@effects$interaction, FALSE)
+	expect_match(base::format(spec)[1], "<mdl_gt> specification", fixed = TRUE)
+	expect_output(base::print(spec), "<mdl_gt> specification", fixed = TRUE)
 
 	expect_error(
 		{ spec@layout$rows <- c("outcome", "banana") },
