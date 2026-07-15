@@ -89,10 +89,15 @@ estimate_interaction <- function(object,
 	if (!exposure %in% object$exposure) {
 		stop("The exposure variable is not in the model set.", call. = FALSE)
 	}
-	# Identity, not `grepl()`: `sex` must not match a model interacting on
-	# `sexes` (the old substring bug)
-	if (is.na(object$interaction) ||
-			!identical(object$interaction, interaction)) {
+	# Identity, not `grepl()`: membership in this model's formula matrix admits
+	# every declared modifier, rather than only the first one mirrored in the
+	# scalar `mdl_tbl$interaction` convenience column.
+	fm <- formula_matrix(object)
+	tmProxy <- vec_proxy(term_table(object))
+	isModifier <- interaction %in% tmProxy$term[tmProxy$role == "interaction"]
+	inModel <- interaction %in% names(fm) && nrow(fm) == 1 &&
+		fm[[interaction]][1] >= 1
+	if (!isModifier || !inModel) {
 		stop("The interaction variable is not in the model set.", call. = FALSE)
 	}
 

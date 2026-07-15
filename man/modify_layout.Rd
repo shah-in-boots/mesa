@@ -2,16 +2,16 @@
 % Please edit documentation in R/table-spec.R
 \name{modify_layout}
 \alias{modify_layout}
-\title{Choose a layout preset for a \verb{<mdl_gt>}}
+\title{Map semantic dimensions onto a \verb{<mdl_gt>} layout}
 \usage{
-modify_layout(x, preset = NULL, row_groups = NULL)
+modify_layout(x, preset = NULL, rows = NULL, columns = NULL)
 }
 \arguments{
 \item{x}{A \verb{<mdl_gt>} specification}
 
 \item{preset}{One of \code{"adjustment"}, \code{"levels"}, or \code{"interaction"}}
 
-\item{row_groups}{The row-group dimension: \code{"outcome"} or \code{"strata"}}
+\item{rows, columns}{Ordered character vectors of semantic dimensions.}
 }
 \value{
 The modified \verb{<mdl_gt>} specification.
@@ -19,26 +19,29 @@ The modified \verb{<mdl_gt>} specification.
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-\code{modify_layout()} selects the layout preset -- the complete assignment of the
-grammar's four axes (rows, row groups, columns, spanners) -- and, optionally,
-the row-group dimension. The launch presets are:
+\code{modify_layout()} either selects a declarative preset or maps semantic
+dimensions directly onto ordered \code{rows} and \code{columns}. Outer row dimensions
+become row groups; outer column dimensions become spanners. Available
+dimensions include \code{outcome}, \code{adjustment}, \code{term}, \code{contrast}, \code{modifier},
+\code{modifier_level}, \code{stratum}, \code{stratum_level}, \code{subset}, \code{dataset}, and
+\code{model}.
+
+The built-in presets are:
 \itemize{
-\item \code{"adjustment"} (the default): adjustment sets on rows, outcomes as row
-groups, a statistic block per term or term level on columns, terms
-spanning their levels.
+\item \code{"adjustment"} (the default): outcome/adjustment rows and term/contrast
+columns.
 \item \code{"levels"}: statistic rows (the event count and incidence rate when
 \code{\link[=add_events]{add_events()}} is on the mesa, then one row per adjustment set), term
-levels on columns, terms as spanners -- the shape of the retired hazard
-tables.
-\item \code{"interaction"}: interaction levels on rows, grouped by interaction
-term, the across-levels p-value floating over each band. Its rows are
-\emph{defined} by \code{\link[=add_interaction]{add_interaction()}}, which the specification must carry.
+levels on columns, with effect cells in the semantic body.
+\item \code{"interaction"}: modifier/modifier-level rows and contrast columns, with
+the across-level interaction p-value scoped to each modifier band.
 }
 
-\code{row_groups} swaps the row-group dimension between \code{"outcome"} (the
-default) and \code{"strata"}. Like every verb, a repeated \code{modify_layout()}
-replaces the earlier instruction with a message.
+Every varying effect dimension must be placed on an axis or selected away;
+otherwise compilation fails with the missing dimensions named. Use
+\code{\link[=place_cells]{place_cells()}} independently to position \code{effect}, \code{p}, \code{n}, \code{events},
+\code{rate}, \code{rate_difference}, and \code{forest} on columns, rows, or the body.
 }
 \seealso{
-\code{\link[=mdl_gt]{mdl_gt()}}, \code{\link[=as_gt]{as_gt()}}
+\code{\link[=place_cells]{place_cells()}}, \code{\link[=inspect_mdl_gt]{inspect_mdl_gt()}}, \code{\link[=mdl_gt]{mdl_gt()}}, \code{\link[=as_gt]{as_gt()}}
 }

@@ -230,8 +230,8 @@ interaction_term <- function(termList) {
 			message(
 				"A model carries multiple interaction terms (`",
 				paste0(tms, collapse = "`, `"),
-				"`); only the first is recorded in the `interaction` column. ",
-				"Tables can display one interaction term per model at this time."
+				"`); only the first is mirrored in the scalar `interaction` column. ",
+				"Formula metadata retains every modifier for `mdl_gt()` discovery."
 			)
 		}
 		tms[1]

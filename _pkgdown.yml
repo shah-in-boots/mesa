@@ -61,6 +61,7 @@ articles:
   - playing
   - fitting
   - mesa
+  - articles/mdl-gt-gallery
 - title: More
   navbar: More
   contents:
@@ -125,13 +126,14 @@ reference:
     The declarative specification and the verbs that narrow, relabel, lay
     out, and style it.
   contents:
-  - mesa
+  - mdl_gt
   - modify_labels
   - modify_layout
+  - place_cells
   - modify_style
-- subtitle: "Column verbs"
+- subtitle: "Cell-group and effect verbs"
   desc: >
-    Each verb appends a column block; computation waits for realization.
+    Each verb activates or configures one named presentation or effect source.
   contents:
   - add_estimates
   - add_events
@@ -139,8 +141,9 @@ reference:
   - add_interaction
 - subtitle: "The renderer"
   desc: >
-    Realization and the emitted `{gt}` table.
+    Inspecting the semantic build and emitting a normal `{gt}` table.
   contents:
+  - inspect_mdl_gt
   - as_gt
   - theme_gt_compact
 - title: "Helpers"

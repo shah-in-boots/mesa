@@ -1,0 +1,111 @@
+---
+title: "Model-table gallery"
+---
+
+```{r}
+#| include: false
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(epigram)
+d <- mtcars
+d$cyl <- factor(d$cyl)
+d$am <- factor(d$am)
+```
+
+This gallery is the visual acceptance surface for the effect-and-presentation
+grammar. Every example travels through the same semantic build and layout
+compiler; only effects, axes, cell-group placement, and style differ.
+
+## Multi-outcome adjusted regression
+
+```{r}
+multiOutcome <- c(
+  fmls(mpg ~ .x(cyl) + hp, pattern = "sequential"),
+  fmls(qsec ~ .x(cyl) + hp, pattern = "sequential")
+) |>
+  fit(.fn = lm, data = d) |>
+  model_table(data = d)
+
+multiOutcome |>
+  mdl_gt() |>
+  add_n() |>
+  add_estimates() |>
+  modify_style(theme = "journal") |>
+  as_gt()
+```
+
+## Survival table with event/rate rows and rate difference
+
+```{r}
+#| eval: !expr requireNamespace("survival", quietly = TRUE)
+lung <- survival::lung
+lung$sex <- factor(lung$sex, levels = 1:2, labels = c("Male", "Female"))
+survivalModels <-
+  fmls(Surv(time, status) ~ .x(sex) + age, pattern = "sequential") |>
+  fit(.fn = survival::coxph, data = lung) |>
+  model_table(data = lung)
+
+survivalModels |>
+  mdl_gt() |>
+  modify_layout(preset = "levels") |>
+  add_events() |>
+  add_rate_difference() |>
+  add_estimates(columns = list(beta ~ "HR", conf ~ "95% CI")) |>
+  as_gt()
+```
+
+## Interaction forest table
+
+```{r}
+interactionModels <-
+  fmls(mpg ~ .x(hp) + .i(cyl)) |>
+  fit(.fn = lm, data = d) |>
+  model_table(data = d)
+
+interactionModels |>
+  mdl_gt() |>
+  add_interaction() |>
+  add_n() |>
+  add_estimates() |>
+  add_forest(axis = list(title = "Mean difference")) |>
+  as_gt()
+```
+
+## Combined stratum × modifier table
+
+```{r}
+conditionedModels <-
+  fmls(mpg ~ .x(hp) + .i(cyl) + .s(am)) |>
+  fit(.fn = lm, data = d) |>
+  model_table(data = d)
+
+conditionedModels |>
+  mdl_gt() |>
+  add_interaction() |>
+  add_estimates() |>
+  add_forest() |>
+  modify_layout(
+    rows = c("stratum", "stratum_level", "modifier", "modifier_level"),
+    columns = c("term", "contrast")
+  ) |>
+  as_gt()
+```
+
+## Wide categorical table with nested spanners
+
+```{r}
+wideCategorical <- c(
+  fmls(mpg ~ .x(cyl) + hp, pattern = "sequential"),
+  fmls(mpg ~ .x(am) + hp, pattern = "sequential")
+) |>
+  fit(.fn = lm, data = d) |>
+  model_table(data = d)
+
+wideCategorical |>
+  mdl_gt() |>
+  add_estimates(view = "separate") |>
+  modify_layout(
+    rows = c("outcome", "adjustment"),
+    columns = c("term", "contrast")
+  ) |>
+  as_gt()
+```

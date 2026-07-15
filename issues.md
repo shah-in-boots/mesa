@@ -24,12 +24,10 @@ Items verified by execution are marked ✓.
   applies to the family that declared it. `add_strata()`/`remove_strata()`
   write the matrix membership too.
 - [x] **Interaction layout collides when several models share an interaction
-  term** ([table-presets.R:696](R/table-presets.R#L696)). *Fixed
-  2026-07-09*: `realize_interaction()` errors when several selected models
-  share an interaction term, pointing at `select_adjustment()`. Relatedly,
-  the `mdl_tbl` `interaction` column records one term per model (first wins,
-  with a message). Qualifying rows per model — and displaying several
-  interaction terms per model — is the future extension.
+  term**. *Superseded 2026-07-14*: conditional effects use the ordinary effect
+  schema; adjustment, stratum, modifier, and modifier-level dimensions pass
+  through one compiler. Formula metadata discovers every modifier even though
+  the scalar `mdl_tbl$interaction` convenience column mirrors only the first.
 - [x] **`estimate_interaction()` cannot handle a categorical exposure**
   ([interaction.R:113](R/interaction.R#L113)). *Fixed 2026-07-09*: a factor
   exposure resolves through its `exposureLEVEL` keys; one row-set per
@@ -176,15 +174,11 @@ Items verified by execution are marked ✓.
   data, one fit per level. Neither is rewritten into the other. (An
   earlier convert-to-`.s()` approach was walked back 2026-07-09: the
   mechanisms are not interchangeable.)
-- [x] **The term × effect cell is the core column concept**. A mesa is
-  composed of term (or term level) × effect cells — estimate, interval,
-  p-value, events, rate, n. The `add_*()` verbs append *groups* of effects
-  that travel together (an estimate with its CI and p), so groups compose,
-  move, and drop without touching each other's cells, and the presets place
-  the same cells wide (levels on columns) or long (levels on rows) without
-  recomputing. Documented in `mesa()`/table-columns.R and the vignettes.
-  *Future extension*: an explicit wide/long orientation choice on
-  `modify_layout()`, moving whole groups between the column and row axes.
+- [x] **The effect is the semantic unit**. *Rebuilt 2026-07-14*: outcome ×
+  focal term/contrast × model context, optionally conditioned by stratum and
+  modifier levels. Atomic measures declare their grain; stable cell groups
+  present them; `modify_layout()` moves semantic dimensions and
+  `place_cells()` moves groups without recomputation.
 - [x] **Attached data attaches whole, at the `mdl_tbl` level only**. The
   full frame is retained: later work routinely reaches for columns no
   current formula names (an `add_events()` follow-up column, a variable
@@ -252,12 +246,12 @@ Items verified by execution are marked ✓.
   — *2026-07-11*.
   - `family_adjustment_index()` (positional: order-by-`number` within an
     outcome × exposure family) is replaced by `adjustment_set_index()`
-    ([table-selection.R](R/table-selection.R)): each *distinct covariate
+    (now in `table-build.R`): each *distinct covariate
     set* is one rung, numbered by set size then order of first appearance,
     table-wide. Models carrying the same covariates share a rung wherever
     they sit, so related families' rows align on the mesa by the actual
     adjustment — two parallel families built in opposite row orders no
-    longer cross-pair (regression test in test-table-selection.R).
+    longer cross-pair (regression coverage in `test-table-build.R`).
   - The `mdl_gt()` gate tightened accordingly: several families must share
     a relation over **one** ladder (`ladder_signature()`); two
     varied-exposure pairs on different ladders — which share the relation

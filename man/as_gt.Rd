@@ -17,12 +17,11 @@ A \code{gt_tbl} object.
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-\code{as_gt()} realizes a \code{\link[=mdl_gt]{mdl_gt()}} specification: it resolves the recorded
-selection against the model table, decorates each estimate with its term
-metadata, and emits a \code{{gt}} table. On a bare specification it renders a
-minimal default -- each displayed term's point estimate and 95\% confidence
-interval, with adjustment sets on rows and outcomes as row groups.
+\code{as_gt()} compiles a \code{\link[=mdl_gt]{mdl_gt()}} specification through effects, atomic
+measures, cell groups, layout, and a mechanical cell frame, then emits a
+normal \code{{gt}} table. On a bare specification it renders a minimal default:
+each displayed term's estimate and 95\% confidence interval.
 }
 \seealso{
-\code{\link[=mdl_gt]{mdl_gt()}}
+\code{\link[=inspect_mdl_gt]{inspect_mdl_gt()}}, \code{\link[=mdl_gt]{mdl_gt()}}
 }

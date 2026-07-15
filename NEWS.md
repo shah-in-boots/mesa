@@ -14,11 +14,30 @@ This development cycle works through Milestones 0–7 of [blueprint.md](https://
 
 ## The interface refinement pass, continued (Milestones 12 through 14)
 
+* **Breaking table-layer rebuild:** `mdl_gt` is now an effect-and-presentation
+  grammar compiled through effects, atomic measures, named cell groups,
+  semantic layout, an explicit cell frame, and finally `{gt}`. Cell groups are
+  keyed by stable id, so independent `add_*()` call order does not control
+  placement; `place_cells()` moves groups among columns, statistic rows, and
+  the semantic body; and `inspect_mdl_gt()` exposes every stage before render
+
+* Strata, modifiers, outcomes, adjustment sets, terms, and contrasts are
+  ordinary movable dimensions in one compiler. Conditional interaction
+  effects and coefficient effects now share the same schema, formula metadata
+  discovers every declared modifier, and group-scoped interaction p-values
+  retain their full nested condition band
+
+* The six procedural table files have been consolidated into four pipeline
+  files: specification and verbs, semantic build, layout compilation, and
+  rendering. Forest plots consume the same estimate measures as text cells;
+  their axes are typed render metadata instead of magic semantic `.axis` rows
+
 * One gesture per decision: `add_interaction()` now implies the `"interaction"` layout instead of requiring a separate `modify_layout(preset = "interaction")` call, and `add_events()` infers `followup` from a `Surv()` outcome's time argument, needed explicitly only for a plain outcome or an outcome an explicit `followup` still overrides
 
 * The forest column now renders native to its table: a plot column turns the whole body borderless (the journal booktabs look — top rule, header rule, bottom rule, nothing inside) instead of hiding its own cell borders, which punched gaps in the header and bottom rules under CSS border collapsing; the axis strip is pinned to exactly the cells' width; the dashed reference line continues down into the axis; and `add_forest(axis = list(title = ))` draws an axis title beneath the tick labels
 
-* Internal cleanup ahead of release, with no behavior change: the statistics vocabulary (known names, aliases, default headers) now lives in one registry instead of five hand-kept lists; `table-render.R` split along its own stage seams into `table-realize.R` / `table-presets.R` / `table-render.R`, with the interaction-vs-standard layout fork unified into one dispatch function — the cell-frame snapshot tests are the proof
+* The statistics vocabulary (known names, aliases, default headers) lives in
+  one registry instead of hand-kept lists across the pipeline
 
 * Every `mdl_tbl` now carries its family structure as three columns — `family` (the id grouping rows into one analysis), `pattern` (`sequential`, `parallel`, `mediation`, `direct`), and `relation` (`varied exposures`, the wide-table shape; `varied outcomes`) — recovered from the formulas' causal roles. They are derived, not supplied: recomputed automatically whenever the table is built or reshaped, so a subset that dissolves a `varied exposures` relation or renumbers the families is always reflected. A mediation triad binds into one family across its outcome boundaries. `keep_families()` pares by them; the standalone `identify_family()` function is gone (the identification is now an internal detail of the model table)
 

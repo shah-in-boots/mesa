@@ -4,9 +4,9 @@
 \alias{epigram-s7}
 \title{Internal S7 machinery}
 \description{
-\code{epigram} uses S7 for its \emph{scalar specification} objects (the \verb{<mdl_gt>} table
-spec and its resolved selection) while keeping its \emph{vector} types (\code{tm},
-\code{fmls}, \code{mdl}, \code{mdl_tbl}) on vctrs — the two class systems are complementary
-layers, not competitors. See \code{vignette("s7")} for the reasoning.
+\code{epigram} uses S7 for its \emph{scalar specification and build} objects (the
+\verb{<mdl_gt>} table spec and its resolved pipeline) while keeping its \emph{vector}
+types (\code{tm}, \code{fmls}, \code{mdl}, \code{mdl_tbl}) on vctrs — the two class systems are
+complementary layers, not competitors. See \code{vignette("s7")}.
 }
 \keyword{internal}

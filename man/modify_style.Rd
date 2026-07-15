@@ -9,7 +9,11 @@ modify_style(
   accents = NULL,
   digits = NULL,
   missing_text = NULL,
-  padding = NULL
+  padding = NULL,
+  theme = NULL,
+  widths = NULL,
+  align = NULL,
+  reference_text = NULL
 )
 }
 \arguments{
@@ -23,6 +27,15 @@ modify_style(
 \item{missing_text}{Text shown in cells with nothing to display}
 
 \item{padding}{Vertical padding scale, \code{0} (dense) upward}
+
+\item{theme}{Built-in HTML theme: \code{"journal"}, \code{"compact"}, or \code{"plain"}.}
+
+\item{widths}{Named list of pixel widths keyed by cell-group id.}
+
+\item{align}{Named list of \code{"left"}, \code{"center"}, or \code{"right"} alignment
+values keyed by cell-group id.}
+
+\item{reference_text}{Text used for reference effects.}
 }
 \value{
 The modified \verb{<mdl_gt>} specification.

@@ -1,17 +1,14 @@
-# The <mdl_gt> specification (M6.3) ---------------------------------------------
+# The <mdl_gt> specification ---------------------------------------------------
 #
-# The table grammar is composition-first: `mdl_gt()` lifts a fitted `mdl_tbl`
-# onto a declarative specification, small pipeable verbs refine it, and
-# `as_gt()` (in table-render.R) realizes it. The spec carries *instructions*,
-# not results -- selection, labels, column blocks, layout, and style -- so verbs
-# compose in any order and resolution is deferred to realization. This is the
-# same lazy contract a `{ggplot2}` plot is grown under (with the pipe, not `+`).
+# `mdl_gt()` lifts a fitted `mdl_tbl` into a declarative S7 specification.
+# Small pipeable verbs record effect, cell-group, layout, label, and style
+# instructions; the build pipeline resolves them only at inspection or render.
+# Cell groups are keyed by stable ids, so add-verb call order cannot determine
+# placement.
 #
-# This file owns the constructor, the verbs that adjust the spec's slots (the
-# `select_*` selection verbs, `modify_labels()`, `modify_layout()`,
-# `modify_style()`), the validation, and the print method. The `add_*` column
-# verbs live in table-columns.R (M6.4/6.5); the cell-frame renderer lives in
-# table-render.R (M6.6).
+# This file owns the S7 class, constructor, public grammar verbs, validation,
+# and print method. The semantic build, layout compiler, and renderer live in
+# table-build.R, table-layout.R, and table-render.R respectively.
 
 # `mdl_tbl` is a vctrs vector type and stays one; this registers it as an S3
 # class *object* so S7 can name it -- as the type of the spec's `mdl_tbl`
@@ -45,16 +42,20 @@ S7_mdl_tbl <- S7::new_S3_class("mdl_tbl")
 #'   displayed (e.g. only the crude and fully adjusted rows --
 #'   [adjustment_sets()] shows the rungs and the numbers they are selected
 #'   by), and `select_terms()` which terms' cells are shown;
-#' - the `add_*()` verbs append column blocks derived from the models and the
-#'   attached data (estimates, events, rates, sample sizes);
+#' - the `add_*()` verbs activate named cell groups derived from models and
+#'   attached data (estimates, events, rates, sample sizes, forest views);
+#' - `modify_layout()` maps semantic dimensions onto rows and columns, while
+#'   [place_cells()] moves whole cell groups without recomputing statistics;
 #' - `modify_labels()` relabels outcomes, terms, and levels late, without
 #'   reselecting;
+#' - [inspect_mdl_gt()] exposes the effects, measures, groups, and cells before
+#'   `{gt}` rendering;
 #' - `as_gt()` renders the specification to a `{gt}` table (see [as_gt()]).
 #'
 #' Because the specification is declarative -- the verbs record instructions and
 #' resolution happens only at [as_gt()]/`print()` -- the verbs may arrive in any
 #' order. **A verb replaces only what you name.** Repeating a verb with the
-#' same instruction -- the same selection dimension, block type, style field,
+#' same instruction -- the same selection dimension, group id, style field,
 #' or label name -- replaces just that instruction with a message, and leaves
 #' everything else recorded on the specification standing (the `{ggplot2}`
 #' `labs()` merge behavior); calling a `select_*()` verb with no arguments
@@ -64,14 +65,13 @@ S7_mdl_tbl <- S7::new_S3_class("mdl_tbl")
 #'
 #' @details
 #'
-#' The unit of a mesa is the **term x effect cell**: one term (or term level)
-#' crossed with one effect -- an estimate, its interval, a p-value, an event
-#' count, a rate, an observation count. The `add_*()` verbs append *column
-#' blocks*, groups of effects that travel together (an estimate with its CI
-#' and p), so blocks compose freely -- adding, dropping, or reordering one
-#' never changes another's cells -- and the layout presets place the same
-#' cells wide (levels on columns) or long (levels on rows) without
-#' recomputing anything.
+#' The semantic unit is an **effect**: outcome x focal term/contrast x model
+#' context, optionally conditioned by stratum and modifier levels. Estimates,
+#' confidence bounds, p-values, counts, events, and rates are atomic measures
+#' attached at their declared semantic grain. Named cell groups present those
+#' measures: `effect` may merge or separate the estimate and interval, while
+#' `forest` reads the same three measures without calculating new statistics.
+#' Layout changes only project those stable effects and measures into cells.
 #'
 #' `mdl_gt()` validates before it builds. The object must be a `mdl_tbl`; only
 #' its fitted rows are laid out (failed and unfit rows are set aside); the
@@ -136,7 +136,8 @@ S7_mdl_tbl <- S7::new_S3_class("mdl_tbl")
 #'   add_estimates(columns = list(beta ~ "HR", conf ~ "95% CI")) |>
 #'   as_gt()
 #'
-#' @seealso [as_gt()] to render, [model_table()] for the model collection
+#' @seealso [inspect_mdl_gt()] to troubleshoot, [place_cells()] to move cell
+#'   groups, [as_gt()] to render, [model_table()] for the model collection
 #'
 #' @name mdl_gt
 #' @export
@@ -160,7 +161,8 @@ mdl_gt <- S7::new_class(
 		family    = S7::class_data.frame,
 		selection = S7::class_list,
 		labels    = S7::class_list,
-		columns   = S7::class_list,
+		effects   = S7::class_list,
+		groups    = S7::class_list,
 		layout    = S7::class_list,
 		style     = S7::class_list
 	),
@@ -182,11 +184,32 @@ mdl_gt <- S7::new_class(
 				preset
 			))
 		}
-		rg <- self@layout$row_groups
-		if (length(rg) && !rg %in% c("outcome", "strata")) {
-			msg <- c(msg, sprintf(
-				"@layout$row_groups must be \"outcome\" or \"strata\", not \"%s\"", rg
-			))
+		dimensions <- c(
+			"outcome", "term", "contrast", "adjustment", "modifier",
+			"modifier_level", "stratum", "stratum_level", "subset", "dataset",
+			"model"
+		)
+		for (axis in c("rows", "columns")) {
+			value <- self@layout[[axis]]
+			if (!is.null(value) && (!is.character(value) || anyNA(value) ||
+					any(!value %in% dimensions) || anyDuplicated(value))) {
+				msg <- c(msg, paste0(
+					"@layout$", axis, " must contain unique semantic dimensions: ",
+					paste(dimensions, collapse = ", ")
+				))
+			}
+		}
+		if (length(intersect(self@layout$rows, self@layout$columns))) {
+			msg <- c(msg, "A semantic dimension cannot appear on both layout axes")
+		}
+		if (length(self@groups) && (is.null(names(self@groups)) ||
+				any(!nzchar(names(self@groups))) || anyDuplicated(names(self@groups)))) {
+			msg <- c(msg, "@groups must be a uniquely named list")
+		}
+		if (length(self@layout$placements) &&
+				(is.null(names(self@layout$placements)) ||
+				 anyDuplicated(names(self@layout$placements)))) {
+			msg <- c(msg, "@layout$placements must be named by cell-group id")
 		}
 		d <- self@style$digits
 		if (!is.null(d) &&
@@ -207,11 +230,12 @@ mdl_gt <- S7::new_class(
 	# `new_object()` call to appear in the constructor body itself, so it lives
 	# here rather than in the builder.
 	constructor = function(object, ...) {
-		v <- build_mdl_gt(object, ...)
+		v <- new_mdl_gt_spec(object, ...)
 		new_object(
 			S7_object(),
 			mdl_tbl = v$mdl_tbl, family = v$family, selection = v$selection,
-			labels = v$labels, columns = v$columns, layout = v$layout,
+			labels = v$labels, effects = v$effects, groups = v$groups,
+			layout = v$layout,
 			style = v$style
 		)
 	}
@@ -227,7 +251,7 @@ mdl_gt <- S7::new_class(
 #' internal invariants on every later modification.
 #' @keywords internal
 #' @noRd
-build_mdl_gt <- function(object, ...) {
+new_mdl_gt_spec <- function(object, ...) {
 
 	validate_class(object, "mdl_tbl")
 
@@ -361,10 +385,22 @@ build_mdl_gt <- function(object, ...) {
 		family = famTab,
 		selection = list(terms = NULL, adjustment = NULL),
 		labels = list(relabels = list(), columns = list()),
-		columns = list(),
-		layout = list(preset = "adjustment", row_groups = "outcome"),
+		effects = list(interaction = FALSE, conf_level = 0.95),
+		groups = list(
+			effect = list(
+				id = "effect", view = "merged", show_estimate = TRUE,
+				show_confidence = TRUE, exponentiate = NULL, digits = NULL,
+				labels = list(estimate = "Estimate", confidence = "95% CI"),
+				implicit = TRUE
+			)
+		),
+		layout = list(
+			preset = "adjustment", rows = NULL, columns = NULL,
+			placements = list(), declared = FALSE
+		),
 		style = list(accents = list(), digits = NULL, missing_text = NULL,
-								 padding = NULL)
+								 padding = NULL, theme = "journal", widths = list(),
+								 align = list(), reference_text = "")
 	)
 }
 
@@ -492,44 +528,47 @@ modify_labels <- function(x, ..., columns = NULL) {
 	x
 }
 
-#' Choose a layout preset for a `<mdl_gt>`
+#' Map semantic dimensions onto a `<mdl_gt>` layout
 #'
 #' @description
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' `modify_layout()` selects the layout preset -- the complete assignment of the
-#' grammar's four axes (rows, row groups, columns, spanners) -- and, optionally,
-#' the row-group dimension. The launch presets are:
+#' `modify_layout()` either selects a declarative preset or maps semantic
+#' dimensions directly onto ordered `rows` and `columns`. Outer row dimensions
+#' become row groups; outer column dimensions become spanners. Available
+#' dimensions include `outcome`, `adjustment`, `term`, `contrast`, `modifier`,
+#' `modifier_level`, `stratum`, `stratum_level`, `subset`, `dataset`, and
+#' `model`.
 #'
-#' - `"adjustment"` (the default): adjustment sets on rows, outcomes as row
-#'   groups, a statistic block per term or term level on columns, terms
-#'   spanning their levels.
+#' The built-in presets are:
+#'
+#' - `"adjustment"` (the default): outcome/adjustment rows and term/contrast
+#'   columns.
 #' - `"levels"`: statistic rows (the event count and incidence rate when
 #'   [add_events()] is on the mesa, then one row per adjustment set), term
-#'   levels on columns, terms as spanners -- the shape of the retired hazard
-#'   tables.
-#' - `"interaction"`: interaction levels on rows, grouped by interaction
-#'   term, the across-levels p-value floating over each band. Its rows are
-#'   *defined* by [add_interaction()], which the specification must carry.
+#'   levels on columns, with effect cells in the semantic body.
+#' - `"interaction"`: modifier/modifier-level rows and contrast columns, with
+#'   the across-level interaction p-value scoped to each modifier band.
 #'
-#' `row_groups` swaps the row-group dimension between `"outcome"` (the
-#' default) and `"strata"`. Like every verb, a repeated `modify_layout()`
-#' replaces the earlier instruction with a message.
+#' Every varying effect dimension must be placed on an axis or selected away;
+#' otherwise compilation fails with the missing dimensions named. Use
+#' [place_cells()] independently to position `effect`, `p`, `n`, `events`,
+#' `rate`, `rate_difference`, and `forest` on columns, rows, or the body.
 #'
 #' @param x A `<mdl_gt>` specification
 #' @param preset One of `"adjustment"`, `"levels"`, or `"interaction"`
-#' @param row_groups The row-group dimension: `"outcome"` or `"strata"`
+#' @param rows,columns Ordered character vectors of semantic dimensions.
 #'
 #' @return The modified `<mdl_gt>` specification.
 #'
-#' @seealso [mdl_gt()], [as_gt()]
+#' @seealso [place_cells()], [inspect_mdl_gt()], [mdl_gt()], [as_gt()]
 #' @export
-modify_layout <- function(x, preset = NULL, row_groups = NULL) {
+modify_layout <- function(x, preset = NULL, rows = NULL, columns = NULL) {
 
 	validate_class(x, "mdl_gt")
 
-	if (is.null(preset) && is.null(row_groups)) {
+	if (is.null(preset) && is.null(rows) && is.null(columns)) {
 		return(x)
 	}
 
@@ -544,32 +583,360 @@ modify_layout <- function(x, preset = NULL, row_groups = NULL) {
 			)
 		}
 	}
-	groups <- c("outcome", "strata")
-	if (!is.null(row_groups)) {
-		if (!is.character(row_groups) || length(row_groups) != 1 ||
-				!row_groups %in% groups) {
+	dimensions <- mdl_gt_dimensions()
+	validate_axis <- function(value, name) {
+		if (is.null(value)) return(NULL)
+		if (!is.character(value) || anyNA(value) || any(!nzchar(value)) ||
+				anyDuplicated(value)) {
+			stop("`", name, "` must be a character vector of unique dimensions.",
+					 call. = FALSE)
+		}
+		unknown <- setdiff(value, dimensions)
+		if (length(unknown)) {
 			stop(
-				"`row_groups` must be one of: ",
-				paste0("`\"", groups, "\"`", collapse = ", "), ".",
+				"`", name, "` contains unknown dimensions: ",
+				paste0("`", unknown, "`", collapse = ", "), ". Available: ",
+				paste0("`", dimensions, "`", collapse = ", "), ".",
 				call. = FALSE
 			)
 		}
+		value
+	}
+	rows <- validate_axis(rows, "rows")
+	columns <- validate_axis(columns, "columns")
+	if (length(intersect(rows, columns))) {
+		stop(
+			"A semantic dimension cannot appear on both `rows` and `columns`: ",
+			paste0("`", intersect(rows, columns), "`", collapse = ", "), ".",
+			call. = FALSE
+		)
 	}
 
 	if (isTRUE(x@layout$declared)) {
 		message("`modify_layout()` replaces the earlier layout instruction.")
 	}
 
-	# Each assignment re-validates: the class's `validator` re-checks `preset`
-	# and `row_groups` against the known values, so the verb-level check above is
-	# the friendly front door and the validator the backstop.
+	# Each assignment re-validates: the verb is the friendly front door and the
+	# class validator remains the backstop.
 	if (!is.null(preset)) {
 		x@layout$preset <- preset
+		# A preset is a complete default map. Explicit placements survive because
+		# they are independent instructions and therefore remain order-independent.
+		x@layout$rows <- NULL
+		x@layout$columns <- NULL
 	}
-	if (!is.null(row_groups)) {
-		x@layout$row_groups <- row_groups
-	}
+	if (!is.null(rows)) x@layout$rows <- rows
+	if (!is.null(columns)) x@layout$columns <- columns
 	x@layout$declared <- TRUE
+	x
+}
+
+#' Place cell groups on rows, columns, or the semantic body
+#'
+#' `place_cells()` changes presentation only. It never changes which effects
+#' or measures are computed, and it may be called before or after the matching
+#' `add_*()` verb. Group ids are the stable presentation vocabulary:
+#' `effect`, `p`, `n`, `events`, `rate`, `rate_difference`, and `forest`.
+#'
+#' @param x A `<mdl_gt>` specification.
+#' @param ... Cell-group ids, as bare names or character vectors.
+#' @param axis One of `"columns"`, `"rows"`, or `"body"`.
+#' @param .before,.after Optional group id (or `"body"`) that fixes relative
+#'   placement. Supply at most one.
+#'
+#' @return The modified `<mdl_gt>` specification.
+#' @export
+place_cells <- function(x, ..., axis = c("columns", "rows", "body"),
+							.before = NULL, .after = NULL) {
+
+	validate_class(x, "mdl_gt")
+	axis <- match.arg(axis)
+	ids <- collect_cell_group_ids(...)
+	if (!length(ids)) {
+		stop("`place_cells()` needs at least one cell-group id.", call. = FALSE)
+	}
+	unknown <- setdiff(ids, mdl_gt_group_ids())
+	if (length(unknown)) {
+		stop(
+			"Unknown cell group", if (length(unknown) > 1) "s" else "", ": ",
+			paste0("`", unknown, "`", collapse = ", "), ". Available groups: ",
+			paste0("`", mdl_gt_group_ids(), "`", collapse = ", "), ".",
+			call. = FALSE
+		)
+	}
+	registry <- mdl_gt_group_registry()
+	unsupported <- ids[!vapply(ids, function(id) {
+		axis %in% registry[[id]]$supported_axes
+	}, logical(1))]
+	if (length(unsupported)) {
+		stop(
+			"Cell group", if (length(unsupported) > 1) "s " else " ",
+			paste0("`", unsupported, "`", collapse = ", "),
+			" cannot be placed on the `", axis, "` axis.", call. = FALSE
+		)
+	}
+	if (!is.null(.before) && !is.null(.after)) {
+		stop("Supply only one of `.before` and `.after`.", call. = FALSE)
+	}
+	validate_anchor <- function(value, name) {
+		if (is.null(value)) return(NULL)
+		if (!is.character(value) || length(value) != 1 || is.na(value) ||
+				!value %in% c("body", mdl_gt_group_ids())) {
+			stop("`", name, "` must name a cell group or `\"body\"`.",
+					 call. = FALSE)
+		}
+		value
+	}
+	.before <- validate_anchor(.before, ".before")
+	.after <- validate_anchor(.after, ".after")
+
+	# Ordering within one call is explicit. Encode it as stable constraints,
+	# rather than an insertion index, so separate calls remain order-independent.
+	for (i in seq_along(ids)) {
+		id <- ids[[i]]
+		before <- if (i < length(ids)) ids[[i + 1L]] else .before
+		after <- if (i == 1L) .after else ids[[i - 1L]]
+		x@layout$placements[[id]] <- list(
+			axis = axis, before = before, after = after
+		)
+	}
+	knownPlacements <- mdl_gt_group_ids()[mdl_gt_group_ids() %in%
+		names(x@layout$placements)]
+	x@layout$placements <- x@layout$placements[knownPlacements]
+	x
+}
+
+#' @keywords internal
+#' @noRd
+collect_cell_group_ids <- function(...) {
+	exprs <- as.list(substitute(list(...)))[-1]
+	if (!length(exprs)) return(character())
+	caller <- parent.frame()
+	ids <- unlist(lapply(exprs, function(expr) {
+		if (is.symbol(expr)) return(as.character(expr))
+		value <- eval(expr, envir = caller)
+		if (!is.character(value)) {
+			stop("Cell-group ids must be bare names or character vectors.",
+					 call. = FALSE)
+		}
+		value
+	}), use.names = FALSE)
+	unique(ids)
+}
+
+#' @keywords internal
+#' @noRd
+mdl_gt_dimensions <- function() {
+	c(
+		"outcome", "term", "contrast", "adjustment", "modifier",
+		"modifier_level", "stratum", "stratum_level", "subset", "dataset",
+		"model"
+	)
+}
+
+#' @keywords internal
+#' @noRd
+mdl_gt_group_ids <- function() {
+	c("effect", "p", "n", "events", "rate", "rate_difference", "forest")
+}
+
+# Cell-group verbs ------------------------------------------------------------
+
+#' Add model-effect cell groups
+#'
+#' `add_estimates()` selects the atomic model measures and their built-in text
+#' presentation. `view = "merged"` combines estimate and confidence interval
+#' in one cell; `"separate"` gives them independent leaf columns. The p-value
+#' is always an independently movable `p` group.
+#'
+#' @param x A `<mdl_gt>` specification.
+#' @param columns Labeled formulas naming `beta`, `conf`, and/or `p`.
+#' @param exponentiate `NULL` to infer scale, or a logical override.
+#' @param digits Numeric display precision.
+#' @param view `"merged"` or `"separate"`.
+#' @return The modified specification.
+#' @export
+add_estimates <- function(x,
+		columns = list(beta ~ "Estimate", conf ~ "95% CI", p ~ "P value"),
+		exponentiate = NULL, digits = NULL,
+		view = c("merged", "separate")) {
+
+	validate_class(x, "mdl_gt")
+	view <- match.arg(view)
+	statistics <- labeled_formulas_to_named_list(columns)
+	known <- c("beta", "conf", "p")
+	unknown <- setdiff(names(statistics), known)
+	if (!length(statistics) || length(unknown)) {
+		stop(
+			"`columns` must name one or more of `beta`, `conf`, and `p`",
+			if (length(unknown)) paste0("; unknown: `", paste(unknown, collapse = "`, `"), "`") else "",
+			".", call. = FALSE
+		)
+	}
+	if (!is.null(exponentiate) &&
+			(!is.logical(exponentiate) || length(exponentiate) != 1 ||
+			 is.na(exponentiate))) {
+		stop("`exponentiate` must be `NULL`, `TRUE`, or `FALSE`.", call. = FALSE)
+	}
+	validate_scalar(digits, "digits", min = 0, allow_null = TRUE)
+
+	showEffect <- any(c("beta", "conf") %in% names(statistics))
+	if (showEffect) {
+		x <- record_cell_group(x, "effect", list(
+			id = "effect", view = view,
+			show_estimate = "beta" %in% names(statistics),
+			show_confidence = "conf" %in% names(statistics),
+			exponentiate = exponentiate,
+			digits = if (is.null(digits)) NULL else as.integer(digits),
+			labels = list(
+				estimate = if ("beta" %in% names(statistics)) as.character(statistics$beta) else NULL,
+				confidence = if ("conf" %in% names(statistics)) as.character(statistics$conf) else NULL
+			),
+			implicit = FALSE
+		), "add_estimates")
+	} else {
+		x@groups$effect <- NULL
+	}
+	if ("p" %in% names(statistics)) {
+		x <- record_cell_group(x, "p", list(
+			id = "p", label = as.character(statistics$p), digits = 3L
+		), "add_estimates")
+	} else {
+		x@groups$p <- NULL
+	}
+	x
+}
+
+#' Add model sample-size cells
+#' @param label Column or row label.
+#' @rdname add_estimates
+#' @export
+add_n <- function(x, label = "N") {
+	validate_class(x, "mdl_gt")
+	validate_scalar(label, "label", type = "string")
+	record_cell_group(x, "n", list(id = "n", label = label), "add_n")
+}
+
+#' Add event-count and incidence-rate cells
+#'
+#' @param x A `<mdl_gt>` specification.
+#' @param followup Follow-up column, as a bare name or string. It is inferred
+#'   from a common `Surv()` outcome when omitted.
+#' @param person_years Rate denominator.
+#' @param scale Divisor converting follow-up units to years.
+#' @param digits Rate precision.
+#' @export
+add_events <- function(x, followup, person_years = 100, scale = 365.25,
+		digits = 1) {
+	validate_class(x, "mdl_gt")
+	if (missing(followup)) {
+		outcomes <- unique(stats::na.omit(x@mdl_tbl$outcome))
+		surv <- lapply(outcomes, parse_surv_outcome)
+		followup <- NULL
+		if (length(outcomes) && !any(vapply(surv, is.null, logical(1)))) {
+			times <- unique(vapply(surv, `[[`, character(1), "time"))
+			if (length(times) == 1) followup <- times
+		}
+		if (is.null(followup)) {
+			stop("`add_events()` needs `followup`; it can only be inferred from a common `Surv()` time argument.",
+					 call. = FALSE)
+		}
+	} else {
+		expr <- substitute(followup)
+		followup <- if (is.symbol(expr)) as.character(expr) else followup
+	}
+	validate_scalar(followup, "followup", type = "string")
+	validate_scalar(person_years, "person_years", min = 0, inclusive = FALSE)
+	validate_scalar(scale, "scale", min = 0, inclusive = FALSE)
+	validate_scalar(digits, "digits", min = 0)
+	config <- list(
+		followup = followup, person_years = as.numeric(person_years),
+		scale = as.numeric(scale), digits = as.integer(digits)
+	)
+	x <- record_cell_group(x, "events", c(list(id = "events", label = "Events"), config),
+		"add_events")
+	record_cell_group(x, "rate", c(list(
+		id = "rate", label = paste0("Rate per ", person_years, " person-years")
+	), config), "add_events")
+}
+
+#' Add a term-scoped incidence-rate difference
+#' @param conf_level Confidence level.
+#' @rdname add_events
+#' @export
+add_rate_difference <- function(x, conf_level = 0.95) {
+	validate_class(x, "mdl_gt")
+	validate_scalar(conf_level, "conf_level", min = 0, max = 1,
+							 inclusive = FALSE)
+	record_cell_group(x, "rate_difference", list(
+		id = "rate_difference", conf_level = as.numeric(conf_level),
+		label = paste0("Rate difference (", format(conf_level * 100), "% CI)")
+	), "add_rate_difference")
+}
+
+#' Add conditional effects for model interaction terms
+#'
+#' This changes the effect source, not the presentation. Modifier levels become
+#' ordinary semantic dimensions and can be combined with adjustment and strata.
+#' @param x A `<mdl_gt>` specification.
+#' @param conf_level Confidence level for conditional effects.
+#' @export
+add_interaction <- function(x, conf_level = 0.95) {
+	validate_class(x, "mdl_gt")
+	validate_scalar(conf_level, "conf_level", min = 0, max = 1,
+							 inclusive = FALSE)
+	if (isTRUE(x@effects$interaction)) {
+		message("`add_interaction()` replaces the earlier interaction-effect instruction.")
+	}
+	x@effects$interaction <- TRUE
+	x@effects$conf_level <- as.numeric(conf_level)
+	if (!isTRUE(x@layout$declared)) x@layout$preset <- "interaction"
+	x
+}
+
+#' Add a forest presentation of effect estimates
+#'
+#' @param x A `<mdl_gt>` specification.
+#' @param axis Named options: `limits`, `breaks`, `intercept`, `log`, `title`,
+#'   `left`, and `right`.
+#' @param width Cell width in pixels.
+#' @param invert Draw reciprocal effects.
+#' @export
+add_forest <- function(x, axis = list(), width = 120, invert = FALSE) {
+	validate_class(x, "mdl_gt")
+	if (!is.list(axis) || (length(axis) && is.null(names(axis)))) {
+		stop("`axis` must be a named list.", call. = FALSE)
+	}
+	known <- c("limits", "breaks", "intercept", "log", "title", "left", "right")
+	unknown <- setdiff(names(axis), known)
+	if (length(unknown)) {
+		stop("Unknown forest-axis options: ",
+				 paste0("`", unknown, "`", collapse = ", "), ".", call. = FALSE)
+	}
+	if (!is.null(axis$limits) &&
+			(!is.numeric(axis$limits) || length(axis$limits) != 2 || anyNA(axis$limits))) {
+		stop("`axis$limits` must be a length-2 numeric vector.", call. = FALSE)
+	}
+	validate_scalar(width, "width", min = 0, inclusive = FALSE)
+	if (!is.logical(invert) || length(invert) != 1 || is.na(invert)) {
+		stop("`invert` must be `TRUE` or `FALSE`.", call. = FALSE)
+	}
+	record_cell_group(x, "forest", list(
+		id = "forest", label = "", axis = axis, width = as.numeric(width),
+		invert = invert
+	), "add_forest")
+}
+
+#' @keywords internal
+#' @noRd
+record_cell_group <- function(x, id, config, verb) {
+	old <- x@groups[[id]]
+	if (!is.null(old) && !isTRUE(old$implicit)) {
+		message("`", verb, "()` replaces the earlier `", id, "` cell group.")
+	}
+	x@groups[[id]] <- config
+	order <- mdl_gt_group_ids()[mdl_gt_group_ids() %in% names(x@groups)]
+	x@groups <- x@groups[order]
 	x
 }
 
@@ -614,18 +981,26 @@ modify_layout <- function(x, preset = NULL, row_groups = NULL) {
 #' @param digits Number of digits estimates are formatted to
 #' @param missing_text Text shown in cells with nothing to display
 #' @param padding Vertical padding scale, `0` (dense) upward
+#' @param theme Built-in HTML theme: `"journal"`, `"compact"`, or `"plain"`.
+#' @param widths Named list of pixel widths keyed by cell-group id.
+#' @param align Named list of `"left"`, `"center"`, or `"right"` alignment
+#'   values keyed by cell-group id.
+#' @param reference_text Text used for reference effects.
 #'
 #' @return The modified `<mdl_gt>` specification.
 #'
 #' @seealso [mdl_gt()], [as_gt()]
 #' @export
 modify_style <- function(x, accents = NULL, digits = NULL,
-												 missing_text = NULL, padding = NULL) {
+												 missing_text = NULL, padding = NULL,
+												 theme = NULL, widths = NULL, align = NULL,
+												 reference_text = NULL) {
 
 	validate_class(x, "mdl_gt")
 
 	if (is.null(accents) && is.null(digits) && is.null(missing_text) &&
-			is.null(padding)) {
+			is.null(padding) && is.null(theme) && is.null(widths) &&
+			is.null(align) && is.null(reference_text)) {
 		return(x)
 	}
 
@@ -639,6 +1014,30 @@ modify_style <- function(x, accents = NULL, digits = NULL,
 	validate_scalar(missing_text, "missing_text", type = "string",
 									 allow_null = TRUE)
 	validate_scalar(padding, "padding", min = 0, allow_null = TRUE)
+	if (!is.null(theme)) {
+		if (!is.character(theme) || length(theme) != 1 ||
+				!theme %in% c("journal", "compact", "plain")) {
+			stop("`theme` must be `\"journal\"`, `\"compact\"`, or `\"plain\"`.",
+					 call. = FALSE)
+		}
+	}
+	validate_named_list <- function(value, name) {
+		if (is.null(value)) return(NULL)
+		if (!is.list(value) || is.null(names(value)) || any(!nzchar(names(value)))) {
+			stop("`", name, "` must be a named list keyed by cell-group id.",
+					 call. = FALSE)
+		}
+		unknown <- setdiff(names(value), mdl_gt_group_ids())
+		if (length(unknown)) {
+			stop("`", name, "` names unknown cell groups: ",
+					 paste0("`", unknown, "`", collapse = ", "), ".", call. = FALSE)
+		}
+		value
+	}
+	widths <- validate_named_list(widths, "widths")
+	align <- validate_named_list(align, "align")
+	validate_scalar(reference_text, "reference_text", type = "string",
+							 allow_null = TRUE)
 
 	# Each argument replaces only its own field, with a message only when that
 	# field was already recorded -- the other style instructions stand (M6.11)
@@ -668,6 +1067,10 @@ modify_style <- function(x, accents = NULL, digits = NULL,
 		}
 		x@style$padding <- as.numeric(padding)
 	}
+	if (!is.null(theme)) x@style$theme <- theme
+	if (!is.null(widths)) x@style$widths[names(widths)] <- widths
+	if (!is.null(align)) x@style$align[names(align)] <- align
+	if (!is.null(reference_text)) x@style$reference_text <- reference_text
 
 	x
 }
@@ -774,15 +1177,18 @@ method(format, mdl_gt) <- function(x, ...) {
 			)
 		}
 
+	preset <- mdl_gt_preset(x@layout$preset)
+	rows <- first_of(x@layout$rows, preset$rows)
+	columns <- first_of(x@layout$columns, preset$columns)
 	layoutLine <- paste0(
 		"  layout: ", x@layout$preset,
-		" (rows: ",
-		switch(x@layout$preset,
-					 adjustment = "adjustment sets",
-					 levels = "term levels",
-					 interaction = "interaction levels",
-					 x@layout$preset),
-		", groups: ", x@layout$row_groups, "s)"
+		" (rows: ", paste(rows, collapse = " > "),
+		"; columns: ", paste(columns, collapse = " > "), ")"
+	)
+	effectLine <- paste0(
+		"  effects: ",
+		if (isTRUE(x@effects$interaction)) "conditional by modifier" else
+			"model coefficients"
 	)
 
 	# Declared selection, one line per dimension that has been narrowed
@@ -801,15 +1207,19 @@ method(format, mdl_gt) <- function(x, ...) {
 			"  selection: everything fitted (bare mesa)"
 		}
 
-	# Column blocks so far; the bare default is estimate + CI
-	columnsLine <-
-		if (length(x@columns) > 0) {
-			paste0("  columns: ",
-						 paste(vapply(x@columns, describe_column_block, character(1)),
-						 			collapse = ", "))
-		} else {
-			"  columns: estimate + CI (default)"
-		}
+	groupLine <- paste0("  cell groups: ", paste(names(x@groups), collapse = ", "))
+	placementLines <- character()
+	if (length(x@layout$placements)) {
+		placementLines <- c(
+			"  placements:",
+			vapply(names(x@layout$placements), function(id) {
+				p <- x@layout$placements[[id]]
+				paste0("    ", id, ": ", p$axis,
+						 if (!is.null(p$before)) paste0(" before ", p$before) else "",
+						 if (!is.null(p$after)) paste0(" after ", p$after) else "")
+			}, character(1))
+		)
+	}
 
 	labelsLine <-
 		if (length(x@labels$relabels) > 0 || length(x@labels$columns) > 0) {
@@ -821,6 +1231,6 @@ method(format, mdl_gt) <- function(x, ...) {
 		"# `as_gt()` renders; `select_*()` / `modify_labels()` refine the mesa"
 	)
 
-	c(header, dataLine, familyLine, layoutLine, selectionBlock, columnsLine,
-		labelsLine, "", hint)
+	c(header, dataLine, familyLine, effectLine, layoutLine, selectionBlock,
+		groupLine, placementLines, labelsLine, "", hint)
 }

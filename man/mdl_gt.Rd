@@ -46,17 +46,21 @@ pipeable verbs, exactly the way a \code{{ggplot2}} plot is grown:
 displayed (e.g. only the crude and fully adjusted rows --
 \code{\link[=adjustment_sets]{adjustment_sets()}} shows the rungs and the numbers they are selected
 by), and \code{select_terms()} which terms' cells are shown;
-\item the \verb{add_*()} verbs append column blocks derived from the models and the
-attached data (estimates, events, rates, sample sizes);
+\item the \verb{add_*()} verbs activate named cell groups derived from models and
+attached data (estimates, events, rates, sample sizes, forest views);
+\item \code{modify_layout()} maps semantic dimensions onto rows and columns, while
+\code{\link[=place_cells]{place_cells()}} moves whole cell groups without recomputing statistics;
 \item \code{modify_labels()} relabels outcomes, terms, and levels late, without
 reselecting;
+\item \code{\link[=inspect_mdl_gt]{inspect_mdl_gt()}} exposes the effects, measures, groups, and cells before
+\code{{gt}} rendering;
 \item \code{as_gt()} renders the specification to a \code{{gt}} table (see \code{\link[=as_gt]{as_gt()}}).
 }
 
 Because the specification is declarative -- the verbs record instructions and
 resolution happens only at \code{\link[=as_gt]{as_gt()}}/\code{print()} -- the verbs may arrive in any
 order. \strong{A verb replaces only what you name.} Repeating a verb with the
-same instruction -- the same selection dimension, block type, style field,
+same instruction -- the same selection dimension, group id, style field,
 or label name -- replaces just that instruction with a message, and leaves
 everything else recorded on the specification standing (the \code{{ggplot2}}
 \code{labs()} merge behavior); calling a \verb{select_*()} verb with no arguments
@@ -65,14 +69,13 @@ bare \code{mdl_gt(mt) |> as_gt()} already renders a minimal estimate-and-interva
 table, so the grammar is usable from the first verb.
 }
 \details{
-The unit of a mesa is the \strong{term x effect cell}: one term (or term level)
-crossed with one effect -- an estimate, its interval, a p-value, an event
-count, a rate, an observation count. The \verb{add_*()} verbs append \emph{column
-blocks}, groups of effects that travel together (an estimate with its CI
-and p), so blocks compose freely -- adding, dropping, or reordering one
-never changes another's cells -- and the layout presets place the same
-cells wide (levels on columns) or long (levels on rows) without
-recomputing anything.
+The semantic unit is an \strong{effect}: outcome x focal term/contrast x model
+context, optionally conditioned by stratum and modifier levels. Estimates,
+confidence bounds, p-values, counts, events, and rates are atomic measures
+attached at their declared semantic grain. Named cell groups present those
+measures: \code{effect} may merge or separate the estimate and interval, while
+\code{forest} reads the same three measures without calculating new statistics.
+Layout changes only project those stable effects and measures into cells.
 
 \code{mdl_gt()} validates before it builds. The object must be a \code{mdl_tbl}; only
 its fitted rows are laid out (failed and unfit rows are set aside); the
@@ -126,5 +129,6 @@ mt |>
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[=as_gt]{as_gt()}} to render, \code{\link[=model_table]{model_table()}} for the model collection
+\code{\link[=inspect_mdl_gt]{inspect_mdl_gt()}} to troubleshoot, \code{\link[=place_cells]{place_cells()}} to move cell
+groups, \code{\link[=as_gt]{as_gt()}} to render, \code{\link[=model_table]{model_table()}} for the model collection
 }

@@ -1,14 +1,8 @@
-# Rendering the <mdl_gt> cell frame (M6.6, split out in M6.14) ------------------
+# Rendering the <mdl_gt> cell frame -------------------------------------------
 #
-# `as_gt()` is the public entry point: it realizes a `<mdl_gt>` specification
-# (table-realize.R), lays it out as the cell frame (table-presets.R, via the
-# single `mdl_gt_frame()` dispatch point), and renders it here --
-# `render_cell_frame()` is the one place in the package that emits `{gt}`
-# layout calls (pivot, merges by pattern, spanners, labels, stub indentation,
-# alignment, missing text, accents), plus the two mechanisms that live only
-# here: the rowspan emulation for group-scoped cells and the drawing of
-# `type = "plot"` cells with their shared column x-scale and reserved `.axis`
-# row.
+# `as_gt()` builds the semantic pipeline and renders its mechanical cell frame.
+# This is the only file that emits `{gt}` layout calls. Forest axes are render
+# metadata and never masquerade as semantic rows.
 
 #' Render a `<mdl_gt>` specification to a `{gt}` table
 #'
@@ -16,18 +10,17 @@
 #'
 #' `r lifecycle::badge('experimental')`
 #'
-#' `as_gt()` realizes a [mdl_gt()] specification: it resolves the recorded
-#' selection against the model table, decorates each estimate with its term
-#' metadata, and emits a `{gt}` table. On a bare specification it renders a
-#' minimal default -- each displayed term's point estimate and 95% confidence
-#' interval, with adjustment sets on rows and outcomes as row groups.
+#' `as_gt()` compiles a [mdl_gt()] specification through effects, atomic
+#' measures, cell groups, layout, and a mechanical cell frame, then emits a
+#' normal `{gt}` table. On a bare specification it renders a minimal default:
+#' each displayed term's estimate and 95% confidence interval.
 #'
 #' @param x A `<mdl_gt>` specification (from [mdl_gt()])
 #' @param ... Passed to methods
 #'
 #' @return A `gt_tbl` object.
 #'
-#' @seealso [mdl_gt()]
+#' @seealso [inspect_mdl_gt()], [mdl_gt()]
 #'
 #' @include table-spec.R
 #' @export
@@ -39,7 +32,8 @@ as_gt <- S7::new_generic("as_gt", "x")
 # `S7::methods_register()` (see zzz.R); it needs no NAMESPACE entry, so no
 # `@export`.
 method(as_gt, mdl_gt) <- function(x, ...) {
-	render_cell_frame(mdl_gt_frame(x), x)
+	built <- build_mdl_gt(x)
+	render_cell_frame(built@cells, x)
 }
 
 # The render stage -------------------------------------------------------------
@@ -59,44 +53,49 @@ method(as_gt, mdl_gt) <- function(x, ...) {
 render_cell_frame <- function(frame, spec) {
 
 	missing_text <- first_of(spec@style$missing_text, "")
-
-	# Row order: groups by first appearance, rows by their index within the
-	# group; reserved rows (`.`-prefixed keys, contributed by column blocks)
-	# always sort last, after every row group
 	rows <- unique(frame[
-		frame$row_scope == "row" & !is.na(frame$row_key),
-		c("row_group", "row_key", "row_index")
+		frame$scope == "row",
+		c("row_id", "row_group", "row_label", "row_path_key", "row_order",
+			"row_indent", "row_kind")
 	])
-	reserved <- startsWith(rows$row_key, ".")
-	rows <- rows[order(
-		reserved,
-		match(rows$row_group, unique(rows$row_group[!reserved])),
-		rows$row_index
-	), , drop = FALSE]
-	rowId <- paste(naToBlank(rows$row_group), rows$row_key, sep = "\r")
+	rows <- rows[order(rows$row_order), , drop = FALSE]
+	cols <- unique(frame[c(
+		"column_id", "column_label", "column_order", "spanner"
+	)])
+	cols <- cols[order(cols$column_order), , drop = FALSE]
 
-	cols <- unique(frame[
-		c("column_key", "column_index", "column_label", "spanner")
-	])
-	cols <- cols[order(cols$column_index), , drop = FALSE]
+	# Plot axes are renderer metadata. Add a render-only footer row to the wide
+	# data; the semantic cell frame itself remains free of magic `.axis` rows.
+	plotColumns <- unique(frame$column_id[frame$renderer == "forest"])
+	axisAt <- integer()
+	if (length(plotColumns)) {
+		rows <- dplyr::bind_rows(rows, data.frame(
+			row_id = "render::forest-axis", row_group = "", row_label = "",
+			row_path_key = "render::forest-axis",
+			row_order = max(rows$row_order, 0) + 1L, row_indent = 0L,
+			row_kind = "footer", stringsAsFactors = FALSE
+		))
+		axisAt <- nrow(rows)
+	}
 
 	# Pivot: one formatted text column per column key, missing cells filled
 	# with the missing text
 	wide <- tibble::tibble(
-		row_group = naToBlank(rows$row_group),
-		row_key = rows$row_key
+		row_group = na_to_blank(rows$row_group),
+		row_label = rows$row_label
 	)
-	rowScoped <- frame[frame$row_scope == "row", , drop = FALSE]
+	rowScoped <- frame[frame$scope == "row", , drop = FALSE]
 	rowScoped$cell <- vapply(seq_len(nrow(rowScoped)), function(i) {
-		format_cell(rowScoped$value[[i]], rowScoped$format[[i]], missing_text)
+		if (rowScoped$type[i] == "reference") {
+			first_of(spec@style$reference_text, missing_text)
+		} else {
+			format_cell(rowScoped$value[[i]], rowScoped$format[[i]], missing_text)
+		}
 	}, character(1))
-	for (key in cols$column_key) {
-		colCells <- rowScoped[rowScoped$column_key == key, , drop = FALSE]
+	for (key in cols$column_id) {
+		colCells <- rowScoped[rowScoped$column_id == key, , drop = FALSE]
 		filled <- rep(missing_text, nrow(rows))
-		at <- match(
-			paste(naToBlank(colCells$row_group), colCells$row_key, sep = "\r"),
-			rowId
-		)
+		at <- match(colCells$row_id, rows$row_id)
 		filled[at[!is.na(at)]] <- colCells$cell[!is.na(at)]
 		wide[[key]] <- filled
 	}
@@ -104,12 +103,13 @@ render_cell_frame <- function(frame, spec) {
 	# Group-scoped cells: `{gt}` has no rowspan for body cells, so the value is
 	# written into each row of its group here and all but one copy is masked
 	# after the table is built (see `apply_group_scoped()`)
-	groupScoped <- frame[frame$row_scope == "group", , drop = FALSE]
+	groupScoped <- frame[frame$scope == "group", , drop = FALSE]
 	gsPlacements <- list()
 	for (i in seq_len(nrow(groupScoped))) {
 		g <- groupScoped$row_group[i]
-		key <- groupScoped$column_key[i]
-		at <- which(naToBlank(rows$row_group) == naToBlank(g) & !reserved)
+		key <- groupScoped$column_id[i]
+		at <- which(startsWith(rows$row_path_key, groupScoped$scope_id[i]) &
+			rows$row_kind == "body")
 		if (length(at) == 0) next
 		wide[[key]][at] <- format_cell(
 			groupScoped$value[[i]], groupScoped$format[[i]], missing_text
@@ -125,13 +125,11 @@ render_cell_frame <- function(frame, spec) {
 		)
 	}
 
-	gtbl <- gt::gt(
-		wide, rowname_col = "row_key", groupname_col = "row_group"
-	)
+	gtbl <- gt::gt(wide, rowname_col = "row_label", groupname_col = "row_group")
 
 	# Spanners, innermost first so nested paths stack upward; a spanner covers
 	# each maximal run of consecutive columns sharing its path prefix
-	paths <- strsplit(naToBlank(cols$spanner), spanner_sep, fixed = TRUE)
+	paths <- strsplit(na_to_blank(cols$spanner), spanner_sep, fixed = TRUE)
 	for (depth in rev(seq_len(max(c(lengths(paths), 1))))) {
 		prefix <- vapply(paths, function(p) {
 			if (length(p) >= depth) {
@@ -140,7 +138,7 @@ render_cell_frame <- function(frame, spec) {
 				NA_character_
 			}
 		}, character(1))
-		runs <- rle(naToBlank(prefix))
+		runs <- rle(na_to_blank(prefix))
 		ends <- cumsum(runs$lengths)
 		starts <- ends - runs$lengths + 1
 		for (r in seq_along(runs$values)) {
@@ -149,32 +147,27 @@ render_cell_frame <- function(frame, spec) {
 			gtbl <- gt::tab_spanner(
 				gtbl,
 				label = paths[[span[1]]][depth],
-				columns = dplyr::all_of(cols$column_key[span]),
-				id = paste0("sp", depth, "::", cols$column_key[span[1]])
+				columns = dplyr::all_of(cols$column_id[span]),
+				id = paste0("sp", depth, "::", cols$column_id[span[1]])
 			)
 		}
 	}
 
 	# Column labels from the frame, blank when suppressed
 	labels <- stats::setNames(
-		as.list(naToBlank(cols$column_label)), cols$column_key
+		as.list(na_to_blank(cols$column_label)), cols$column_id
 	)
 	gtbl <- gt::cols_label(gtbl, .list = labels)
 
-	# Stub indentation: under the adjustment preset, the rows beyond the first
-	# of each group step in (the old `tbl_beta` look -- the crude model flush,
-	# the adjusted models indented)
-	if (identical(spec@layout$preset, "adjustment")) {
-		indent <- which(!reserved &
-											stats::ave(seq_len(nrow(rows)), rows$row_group,
-																 FUN = seq_along) > 1)
-		if (length(indent) > 0) {
-			gtbl <- gt::tab_stub_indent(gtbl, rows = !!indent, indent = 3)
+	for (level in sort(unique(rows$row_indent[rows$row_indent > 0]))) {
+		at <- which(rows$row_indent == level & rows$row_kind == "body")
+		if (length(at)) {
+			gtbl <- gt::tab_stub_indent(gtbl, rows = !!at, indent = min(level, 5L))
 		}
 	}
 
 	gtbl <- apply_group_scoped(gtbl, gsPlacements)
-	gtbl <- render_plot_columns(gtbl, frame, rows, reserved)
+	gtbl <- render_registered_columns(gtbl, frame, rows, axisAt)
 	gtbl <- apply_accents(gtbl, frame, rows, spec@style$accents)
 
 	# Vertical padding: `modify_style(padding =)` wins; a table with plot
@@ -187,13 +180,37 @@ render_cell_frame <- function(frame, spec) {
 		gtbl <- gt::opt_vertical_padding(gtbl, scale = padding)
 	}
 
-	gtbl |>
-		gt::cols_align(align = "center", columns = dplyr::all_of(cols$column_key)) |>
+	gtbl <- apply_mdl_gt_theme(gtbl, spec@style$theme)
+	gtbl <- gtbl |>
+		gt::cols_align(align = "center", columns = dplyr::all_of(cols$column_id)) |>
 		gt::opt_align_table_header("left") |>
 		gt::tab_style(
 			style = gt::cell_text(align = "left"),
 			locations = gt::cells_stub()
 		)
+	apply_group_widths_and_alignment(gtbl, frame, spec@style)
+}
+
+#' Built-in visual renderer dispatch
+#'
+#' The main renderer owns table structure; registered visual renderers transform
+#' only the cells that declare their renderer id. Adding a visual presentation
+#' therefore does not create a second table realization path.
+#' @keywords internal
+#' @noRd
+render_registered_columns <- function(gtbl, frame, rows, axisAt) {
+	registry <- list(forest = render_plot_columns)
+	active <- setdiff(unique(frame$renderer), "text")
+	unknown <- setdiff(active, names(registry))
+	if (length(unknown)) {
+		stop("No built-in renderer is registered for: ",
+			paste0("`", unknown, "`", collapse = ", "), ".", call. = FALSE)
+	}
+	for (id in active) {
+		cells <- frame[frame$renderer == id, , drop = FALSE]
+		gtbl <- registry[[id]](gtbl, cells, rows, axisAt)
+	}
+	gtbl
 }
 
 #' Format one cell through its recipe
@@ -307,24 +324,21 @@ apply_group_scoped <- function(gtbl, placements) {
 #' the *column* -- limits, intercept, breaks, and log-versus-linear resolved
 #' across all of its cells, with the block's `axis` options (on the cells'
 #' format recipe) overriding the guesses. Each cell renders through
-#' [gt::text_transform()] + `plot_image()`; the reserved `.axis` row --
-#' the only sanctioned way a column block alters the row axis -- takes the
-#' bottom axis strip, always sorts last, and shows no stub label.
+#' [gt::text_transform()]. A render-only footer takes the bottom axis strip;
+#' it is never part of the semantic cell frame.
 #' @keywords internal
 #' @noRd
-render_plot_columns <- function(gtbl, frame, rows, reserved) {
+render_plot_columns <- function(gtbl, frame, rows, axisAt = integer()) {
 
-	plotKeys <- unique(frame$column_key[frame$type == "plot"])
+	plotKeys <- unique(frame$column_id[frame$renderer == "forest"])
 	if (length(plotKeys) == 0) {
 		return(gtbl)
 	}
 
-	rowId <- paste(naToBlank(rows$row_group), rows$row_key, sep = "\r")
-	axisAt <- which(rows$row_key == ".axis")
 	for (key in plotKeys) {
 		cells <- frame[
-			frame$column_key == key & frame$type == "plot" &
-				frame$row_scope == "row" & !startsWith(frame$row_key, "."),
+			frame$column_id == key & frame$renderer == "forest" &
+				frame$scope == "row",
 			, drop = FALSE
 		]
 		if (nrow(cells) == 0) next
@@ -332,9 +346,7 @@ render_plot_columns <- function(gtbl, frame, rows, reserved) {
 		scale <- resolve_plot_scale(cells$value, options)
 		width <- first_of(cells$format[[1]]$width, 100)
 
-		at <- match(
-			paste(naToBlank(cells$row_group), cells$row_key, sep = "\r"), rowId
-		)
+		at <- match(cells$row_id, rows$row_id)
 		values <- cells$value[order(at)]
 		gtbl <- gt::text_transform(
 			gtbl,
@@ -365,8 +377,7 @@ render_plot_columns <- function(gtbl, frame, rows, reserved) {
 		}
 	}
 
-	# The reserved row is machinery, not a substantive row: its stub label
-	# is suppressed (the axis strip needs no name)
+	# The footer is renderer machinery, not a semantic row.
 	if (length(axisAt) > 0) {
 		gtbl <- gt::text_transform(
 			gtbl,
@@ -409,6 +420,10 @@ resolve_plot_scale <- function(values, options = NULL) {
 	}))
 	nums <- nums[!is.na(nums)]
 	log <- isTRUE(options$log)
+	if (!length(nums)) {
+		nums <- if (!is.null(options$limits)) options$limits else
+			if (log) c(0.5, 2) else c(-1, 1)
+	}
 
 	limits <- options$limits
 	if (is.null(limits)) {
@@ -432,7 +447,7 @@ resolve_plot_scale <- function(values, options = NULL) {
 
 	list(
 		limits = limits, intercept = intercept, breaks = breaks, log = log,
-		title = options$title
+		title = options$title, left = options$left, right = options$right
 	)
 }
 
@@ -517,7 +532,7 @@ draw_forest_cell <- function(value, scale) {
 		ggplot2::theme(plot.margin = ggplot2::margin(0, 0, 0, 0))
 }
 
-#' The bottom axis strip of a forest column (the reserved `.axis` row)
+#' The render-only bottom axis strip of a forest column
 #'
 #' The strip continues the cells' reference line down to the axis, so the
 #' column reads as one panel rather than rows with a ruler pasted under
@@ -587,31 +602,28 @@ apply_accents <- function(gtbl, frame, rows, accents) {
 		return(gtbl)
 	}
 
-	rowId <- paste(naToBlank(rows$row_group), rows$row_key, sep = "\r")
 	cells <- frame[
-		frame$row_scope == "row" & frame$type %in% c("numeric", "reference"),
+		frame$scope == "row" & frame$type %in% c("numeric", "reference"),
 		, drop = FALSE
 	]
-	statSuffixes <- c("est", "p", "events", "rate", "rate_difference")
-	context <- vapply(strsplit(cells$column_key, "::", fixed = TRUE),
-										function(parts) {
-		if (length(parts) > 1 && parts[length(parts)] %in% statSuffixes) {
-			paste(parts[-length(parts)], collapse = "::")
-		} else {
-			paste(parts, collapse = "::")
-		}
-	}, character(1))
+	context <- ifelse(
+		!is.na(cells$effect_id), cells$effect_id,
+		paste(cells$row_id, cells$group_id, sep = "\r")
+	)
 	groups <- split(
 		seq_len(nrow(cells)),
-		paste(naToBlank(cells$row_group), cells$row_key, context, sep = "\r")
+		paste(cells$row_id, context, sep = "\r")
 	)
 
 	for (idx in groups) {
 		stats <- list()
 		for (i in idx) {
 			value <- cells$value[[i]]
-			if (endsWith(cells$column_key[i], "::rate_difference")) {
+			if (cells$group_id[i] == "rate_difference") {
 				value <- list(rate_difference = value$estimate)
+			}
+			if (cells$group_id[i] == "n" && !"n" %in% names(value)) {
+				value <- list(n = unname(value[[1]]))
 			}
 			stats <- utils::modifyList(stats, value[!vapply(value, function(v) {
 				length(v) == 0 || is.na(v)
@@ -641,21 +653,68 @@ apply_accents <- function(gtbl, frame, rows, accents) {
 			if (length(color) > 0) args$color <- color[1]
 			style <- do.call(gt::cell_text, args)
 			for (i in idx) {
-				at <- match(
-					paste(naToBlank(cells$row_group[i]), cells$row_key[i],
-								sep = "\r"),
-					rowId
-				)
+				at <- match(cells$row_id[i], rows$row_id)
 				if (is.na(at)) next
 				gtbl <- gt::tab_style(
 					gtbl,
 					style = style,
 					locations = gt::cells_body(
-						columns = dplyr::all_of(cells$column_key[i]), rows = !!at
+						columns = dplyr::all_of(cells$column_id[i]), rows = !!at
 					)
 				)
 			}
 		}
+	}
+	gtbl
+}
+
+#' Apply one built-in HTML-first table theme
+#' @keywords internal
+#' @noRd
+apply_mdl_gt_theme <- function(gtbl, theme = "journal") {
+	theme <- first_of(theme, "journal")
+	if (theme == "plain") return(gtbl)
+	if (theme == "compact") {
+		return(gtbl |>
+			gt::opt_vertical_padding(scale = 0.5) |>
+			gt::tab_options(table_body.hlines.style = "none"))
+	}
+	gtbl |>
+		gt::tab_options(
+			table_body.hlines.style = "none",
+			row_group.border.top.style = "none",
+			row_group.border.bottom.style = "none",
+			stub.border.style = "none",
+			column_labels.border.bottom.style = "solid",
+			column_labels.border.bottom.width = gt::px(1),
+			table_body.border.bottom.style = "solid",
+			table_body.border.bottom.width = gt::px(1)
+		)
+}
+
+#' Cell-group width/alignment overrides resolved against semantic frame ids
+#' @keywords internal
+#' @noRd
+apply_group_widths_and_alignment <- function(gtbl, frame, style) {
+	for (id in names(style$widths)) {
+		columns <- unique(frame$column_id[frame$group_id == id])
+		if (!length(columns)) next
+		width <- style$widths[[id]]
+		if (is.numeric(width) && length(width) == 1 && !is.na(width)) {
+			widthFormula <- rlang::new_formula(
+				rlang::expr(dplyr::all_of(!!columns)),
+				rlang::expr(gt::px(!!width))
+			)
+			gtbl <- gt::cols_width(gtbl, .list = list(widthFormula))
+		}
+	}
+	for (id in names(style$align)) {
+		columns <- unique(frame$column_id[frame$group_id == id])
+		value <- style$align[[id]]
+		if (!length(columns) || !is.character(value) || length(value) != 1 ||
+				!value %in% c("left", "center", "right")) next
+		gtbl <- gt::cols_align(gtbl, align = value,
+			columns = dplyr::all_of(columns))
 	}
 	gtbl
 }

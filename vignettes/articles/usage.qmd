@@ -118,8 +118,8 @@ c(
 ```
 
 Same outcome, same ladder, different exposures: the `varied exposures`
-relation is the wide-table shape — exposures as column blocks over shared
-adjustment rows. A mediation triad binds into a single family even though
+relation supplies a semantic exposure/term dimension over shared adjustment
+rows. A mediation triad binds into a single family even though
 its `mediator ~ exposure` member has a different left-hand side:
 
 ```{r}
@@ -233,8 +233,10 @@ mtMixed |> adjusting_for(hp, cyl)
 
 Past the gate, every verb is a *display* decision: which adjustment rungs
 show (`select_adjustment()`), which terms' cells show (`select_terms()`),
-what the labels say (`modify_labels()` — outcomes included), and which
-column blocks ride along (`add_*()`). And the rungs need not be remembered —
+what the labels say (`modify_labels()` — outcomes included), and which named
+cell groups are active (`add_*()`). `modify_layout()` maps semantic dimensions
+and `place_cells()` moves those groups without changing measures. The rungs
+need not be remembered —
 `adjustment_sets()` shows each distinct covariate set, what it adds over the
 rung below, and the number `select_adjustment()` picks it by. The index is
 the *identity* of the set (not its position within a family), so related

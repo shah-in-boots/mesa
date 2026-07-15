@@ -22,7 +22,7 @@ same working group that maintains R's object model, and intended one day to
 land in base R. The tidyverse has been moving its *object* layer onto it. This
 vignette is a field guide to adopting S7 in a package that already leans on
 **vctrs** and **S3**, written from `epigram`'s own migration: the `<mdl_gt>` table
-specification and its resolved selection were rewritten as S7 classes, and
+specification and its resolved build were rewritten as S7 classes, and
 every decision — including the ones that bit — is recorded here with the real
 code.
 
@@ -35,7 +35,7 @@ The single most important idea comes first, because it shapes everything else.
 | Kind | Classes | Built on | It is… |
 | --- | --- | --- | --- |
 | **Vector** types | `tm`, `fmls`, `mdl`, `mdl_tbl` | **vctrs** | a *vector of* terms / formulas / models |
-| **Object** (spec) types | `mdl_gt`, `mdl_gt_selection` | **S7** | a *single* scalar specification |
+| **Object** types | `mdl_gt`, `mdl_gt_build` | **S7** | one scalar specification or resolved build |
 
 A `tm` is a vector: you can `c()` two of them, subset with `tm[1:3]`, cast it,
 and drop it into a tibble column where **pillar** prints it. That behavior is
@@ -52,8 +52,9 @@ So the rule `epigram` follows — the same one the tidyverse follows — is:
 > thing is *one object* with named, typed parts.
 
 The `<mdl_gt>` specification is squarely the second kind: one table's worth of
-display instructions — a selection, a layout, a style, a list of column
-blocks. Before the migration it was a bare `structure(list(...), class =
+display instructions — selection, effect instructions, named cell groups,
+layout, labels, and style. Before the migration it was a bare
+`structure(list(...), class =
 "mdl_gt")`. That is exactly the shape S7 improves on.
 
 ## Anatomy of an S7 class
@@ -71,7 +72,8 @@ mdl_gt <- S7::new_class(
     family    = S7::class_data.frame,
     selection = S7::class_list,      # instruction slots the verbs fill
     labels    = S7::class_list,
-    columns   = S7::class_list,
+    effects   = S7::class_list,
+    groups    = S7::class_list,
     layout    = S7::class_list,
     style     = S7::class_list
   ),
@@ -111,7 +113,7 @@ validator = function(self) {
   if (!is.null(d) && (!is.numeric(d) || length(d) != 1 || d < 0)) {
     msg <- c(msg, "@style$digits must be a single non-negative number or NULL")
   }
-  # ... row_groups, selection names ...
+  # ... semantic axes, group ids, selection names ...
   msg
 }
 ```
@@ -235,7 +237,8 @@ example.
 as_gt <- S7::new_generic("as_gt", "x")
 
 method(as_gt, mdl_gt) <- function(x, ...) {
-  render_cell_frame(mdl_gt_frame(x), x)
+  built <- build_mdl_gt(x)
+  render_cell_frame(built@cells, x)
 }
 ```
 
@@ -379,20 +382,22 @@ what it is good at.
 ## Two ends of the S7 spectrum
 
 Not every S7 class needs the full apparatus. `epigram`'s second S7 class,
-`mdl_gt_selection` (the resolved output of the selection resolver), is a *plain
+`mdl_gt_build` (the resolved output of the build orchestrator), is a *plain
 value* — all typed properties, no behavior:
 
 ```{r}
-#| label: selection-class
+#| label: build-class
 #| eval: false
-mdl_gt_selection <- S7::new_class(
-  "mdl_gt_selection",
+mdl_gt_build <- S7::new_class(
+  "mdl_gt_build",
   properties = list(
-    models           = S7_mdl_tbl,
-    adjustment_index = S7::class_integer,
-    terms            = S7::class_data.frame,
-    term_keys        = S7::class_any,   # NULL or a character vector
-    labels           = S7::class_list
+    selected   = S7::class_data.frame,
+    effects    = S7::class_data.frame,
+    conditions = S7::class_data.frame,
+    measures   = S7::class_data.frame,
+    groups     = S7::class_data.frame,
+    layout     = S7::class_list,
+    cells      = S7::class_data.frame
   )
 )
 ```

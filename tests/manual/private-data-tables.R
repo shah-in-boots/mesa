@@ -1,8 +1,8 @@
 # Manual, author-only checks against private datasets (AFEQT, CARRS, MIMS).
 # These are not part of the automated suite: they read from local {targets}
 # stores that exist only on the author's machine. The automated equivalents
-# live in tests/testthat/ on public data (test-table-presets.R,
-# test-table-columns.R, test-table-render.R). Rewritten for M6.10 against
+# live in tests/testthat/ on public data (test-table-build.R,
+# test-table-layout.R, test-table-render.R). Rewritten for the table grammar
 # the table grammar — the retired `tbl_*` monoliths these once exercised are
 # gone. Run interactively with devtools::load_all() and library(testthat).
 
